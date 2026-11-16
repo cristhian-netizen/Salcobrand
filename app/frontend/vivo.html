@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#000000">
+<title>Cámara en vivo</title>
+<style>
+  :root { --verde:#19c37d; --rojo:#ff4d4f; --naranjo:#ffa62b; --amarillo:#ffd43b; --gris:#9aa4b2; --azul:#0b3d91; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; background:#000; color:#fff; font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; }
+  #app { display:flex; flex-direction:column; height:100%; }
+  header { padding:10px 14px; padding-top:calc(8px + env(safe-area-inset-top)); display:flex; justify-content:space-between; gap:8px; align-items:baseline; background:#0b0f17; }
+  header b { font-size:16px; } header span { font-size:12px; color:var(--gris); text-align:right; }
+  #visor { position:relative; flex:1; min-height:0; background:#000; overflow:hidden; }
+  #visor video, #visor canvas { position:absolute; inset:0; width:100%; height:100%; }
+  #visor video { object-fit:contain; }
+  #inicio { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:24px; text-align:center; background:#0b0f17; }
+  #inicio p { margin:0; color:#cfd6e0; font-size:15px; max-width:420px; line-height:1.4; }
+  .btn { border:0; border-radius:14px; padding:16px 22px; font-size:18px; font-weight:600; color:#fff; background:var(--azul); }
+  .btn.sec { background:#1d2533; font-size:15px; padding:12px 16px; }
+  #indicadores { position:absolute; left:8px; right:8px; top:8px; display:flex; flex-wrap:wrap; gap:6px; pointer-events:none; }
+  #indicadores span { font-size:12px; padding:4px 8px; border-radius:999px; background:rgba(0,0,0,.6); border:1px solid rgba(255,255,255,.15); }
+  #indicadores span.ok { border-color:var(--verde); color:var(--verde); } #indicadores span.mal { border-color:var(--rojo); color:var(--rojo); }
+  #aviso { position:absolute; left:50%; bottom:14px; transform:translateX(-50%); font-size:15px; padding:8px 14px; border-radius:12px; background:rgba(0,0,0,.7); white-space:nowrap; }
+  #cuenta { position:absolute; inset:0; display:none; align-items:center; justify-content:center; font-size:96px; font-weight:700; color:var(--verde); text-shadow:0 0 18px #000; pointer-events:none; }
+  #controles { background:#0b0f17; padding:10px 12px calc(10px + env(safe-area-inset-bottom)); }
+  .chips { display:flex; gap:6px; overflow-x:auto; padding-bottom:8px; }
+  .chip { flex:0 0 auto; border:1px solid #2c3546; background:#121826; color:#dfe5ee; border-radius:999px; padding:7px 12px; font-size:14px; }
+  .chip.on { background:#fff; color:#000; border-color:#fff; }
+  .fila { display:flex; gap:10px; align-items:center; }
+  .fila label { font-size:14px; color:#dfe5ee; display:flex; gap:6px; align-items:center; }
+  #btnFoto { flex:1; }
+  #resultado { position:fixed; inset:0; background:#0b0f17; overflow:auto; display:none; padding:12px; padding-top:calc(10px + env(safe-area-inset-top)); }
+  #resultado canvas { width:100%; height:auto; border-radius:8px; background:#000; }
+  #resTexto { font-size:15px; margin:10px 2px; color:#dfe5ee; }
+  #resLista { list-style:none; margin:0 0 12px; padding:0; font-size:14px; }
+  #resLista li { padding:6px 4px; border-bottom:1px solid #1d2533; display:flex; justify-content:space-between; gap:10px; }
+  #resLista i { font-style:normal; font-size:12px; padding:2px 8px; border-radius:999px; white-space:nowrap; }
+  i.seg { background:var(--verde); color:#000; } i.dud { background:var(--amarillo); color:#000; }
+  #medicion { font-size:11px; color:var(--gris); padding:4px 12px 6px; background:#0b0f17; font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header><b id="local">Cámara en vivo</b><span id="estadoModelo">Preparando…</span></header>
+  <div id="visor">
+    <video id="video" playsinline muted autoplay></video>
+    <canvas id="capa"></canvas>
+    <div id="indicadores"><span id="iNit">Nitidez</span><span id="iLuz">Luz</span><span id="iAng">Ángulo</span><span id="iN">0 productos</span></div>
+    <div id="aviso" hidden></div>
+    <div id="cuenta"></div>
+    <div id="inicio">
+      <p>Apunta a la góndola. Un recuadro marca cada producto que el sistema ve: <b style="color:var(--verde)">verde</b> si se ve bien, <b style="color:var(--naranjo)">naranjo</b> si queda cortado en el borde y <b style="color:var(--rojo)">rojo</b> si la imagen sale movida.</p>
+      <button class="btn" id="btnIniciar">Activar cámara</button>
+      <p id="inicioNota" style="font-size:13px;color:#9aa4b2">La primera vez se descarga el detector (unos 80 MB). Mejor con wifi.</p>
+    </div>
+  </div>
+  <div id="controles">
+    <div class="chips" id="franjas">
+      <button class="chip on" data-v="">Sin indicar</button><button class="chip" data-v="1">Franja 1</button><button class="chip" data-v="2">Franja 2</button>
+      <button class="chip" data-v="3">Franja 3</button><button class="chip" data-v="4">Franja 4</button><button class="chip" data-v="5">Franja 5</button>
+      <button class="chip" data-v="6">Franja 6</button><button class="chip" data-v="completa">Completa</button>
+    </div>
+    <div class="fila"><label><input type="checkbox" id="auto" checked> Disparo automático</label><button class="btn" id="btnFoto" disabled>Tomar foto</button></div>
+  </div>
+  <div id="medicion">—</div>
+</div>
+<div id="resultado">
+  <canvas id="resCanvas"></canvas>
+  <p id="resTexto"></p>
+  <ul id="resLista"></ul>
+  <button class="btn" id="btnSeguir" style="width:100%">Seguir con la cámara</button>
+</div>
+<script>
+(() => {
+  const TOKEN = decodeURIComponent(location.pathname.split("/").filter(Boolean)[1] || "");
+  const MODELO = "__MODELO__", ORTV = "__ORT__", PARAMS = new URLSearchParams(location.search);
+  const S = +(PARAMS.get("lado") || 640);                 // lado de entrada del detector en el teléfono
+  const UMBRAL = 0.4, NMS = 0.6;                          // los mismos de producción
+  const $ = (id) => document.getElementById(id);
+  const video = $("video"), capa = $("capa"), ctx = capa.getContext("2d");
+  const pre = document.createElement("canvas"); pre.width = S; pre.height = S;
+  const pctx = pre.getContext("2d", { willReadFrequently: true });
+  const qc = document.createElement("canvas"); qc.width = 320; qc.height = 240;
+  const qctx = qc.getContext("2d", { willReadFrequently: true });
+  const med = { pagina: "vivo-1", modelo: MODELO, lado: S, ort: ORTV, ua: navigator.userAgent, nucleos: navigator.hardwareConcurrency || null,
+                memoria_gb: navigator.deviceMemory || null, aislado: self.crossOriginIsolated === true, webgpu: !!navigator.gpu,
+                pantalla: [screen.width, screen.height, devicePixelRatio], backend: null, inferencias_ms: [], cuadros_ms: [], nitidez: [] };
+  let session = null, sesionLista = null, franja = "", corriendo = false, pausado = false, cajasActuales = [];
+  let hist = [], estable = 0, disparando = false, nitMax = 0, enviadas = 0, g = null, ultimaFoto = null;
+
+  const estadoModelo = (t) => { $("estadoModelo").textContent = t; };
+  const aviso = (t) => { const a = $("aviso"); a.hidden = !t; a.textContent = t || ""; };
+  const sig = (x) => 1 / (1 + Math.exp(-x));
+  const iou = (a, b) => { const ix = Math.max(0, Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1)), iy = Math.max(0, Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1));
+                          const i = ix * iy, u = (a.x2 - a.x1) * (a.y2 - a.y1) + (b.x2 - b.x1) * (b.y2 - b.y1) - i; return u > 0 ? i / u : 0; };
+  const pct = (arr, p) => { if (!arr.length) return null; const s = [...arr].sort((a, b) => a - b); return Math.round(s[Math.min(s.length - 1, Math.floor(p * s.length))]); };
+
+  fetch(`/captura/${encodeURIComponent(TOKEN)}/estado`, { cache: "no-store" }).then((r) => r.ok ? r.json() : null)
+    .then((d) => { if (d) $("local").textContent = d.label; }).catch(() => {});
+  document.querySelectorAll("#franjas .chip").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("#franjas .chip").forEach((x) => x.classList.remove("on")); b.classList.add("on"); franja = b.dataset.v;
+  }));
+
+  // ------------------------------------------------------------ detector en el teléfono (onnxruntime-web)
+  function cargarScript(src) {
+    return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("No cargó " + src)); document.head.appendChild(s); });
+  }
+  async function bajarModelo(url) {
+    try { const c = await caches.open("vivo-modelos"); const hit = await c.match(url); if (hit) { med.modelo_en_cache = true; return new Uint8Array(await hit.arrayBuffer()); } } catch (e) {}
+    const t0 = performance.now(); const r = await fetch(url); if (!r.ok) throw new Error("detector " + r.status);
+    const total = +r.headers.get("content-length") || 0, lector = r.body.getReader(), partes = []; let n = 0;
+    for (;;) { const { done, value } = await lector.read(); if (done) break; partes.push(value); n += value.length;
+               estadoModelo(total ? `Descargando detector ${Math.round(100 * n / total)} %` : `Descargando detector ${Math.round(n / 1e6)} MB`); }
+    const buf = new Uint8Array(n); let o = 0; for (const p of partes) { buf.set(p, o); o += p.length; }
+    med.descarga_ms = Math.round(performance.now() - t0); med.modelo_mb = +(n / 1e6).toFixed(1); med.modelo_en_cache = false;
+    try { const c = await caches.open("vivo-modelos"); await c.put(url, new Response(buf, { headers: { "Content-Type": "application/octet-stream" } })); } catch (e) {}
+    return buf;
+  }
+  async function prepararDetector() {
+    const t0 = performance.now();
+    const gpu = !!navigator.gpu && !PARAMS.has("wasm");
+    await cargarScript(`/vivo-recursos/ort/${ORTV}/${gpu ? "ort.webgpu.min.js" : "ort.wasm.min.js"}`);
+    ort.env.wasm.wasmPaths = `${location.origin}/vivo-recursos/ort/${ORTV}/`;   // absoluta: los hilos (workers) no resuelven rutas relativas
+    ort.env.wasm.numThreads = PARAMS.get("hilos") ? +PARAMS.get("hilos") : (self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 2) : 1);
+    if (PARAMS.has("proxy")) ort.env.wasm.proxy = true;                // ORT en un worker aparte (prueba)
+    med.hilos = ort.env.wasm.numThreads;
+    const bytes = await bajarModelo(`/vivo-recursos/modelo/${MODELO}/detector_${S}.onnx`);
+    estadoModelo("Preparando detector…");
+    const vacio = () => ({ pixel_values: new ort.Tensor("float32", new Float32Array(3 * S * S), [1, 3, S, S]) });
+    const crear = async (ep) => { const t1 = performance.now(); const ses = await ort.InferenceSession.create(bytes, { executionProviders: ep, graphOptimizationLevel: "all" });
+                                  med.sesion_ms = Math.round(performance.now() - t1); const t2 = performance.now(); await ses.run(vacio()); med.primera_ms = Math.round(performance.now() - t2); return ses; };
+    if (gpu) {
+      try { session = await crear(["webgpu", "wasm"]); med.backend = "webgpu"; }
+      catch (e) {                                                     // WebGPU puede fallar al crear o al correr: se pasa a WASM
+        med.error_webgpu = String(e).slice(0, 200); estadoModelo("WebGPU no disponible, usando WASM…");
+        ort.env.wasm.numThreads = PARAMS.get("hilos") ? +PARAMS.get("hilos") : (self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 2) : 1);
+      }
+    }
+    if (!session) { session = await crear(["wasm"]); med.backend = "wasm"; }
+    med.preparar_total_ms = Math.round(performance.now() - t0);
+    estadoModelo(`Detector listo · ${med.backend}${med.backend === "wasm" ? " " + med.hilos + " hilos" : ""}`);
+  }
+  sesionLista = prepararDetector().catch((e) => { estadoModelo("No se pudo cargar el detector"); med.error = String(e).slice(0, 300); enviarMedicion(); throw e; });
+
+  function decodificar(lt, bt) {
+    const [, L, Q, C] = lt.dims, ld = lt.data, bd = bt.data;
+    let capaSel = L - 1;                                             // capa más profunda con confianza máxima ≥ 0,5 (como producción)
+    for (let l = L - 1; l >= 0; l--) { let m = -1e9; for (let k = 0; k < Q; k++) { const v = ld[(l * Q + k) * C]; if (v > m) m = v; } if (sig(m) >= 0.5) { capaSel = l; break; } }
+    const res = [];
+    for (let k = 0; k < Q; k++) {
+      const s = sig(ld[(capaSel * Q + k) * C]); if (s < UMBRAL) continue;
+      const o = (capaSel * Q + k) * 4, cx = bd[o], cy = bd[o + 1], w = bd[o + 2], h = bd[o + 3];
+      res.push({ x1: cx - w / 2, y1: cy - h / 2, x2: cx + w / 2, y2: cy + h / 2, s });
+    }
+    res.sort((a, b) => b.s - a.s);
+    const keep = []; for (const r of res) if (keep.every((k) => iou(r, k) < NMS)) keep.push(r);
+    return keep;
+  }
+  async function detectar() {
+    const t0 = performance.now();
+    pctx.drawImage(video, 0, 0, S, S);                               // estirada a S×S, igual que el procesador de producción
+    const px = pctx.getImageData(0, 0, S, S).data, n = S * S, f = new Float32Array(3 * n);
+    for (let i = 0, j = 0; i < n; i++, j += 4) { f[i] = px[j] / 255; f[n + i] = px[j + 1] / 255; f[2 * n + i] = px[j + 2] / 255; }
+    const t1 = performance.now();
+    const out = await session.run({ pixel_values: new ort.Tensor("float32", f, [1, 3, S, S]) });
+    const t2 = performance.now();
+    const cajas = decodificar(out.logits_all, out.boxes_all);
+    if (med.inferencias_ms.length < 400) { med.inferencias_ms.push(Math.round(t2 - t1)); med.cuadros_ms.push(Math.round(performance.now() - t0)); }
+    return cajas;
+  }
+
+  // ------------------------------------------------------------ calidad de la imagen y del ángulo
+  function calidad() {
+    qctx.drawImage(video, 0, 0, 320, 240);
+    const d = qctx.getImageData(0, 0, 320, 240).data, W = 320, H = 240, gr = new Float32Array(W * H); let suma = 0;
+    for (let i = 0, j = 0; i < gr.length; i++, j += 4) { gr[i] = 0.299 * d[j] + 0.587 * d[j + 1] + 0.114 * d[j + 2]; suma += gr[i]; }
+    let m = 0, m2 = 0, n = 0;
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) { const i = y * W + x, l = 4 * gr[i] - gr[i - 1] - gr[i + 1] - gr[i - W] - gr[i + W]; m += l; m2 += l * l; n++; }
+    const nit = m2 / n - (m / n) ** 2, luz = suma / gr.length;
+    nitMax = Math.max(nitMax * 0.995, nit);                          // referencia de nitidez de esta sesión, se olvida lento
+    if (med.nitidez.length < 300) med.nitidez.push(Math.round(nit));
+    const nitOk = nit >= Math.max(25, 0.45 * nitMax), luzOk = luz >= 55 && luz <= 215;
+    let angOk = null, inclin = null;
+    if (g) {                                                          // gravedad en ejes del teléfono: sirve en vertical y horizontal
+      const nrm = Math.hypot(g.x, g.y, g.z) || 1; inclin = Math.asin(Math.max(-1, Math.min(1, g.z / nrm))) * 180 / Math.PI;
+      let giro = Math.atan2(g.x, g.y) * 180 / Math.PI; giro = Math.abs(((giro % 90) + 135) % 90 - 45);
+      angOk = Math.abs(inclin) <= 15 && giro <= 10;
+    }
+    marca("iNit", nitOk, nitOk ? "Nítida" : "Movida"); marca("iLuz", luzOk, luzOk ? "Luz bien" : (luz < 55 ? "Oscura" : "Muy clara"));
+    marca("iAng", angOk, angOk === null ? "Ángulo —" : (angOk ? "De frente" : (Math.abs(inclin) > 15 ? (inclin > 0 ? "Inclinada hacia arriba" : "Inclinada hacia abajo") : "Torcida")));
+    return { nitOk, luzOk, angOk, nit, luz, inclin };
+  }
+  function marca(id, ok, txt) { const e = $(id); e.textContent = txt; e.className = ok === null ? "" : (ok ? "ok" : "mal"); }
+  function escucharMovimiento() {
+    window.addEventListener("devicemotion", (e) => { const a = e.accelerationIncludingGravity; if (a && a.x !== null) g = { x: a.x, y: a.y, z: a.z }; });
+  }
+
+  // ------------------------------------------------------------ dibujo de los recuadros sobre el video
+  function rectoVideo() {
+    const W = capa.clientWidth, H = capa.clientHeight, vw = video.videoWidth || 16, vh = video.videoHeight || 9, k = Math.min(W / vw, H / vh);
+    return { x: (W - vw * k) / 2, y: (H - vh * k) / 2, w: vw * k, h: vh * k, W, H };
+  }
+  function dibujar(cajas, q) {
+    const dpr = devicePixelRatio || 1, r = rectoVideo();
+    if (capa.width !== Math.round(r.W * dpr) || capa.height !== Math.round(r.H * dpr)) { capa.width = Math.round(r.W * dpr); capa.height = Math.round(r.H * dpr); }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, r.W, r.H); ctx.lineWidth = 3;
+    for (const c of cajas) {
+      const cortada = c.x1 < 0.01 || c.y1 < 0.01 || c.x2 > 0.99 || c.y2 > 0.99;
+      ctx.strokeStyle = !q.nitOk ? "#ff4d4f" : (cortada ? "#ffa62b" : "#19c37d");
+      ctx.strokeRect(r.x + c.x1 * r.w, r.y + c.y1 * r.h, (c.x2 - c.x1) * r.w, (c.y2 - c.y1) * r.h);
+    }
+    marca("iN", null, `${cajas.length} productos`);
+  }
+
+  // ------------------------------------------------------------ estabilidad y disparo automático
+  function decidir(cajas, q) {
+    const cx = cajas.length ? cajas.reduce((s, c) => s + (c.x1 + c.x2) / 2, 0) / cajas.length : 0;
+    const cy = cajas.length ? cajas.reduce((s, c) => s + (c.y1 + c.y2) / 2, 0) / cajas.length : 0;
+    hist.push({ n: cajas.length, cx, cy }); if (hist.length > 6) hist.shift();
+    const quieto = hist.length === 6 && hist.every((h) => Math.abs(h.n - cajas.length) <= 1 && Math.hypot(h.cx - cx, h.cy - cy) < 0.02);
+    const listo = q.nitOk && q.luzOk && q.angOk !== false && cajas.length >= 3;
+    estable = listo && quieto ? estable + 1 : 0;
+    if (!q.nitOk) aviso("Imagen movida: quédate quieto");
+    else if (!q.luzOk) aviso(q.luz < 55 ? "Falta luz" : "Demasiada luz o reflejo");
+    else if (q.angOk === false) aviso(Math.abs(q.inclin) > 15 ? "Pon el teléfono derecho, de frente a la góndola" : "Endereza el teléfono");
+    else if (cajas.length < 3) aviso("Acércate o apunta a los productos");
+    else aviso($("auto").checked ? (estable ? "Quieto…" : "Bien encuadrado") : "Bien encuadrado: toma la foto");
+    if ($("auto").checked && estable >= 4 && !disparando) cuentaRegresiva();
+  }
+  async function cuentaRegresiva() {
+    disparando = true; const c = $("cuenta"); c.style.display = "flex";
+    for (const n of ["2", "1"]) { c.textContent = n; await new Promise((r) => setTimeout(r, 450)); if (estable === 0) { c.style.display = "none"; disparando = false; return; } }
+    c.style.display = "none"; await tomarFoto("auto"); disparando = false;
+  }
+
+  async function ciclo() {
+    while (corriendo) {
+      if (!pausado && session && video.readyState >= 2) {
+        try { const cajas = await detectar(), q = calidad(); cajasActuales = cajas; dibujar(cajas, q); decidir(cajas, q); }
+        catch (e) { med.error_ciclo = String(e).slice(0, 200); }
+        mostrarMedicion();
+        if (!enviadas && med.inferencias_ms.length >= 40) enviarMedicion();
+      }
+      await new Promise((r) => requestAnimationFrame(r));
+    }
+  }
+  function mostrarMedicion() {
+    const a = med.inferencias_ms.slice(-30), b = med.cuadros_ms.slice(-30); if (!a.length) return;
+    const fps = 1000 / (b.reduce((s, x) => s + x, 0) / b.length);
+    $("medicion").textContent = `${med.backend}${med.backend === "wasm" ? " · " + med.hilos + " hilos" : ""} · detector ${pct(a, 0.5)} ms · ${fps.toFixed(1)} cuadros/s · entrada ${S} px · video ${video.videoWidth}×${video.videoHeight}`;
+  }
+  function enviarMedicion(final) {
+    enviadas++;
+    const a = med.inferencias_ms, b = med.cuadros_ms;
+    const cuerpo = JSON.stringify({ ...med, final: !!final, inferencias_ms: a.slice(0, 120), cuadros_ms: b.slice(0, 120), nitidez: med.nitidez.slice(0, 120),
+      p50_ms: pct(a, 0.5), p90_ms: pct(a, 0.9), cuadros_p50_ms: pct(b, 0.5), video: [video.videoWidth, video.videoHeight], muestras: a.length });
+    const url = `/vivo/${encodeURIComponent(TOKEN)}/medicion`;
+    if (final && navigator.sendBeacon) navigator.sendBeacon(url, new Blob([cuerpo], { type: "application/json" }));
+    else fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: cuerpo }).catch(() => {});
+  }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && med.inferencias_ms.length && enviadas < 3) enviarMedicion(true); });
+
+  // ------------------------------------------------------------ cámara
+  $("btnIniciar").addEventListener("click", async () => {
+    $("btnIniciar").disabled = true;
+    try { if (typeof DeviceMotionEvent !== "undefined" && DeviceMotionEvent.requestPermission) await DeviceMotionEvent.requestPermission(); } catch (e) {}
+    escucharMovimiento();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
+      video.srcObject = stream; await video.play();
+    } catch (e) { $("inicioNota").textContent = "No se pudo abrir la cámara: revisa el permiso del navegador."; $("btnIniciar").disabled = false; return; }
+    $("inicio").style.display = "none";
+    try { await sesionLista; } catch (e) { aviso("No se pudo cargar el detector"); return; }
+    $("btnFoto").disabled = false; corriendo = true; ciclo();
+  });
+
+  // ------------------------------------------------------------ foto completa, subida y nombres del motor
+  async function fotoCompleta() {
+    const track = video.srcObject && video.srcObject.getVideoTracks()[0];
+    if (track && "ImageCapture" in window && !PARAMS.has("sinfoto")) {
+      try { const b = await new ImageCapture(track).takePhoto(); med.foto = "takePhoto"; return b; } catch (e) { med.error_takephoto = String(e).slice(0, 120); }
+    }
+    const c = document.createElement("canvas"); c.width = video.videoWidth; c.height = video.videoHeight; c.getContext("2d").drawImage(video, 0, 0);
+    med.foto = "video"; return await new Promise((r) => c.toBlob(r, "image/jpeg", 0.92));
+  }
+  async function achicar(blob) {                                     // ≤ 3000 px como la página de captura
+    try {
+      const bmp = await createImageBitmap(blob, { imageOrientation: "from-image" }), k = Math.min(1, 3000 / Math.max(bmp.width, bmp.height));
+      const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+      c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+      return await new Promise((r) => c.toBlob((b) => r(b || blob), "image/jpeg", 0.9));
+    } catch (e) { return blob; }
+  }
+  async function tomarFoto(modo) {
+    if (pausado) return; pausado = true; $("btnFoto").disabled = true; aviso("Tomando foto…");
+    const cajasVivo = cajasActuales.slice();
+    try {
+      const foto = await achicar(await fotoCompleta()); ultimaFoto = foto;
+      mostrarResultado(foto, null, `Foto tomada (${modo === "auto" ? "automática" : "manual"}). El detector del teléfono vio ${cajasVivo.length} productos. Subiendo…`);
+      const fd = new FormData(); fd.append("foto", foto, "vivo.jpg"); fd.append("franja", franja);
+      const r = await fetch(`/captura/${encodeURIComponent(TOKEN)}/foto`, { method: "POST", body: fd });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || "No se pudo subir la foto");
+      const cap = await r.json();
+      $("resTexto").textContent = "Foto guardada. El motor completo está poniendo los nombres; si estaba apagado puede tardar 1 a 3 minutos…";
+      const r2 = await fetch(`/captura/${encodeURIComponent(TOKEN)}/leer`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ capture_id: cap.id }) });
+      if (!r2.ok) throw new Error((await r2.json().catch(() => ({}))).detail || "No se pudo pedir el análisis");
+      const { job_id } = await r2.json(), t0 = Date.now();
+      for (;;) {
+        await new Promise((res) => setTimeout(res, 2500));
+        const r3 = await fetch(`/captura/${encodeURIComponent(TOKEN)}/leer/${job_id}`, { cache: "no-store" });
+        const d = r3.ok ? await r3.json() : { estado: "queued" };
+        if (d.estado === "listo") { med.leer_s = Math.round((Date.now() - t0) / 1000); mostrarResultado(foto, d); break; }
+        if (d.estado === "fallido") throw new Error(d.detalle || "El análisis falló");
+        if (Date.now() - t0 > 6 * 60 * 1000) throw new Error("El análisis está tardando demasiado; la foto quedó guardada.");
+        $("resTexto").textContent = `Foto guardada. Motor ${d.estado === "running" ? "analizando" : "en cola"}… ${Math.round((Date.now() - t0) / 1000)} s`;
+      }
+    } catch (e) { $("resTexto").textContent = String(e.message || e); }
+  }
+  async function mostrarResultado(foto, d, texto) {
+    $("resultado").style.display = "block";
+    const bmp = await createImageBitmap(foto), c = $("resCanvas"), k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k); const x = c.getContext("2d"); x.drawImage(bmp, 0, 0, c.width, c.height);
+    $("resLista").innerHTML = "";
+    if (texto) $("resTexto").textContent = texto;
+    if (!d) return;
+    const sx = c.width / (d.ancho || bmp.width), sy = c.height / (d.alto || bmp.height), fs = Math.max(12, Math.round(c.width / 70));
+    x.lineWidth = Math.max(2, c.width / 400); x.font = `600 ${fs}px Arial`;
+    const cuenta = new Map();
+    for (const it of d.items) {
+      const [x1, y1, x2, y2] = it.box, col = it.seguro ? "#19c37d" : (it.nombre ? "#ffd43b" : "#9aa4b2");
+      x.strokeStyle = col; x.strokeRect(x1 * sx, y1 * sy, (x2 - x1) * sx, (y2 - y1) * sy);
+      if (it.nombre) {
+        const t = it.nombre.length > 28 ? it.nombre.slice(0, 27) + "…" : it.nombre, w = x.measureText(t).width + 8;
+        x.fillStyle = col; x.fillRect(x1 * sx, Math.max(0, y1 * sy - fs - 6), w, fs + 6); x.fillStyle = "#000"; x.fillText(t, x1 * sx + 4, Math.max(fs, y1 * sy - 5));
+        const key = it.nombre; const v = cuenta.get(key) || { n: 0, seguro: 0 }; v.n++; if (it.seguro) v.seguro++; cuenta.set(key, v);
+      }
+    }
+    const seg = d.items.filter((i) => i.seguro).length, dud = d.items.filter((i) => i.nombre && !i.seguro).length, sin = d.items.length - seg - dud;
+    $("resTexto").textContent = `${d.items.length} productos: ${seg} seguros, ${dud} por confirmar y ${sin} sin nombre · motor ${Math.round((d.ms || 0) / 1000)} s · lectura ${d.lectura}`;
+    for (const [nombre, v] of [...cuenta.entries()].sort((a, b) => b[1].n - a[1].n)) {
+      const li = document.createElement("li"); li.textContent = `${nombre} × ${v.n}`;
+      const tag = document.createElement("i"); tag.className = v.seguro === v.n ? "seg" : "dud"; tag.textContent = v.seguro === v.n ? "seguro" : "por confirmar";
+      li.appendChild(tag); $("resLista").appendChild(li);
+    }
+  }
+  $("btnFoto").addEventListener("click", () => tomarFoto("manual"));
+  $("btnSeguir").addEventListener("click", () => { $("resultado").style.display = "none"; pausado = false; estable = 0; hist = []; $("btnFoto").disabled = false; });
+
+  // modo prueba sin cámara (?prueba=<url de imagen>): corre el detector sobre una imagen fija y deja las cajas en window.__prueba
+  if (PARAMS.get("prueba")) {
+    (async () => {
+      await sesionLista; const img = new Image(); img.src = PARAMS.get("prueba"); await img.decode();
+      const c = document.createElement("canvas"); c.width = S; c.height = S; const cx = c.getContext("2d", { willReadFrequently: true }); cx.drawImage(img, 0, 0, S, S);
+      const px = cx.getImageData(0, 0, S, S).data, n = S * S, f = new Float32Array(3 * n);
+      for (let i = 0, j = 0; i < n; i++, j += 4) { f[i] = px[j] / 255; f[n + i] = px[j + 1] / 255; f[2 * n + i] = px[j + 2] / 255; }
+      const ts = []; let cajas = [];
+      for (let k = 0; k < 4; k++) { const t = performance.now(); const out = await session.run({ pixel_values: new ort.Tensor("float32", f, [1, 3, S, S]) }); ts.push(performance.now() - t); cajas = decodificar(out.logits_all, out.boxes_all); }
+      window.__prueba = { cajas: cajas.map((c) => [c.x1 * img.naturalWidth, c.y1 * img.naturalHeight, c.x2 * img.naturalWidth, c.y2 * img.naturalHeight, c.s]), ms: ts.map(Math.round), backend: med.backend, hilos: med.hilos, aislado: med.aislado, error_webgpu: med.error_webgpu || null };
+      volcarPrueba();
+    })().catch((e) => { window.__prueba = { error: String(e) }; volcarPrueba(); });
+  }
+  function volcarPrueba() {
+    const pre = document.createElement("pre"); pre.id = "__prueba"; pre.textContent = JSON.stringify(window.__prueba); document.body.appendChild(pre); document.title = "PRUEBA_LISTA";
+  }
+})();
+</script>
+</body>
+</html>

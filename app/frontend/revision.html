@@ -1,0 +1,57 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Revisión de lecturas · NeuraVision</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--bg:#0f1115;--card:#171a21;--txt:#e6e6e6;--mut:#9aa3b2;--acc:#4fd1c5;--bad:#f87171;--ok:#86efac;--line:#2a2f3a}
+body{margin:0;font:15px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt)}
+main{max-width:1100px;margin:0 auto;padding:20px 16px}h1{font-size:21px;margin:0 0 4px}h2{font-size:16px;color:var(--acc);margin:22px 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin:10px 0}
+.item{display:grid;grid-template-columns:180px 1fr;gap:14px;border-top:1px solid var(--line);padding:12px 0}
+.item img{width:180px;max-height:220px;object-fit:contain;background:#000;border-radius:6px}
+.mut{color:var(--mut)}.small{font-size:12px}.bad{color:var(--bad)}.ok{color:var(--ok)}
+select,button,input{font:inherit;border-radius:8px;border:1px solid var(--line);background:#0b0d12;color:var(--txt);padding:7px}
+button{background:var(--acc);color:#06201d;border:0;font-weight:700;cursor:pointer}button.sec{background:#2a2f3a;color:var(--txt)}
+.sug button{background:#22303a;color:var(--acc);margin:2px 4px 2px 0;font-weight:600;font-size:13px}
+a{color:var(--acc)}
+</style></head><body><main>
+<h1>Revisión de lecturas</h1>
+<div class="mut">Cada recorte dudoso se confirma una vez. La confirmación corrige la lectura y queda en la memoria visual: la próxima vez ese producto se reconoce por apariencia. <a href="/">Volver a la app</a></div>
+<div id="list" class="mut" style="margin-top:16px">cargando…</div>
+</main><script>
+const el=document.getElementById('list');
+async function load(){
+  const r=await fetch('/api/review/pending');
+  if(r.status===401){el.innerHTML='Sesión no iniciada: entra primero en la <a href="/">app</a>.';return}
+  const data=await r.json();
+  if(!data.length){el.innerHTML='<div class="card ok">No hay recortes pendientes de revisión.</div>';return}
+  el.innerHTML=data.map(rd=>`<div class="card"><h2>Lectura #${rd.reading_id} · punto ${rd.point_id} · ${rd.created_at.replace('T',' ').slice(0,16)}</h2>
+  <div class="small mut">${rd.notes||''}</div>
+  ${rd.items.map(it=>`<div class="item" id="it-${rd.reading_id}-${it.image_index}-${it.item_index}">
+    <img src="${it.crop_url}" alt="recorte">
+    <div>
+      <div>Nivel ${it.level} · posición ${it.position} · <span class="${it.status==='match'?'ok':'bad'}">${it.status}</span> · confianza ${(it.confidence??0).toFixed(2)} · caras ${it.facings}</div>
+      <div class="small mut">OCR: ${it.ocr||'(sin texto)'}</div>
+      <div class="sug small">Sugerencias:
+        ${[...(it.visual_top3||[]).map(s=>({t:s.title,s:s.sim,k:'visual'})),...(it.text_top3||[]).map(s=>({t:s.title,s:s.score,k:'texto'}))]
+          .filter((s,i,a)=>s.t&&a.findIndex(x=>x.t===s.t)===i).slice(0,4)
+          .map(s=>`<button onclick="confirmar(${rd.reading_id},${it.image_index},${it.item_index},${JSON.stringify(s.t).replace(/"/g,'&quot;')})">${s.t} <span class="mut">(${s.k} ${s.s.toFixed(2)})</span></button>`).join('')||'<span class="mut">ninguna</span>'}
+      </div>
+      <div style="margin-top:6px">
+        <select id="sel-${rd.reading_id}-${it.image_index}-${it.item_index}"><option value="">— elegir SKU del planograma —</option>${rd.titles.map(t=>`<option>${t}</option>`).join('')}</select>
+        <input type="number" min="0" style="width:70px" placeholder="caras" id="fac-${rd.reading_id}-${it.image_index}-${it.item_index}" value="${it.facings}">
+        <button onclick="confirmarSel(${rd.reading_id},${it.image_index},${it.item_index})">Confirmar</button>
+        <button class="sec" onclick="confirmar(${rd.reading_id},${it.image_index},${it.item_index},'')">Fuera de planograma</button>
+      </div>
+    </div></div>`).join('')}</div>`).join('');
+}
+async function confirmar(rid,img,item,title){
+  const fac=document.getElementById(`fac-${rid}-${img}-${item}`);
+  const body={image_index:img,item_index:item,title:title||null,facings:fac&&fac.value!==''?Number(fac.value):null};
+  const r=await fetch(`/api/readings/${rid}/confirm`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  const node=document.getElementById(`it-${rid}-${img}-${item}`);
+  if(r.ok){node.innerHTML=`<div></div><div class="ok">Confirmado${title?': '+title:' como fuera de planograma'} · memoria visual: ${d.memory_size??'—'} ejemplos</div>`}
+  else{node.insertAdjacentHTML('beforeend',`<div class="bad">${d.detail||'error'}</div>`)}
+}
+function confirmarSel(rid,img,item){const s=document.getElementById(`sel-${rid}-${img}-${item}`).value;if(!s){alert('Elige un SKU');return}confirmar(rid,img,item,s)}
+load();
+</script></body></html>

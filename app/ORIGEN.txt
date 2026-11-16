@@ -1,0 +1,1 @@
+Copiado el 2026-11-03 desde ~/Desktop/Devs 2026/Salcobrand-Sandbox (git 9afb0f5, repo peterfulle/salcobrand-inventario). Sin .env, data.db, uploads ni secret.key.

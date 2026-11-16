@@ -1,0 +1,19 @@
+# App Salcobrand (independiente, sin servicios de IA externos)
+fastapi>=0.115,<1
+uvicorn[standard]>=0.32
+python-multipart>=0.0.20
+python-dotenv>=1.0
+pillow>=10
+openpyxl>=3.1,<4
+pypdf>=5,<7
+httpx>=0.28,<1
+tzdata>=2024.1
+numpy>=1.26
+scipy>=1.11
+# motor NeuraVision
+torch>=2.1            # en Docker: índice CPU de PyTorch
+safetensors>=0.4
+neuratensor==4.3.0    # wheel en vendor/
+pillow-heif>=0.18      # HEIC de iPhone
+boto3>=1.34            # motores AWS opcionales (Rekognition, Bedrock)
+psycopg2-binary>=2.9   # Postgres (DATABASE_URL) en producción

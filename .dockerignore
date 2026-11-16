@@ -1,0 +1,15 @@
+.git
+.local
+.env
+**/.env
+**/.env.*
+**/node_modules
+**/.next
+**/out
+**/__pycache__
+**/*.pyc
+**/data.db
+**/secret.key
+**/registration_code
+app/uploads
+app/backend/tests

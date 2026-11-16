@@ -1,0 +1,5 @@
+# Preserve compressed PDF resources when Git converts text line endings on Windows.
+web/public/vendor/pdfjs/**/*.bcmap binary
+web/public/vendor/pdfjs/**/*.wasm binary
+web/public/vendor/pdfjs/**/*.pfb binary
+web/public/vendor/pdfjs/**/*.ttf binary

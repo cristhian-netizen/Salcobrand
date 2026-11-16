@@ -1,0 +1,3205 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" type="image/png" href="/static/assets/salco-logo.png" />
+<link rel="apple-touch-icon" href="/static/assets/salco-logo.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<title>Salcobrand — Control de Inventario de Farmacia</title>
+<style>
+  :root {
+    --ink:           #0a0a0a;
+    --ink-secondary: #55565a;
+    --ink-muted:      #8d8e92;
+    --surface:       #ffffff;
+    --page:          #f0f0ef;
+    --border:        #e0e0dd;
+    --border-strong: #cfcfcc;
+    --track:         #ececea;
+    --fill:          #0a0a0a;
+    --header-bg:     #000000;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--page);
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    width: 100%;
+  }
+  svg { display: block; }
+  ::selection { background: var(--ink); color: #fff; }
+
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .view-fade { animation: fadeUp 0.28s cubic-bezier(.16,1,.3,1); }
+
+  /* ---------- topbar ---------- */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: rgba(0,0,0,0.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 20px;
+  }
+  .topbar .mark { width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; }
+  .topbar .title { font-weight: 800; font-size: 16px; letter-spacing: -0.01em; }
+  .topbar .subtitle { font-size: 11.5px; color: #a9a9a6; font-weight: 500; }
+  .topbar .spacer { flex: 1; min-width: 12px; }
+  .live-pill {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11.5px; font-weight: 600; color: #d7d7d4;
+    border: 1px solid #313131; border-radius: 100px; padding: 5px 10px 5px 8px;
+    white-space: nowrap;
+  }
+  .live-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+  .btn-new {
+    display: flex; align-items: center; gap: 6px;
+    background: #fff; color: #000; border: none; border-radius: 7px;
+    padding: 8px 13px; font-family: inherit; font-size: 13px; font-weight: 700;
+    cursor: pointer; white-space: nowrap; transition: transform 0.12s ease, opacity 0.12s ease;
+  }
+  .btn-new:hover { opacity: 0.85; }
+  .btn-new:active { transform: scale(0.96); }
+  .btn-new svg { width: 15px; height: 15px; }
+  .btn-back {
+    display: flex; align-items: center; gap: 6px;
+    background: transparent; color: #fff; border: 1px solid #313131; border-radius: 7px;
+    padding: 7px 12px; font-family: inherit; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: border-color 0.12s ease;
+  }
+  .btn-back:hover { border-color: #666; }
+  .btn-back svg { width: 14px; height: 14px; }
+
+  .shell { max-width: 1080px; margin: 0 auto; padding: 22px 20px 56px; }
+
+  /* ---------- KPI row ---------- */
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 22px; }
+  .kpi-tile {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px; box-shadow: 0 1px 2px rgba(10,10,10,0.03);
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+  }
+  .kpi-icon { width: 28px; height: 28px; border-radius: 8px; background: var(--page); display: flex; align-items: center; justify-content: center; flex-shrink: 0; order: 2; }
+  .kpi-icon svg { width: 15px; height: 15px; color: var(--ink-muted); }
+  .kpi-value { font-size: 26px; font-weight: 800; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+  .kpi-label { font-size: 11px; color: var(--ink-muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+
+  /* ---------- section header ---------- */
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+  .section-head h2 { font-size: 14px; font-weight: 700; margin: 0; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-secondary); }
+  .section-head .hint { font-size: 12px; color: var(--ink-muted); font-weight: 500; }
+
+  /* ---------- point grid ---------- */
+  .point-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 14px; }
+  .point-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 16px; cursor: pointer; text-align: left;
+    box-shadow: 0 1px 2px rgba(10,10,10,0.03), 0 10px 24px -18px rgba(10,10,10,0.12);
+    transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .point-card:hover { border-color: var(--border-strong); transform: translateY(-2px); box-shadow: 0 4px 8px rgba(10,10,10,0.05), 0 16px 32px -16px rgba(10,10,10,0.18); }
+  .point-card .row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .point-code { font-size: 11px; font-weight: 700; letter-spacing: 0.03em; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+  .status-pill { display: flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em; }
+  .status-pill.live { color: var(--ink); }
+  .status-pill.stale { color: var(--ink-muted); }
+  .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .status-pill.live .dot { background: var(--ink); animation: pulse 1.6s ease-in-out infinite; }
+  .status-pill.stale .dot { background: var(--border-strong); }
+  .point-name { font-size: 15.5px; font-weight: 700; margin: 6px 0 4px; letter-spacing: -0.005em; }
+  .point-planogram-badge {
+    display: inline-block; font-size: 10.5px; font-weight: 700; color: var(--ink-secondary);
+    background: var(--page); border: 1px solid var(--border); border-radius: 5px; padding: 2px 7px;
+    margin-bottom: 10px;
+  }
+
+  .supplier-stockout-banner {
+    display: flex; align-items: flex-start; gap: 10px; background: #fdecec; border: 1px solid #f3c6c6;
+    color: #9a2020; border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; font-size: 12.5px;
+  }
+  .supplier-stockout-banner svg { flex-shrink: 0; width: 18px; height: 18px; margin-top: 1px; }
+  .supplier-stockout-text { display: flex; flex-direction: column; gap: 2px; }
+  .supplier-stockout-text strong { font-size: 13px; }
+  .supplier-stockout-text span { color: #b0102a; }
+
+  .point-thumb-wrap { position: relative; margin-bottom: 12px; }
+  .point-thumb { width: 100%; height: 120px; object-fit: cover; border-radius: 9px; display: block; border: 1px solid var(--border); background: var(--track); }
+  .photo-count-badge {
+    position: absolute; bottom: 6px; right: 6px; background: rgba(10,10,10,0.72); color: #fff;
+    font-size: 10px; font-weight: 700; padding: 3px 6px; border-radius: 5px; display: flex; align-items: center; gap: 3px;
+  }
+  .photo-count-badge svg { width: 10px; height: 10px; }
+
+  .point-stats { display: flex; gap: 14px; margin-bottom: 10px; }
+  .point-stat .v { font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .point-stat .l { font-size: 10px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.03em; font-weight: 600; }
+
+  .trend-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .sparkline { flex-shrink: 0; }
+  .sparkline path.line { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .sparkline path.area { fill: var(--ink); opacity: 0.06; stroke: none; }
+  .delta-badge { display: flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: var(--ink-secondary); }
+  .delta-badge svg { width: 10px; height: 10px; }
+  .delta-badge.up svg { transform: rotate(0deg); }
+  .delta-badge.down svg { transform: rotate(180deg); }
+
+  .mini-bars { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+  .mini-bar-row { display: flex; align-items: center; gap: 7px; }
+  .mini-bar-label { flex: 0 0 72px; font-size: 10.5px; color: var(--ink-secondary); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mini-bar-track { flex: 1; height: 6px; border-radius: 3px; background: var(--track); }
+  .mini-bar-fill { height: 100%; border-radius: 3px; background: var(--ink); }
+  .mini-bar-pct { flex: 0 0 34px; font-size: 10.5px; color: var(--ink-muted); text-align: right; font-variant-numeric: tabular-nums; }
+
+  .point-empty { font-size: 12.5px; color: var(--ink-muted); padding: 10px 0 12px; }
+  .point-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--ink-muted); font-weight: 500; }
+  .point-footer .go { display: flex; align-items: center; gap: 4px; color: var(--ink); font-weight: 700; }
+  .point-footer .go svg { width: 13px; height: 13px; transition: transform 0.15s ease; }
+  .point-card:hover .point-footer .go svg { transform: translateX(2px); }
+
+  .empty-state {
+    grid-column: 1 / -1; text-align: center; padding: 48px 20px; color: var(--ink-muted);
+    border: 1.5px dashed var(--border-strong); border-radius: 14px; background: var(--surface);
+  }
+  .empty-state svg { width: 32px; height: 32px; margin: 0 auto 10px; color: var(--ink-muted); }
+  .empty-state p { margin: 0; font-size: 13.5px; }
+
+  /* ---------- detail view ---------- */
+  #detailView { display: none; }
+  .detail-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 18px; gap: 12px; }
+  .detail-head h1 { margin: 0 0 3px; font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
+  .detail-head .meta { font-size: 12.5px; color: var(--ink-muted); font-weight: 500; }
+  .planogram-picker { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+  .planogram-picker label { font-size: 11px; color: var(--ink-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+  .planogram-picker select {
+    font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink);
+    border: 1px solid var(--border-strong); border-radius: 7px; padding: 5px 8px; background: #fafafa; max-width: 260px;
+  }
+
+  /* ---------- kpi strip + pestañas del detalle ---------- */
+  .detail-kpi-strip {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px;
+    margin-bottom: 16px;
+  }
+  .detail-kpi-strip .kpi-chip {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 11px;
+    padding: 12px 14px; box-shadow: 0 1px 2px rgba(10,10,10,0.03);
+  }
+  .detail-kpi-strip .kpi-chip .v { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .detail-kpi-strip .kpi-chip .v.ok { color: #1a7f3c; }
+  .detail-kpi-strip .kpi-chip .v.warn { color: #b4780a; }
+  .detail-kpi-strip .kpi-chip .v.bad { color: #c23030; }
+  .detail-kpi-strip .kpi-chip .l { font-size: 10px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.03em; font-weight: 700; margin-top: 3px; }
+
+  .detail-tabs {
+    display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid var(--border);
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+  }
+  .detail-tab {
+    display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+    background: none; border: none; border-bottom: 2px solid transparent; color: var(--ink-muted);
+    font-family: inherit; font-size: 13px; font-weight: 700; padding: 9px 13px; cursor: pointer;
+    white-space: nowrap; transition: color 0.12s ease, border-color 0.12s ease;
+  }
+  .detail-tab svg { width: 15px; height: 15px; flex-shrink: 0; }
+  .detail-tab:hover { color: var(--ink-secondary); }
+  .detail-tab.active { color: var(--ink); border-bottom-color: var(--ink); }
+  .tab-adv-badge {
+    font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em;
+    background: var(--page); color: var(--ink-muted); border: 1px solid var(--border); border-radius: 100px;
+    padding: 2px 6px; margin-left: 2px;
+  }
+  .tab-panel { animation: tabFadeIn 0.15s ease; }
+  @keyframes tabFadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .btn-delete {
+    display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+    background: #fff; border: 1px solid var(--border-strong); color: var(--ink);
+    border-radius: 7px; padding: 8px 12px; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    text-decoration: none;
+  }
+  .btn-delete:hover { border-color: var(--ink); background: #fafafa; }
+  .btn-delete svg { width: 14px; height: 14px; }
+
+  .detail-grid { display: grid; grid-template-columns: 1.1fr 1.4fr; gap: 16px; align-items: start; }
+  .detail-grid > div { min-width: 0; }
+  @media (max-width: 780px) { .detail-grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px; margin-bottom: 14px;
+    box-shadow: 0 1px 2px rgba(10,10,10,0.03), 0 10px 24px -16px rgba(10,10,10,0.10);
+  }
+
+  .capture label {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    border: 1.5px dashed var(--border-strong); border-radius: 8px; padding: 11px 12px; margin-top: 8px;
+    text-align: center; color: var(--ink-secondary); font-size: 12.5px; font-weight: 600; cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .capture label:hover { border-color: var(--ink); background: #fafafa; }
+  .capture label svg { width: 15px; height: 15px; color: var(--ink-muted); }
+  .capture-hint { font-size: 11.5px; color: var(--ink-muted); margin: 10px 0 0; line-height: 1.5; }
+  input[type="file"] { display: none; }
+
+  .photo-strip { display: flex; gap: 8px; overflow-x: auto; padding: 2px; margin-bottom: 4px; }
+  .photo-strip-item { position: relative; flex-shrink: 0; width: 76px; height: 76px; }
+  .photo-strip-item img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); display: block; }
+  .photo-strip-item .order-badge {
+    position: absolute; top: 3px; left: 3px; background: rgba(10,10,10,0.72); color: #fff;
+    font-size: 9.5px; font-weight: 700; border-radius: 4px; padding: 1px 5px;
+  }
+  .photo-strip-item .remove-btn {
+    position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--ink); color: #fff; border: 2px solid #fff; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; padding: 0;
+  }
+  .photo-strip-item .remove-btn svg { width: 10px; height: 10px; }
+  .photo-strip-add {
+    flex-shrink: 0; width: 76px; height: 76px; border-radius: 8px; border: 1.5px dashed var(--border-strong);
+    display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--ink-muted);
+    background: none; transition: border-color 0.15s ease;
+  }
+  .photo-strip-add:hover { border-color: var(--ink); color: var(--ink); }
+  .photo-strip-add svg { width: 20px; height: 20px; }
+
+  button.primary {
+    width: 100%; margin-top: 12px; padding: 12px; border-radius: 8px; border: none;
+    background: var(--ink); color: #fff; font-family: inherit; font-size: 14.5px; font-weight: 700;
+    letter-spacing: -0.005em; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: opacity 0.15s ease, transform 0.1s ease;
+  }
+  button.primary:hover:not(:disabled) { opacity: 0.88; }
+  button.primary:active:not(:disabled) { transform: scale(0.985); }
+  button.primary:disabled { background: #c7c7c4; cursor: default; }
+  button.primary svg { width: 16px; height: 16px; }
+  .spinner { animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .status { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-secondary); margin-top: 10px; min-height: 16px; font-weight: 500; }
+  .status svg { width: 13px; height: 13px; flex-shrink: 0; }
+  .status.error { color: var(--ink); font-weight: 600; }
+
+  .reading-photo-main { position: relative; }
+  .reading-photo { width: 100%; max-height: 340px; object-fit: contain; border-radius: 10px; border: 1px solid var(--border); background: var(--track); display: block; }
+  .reading-photo-count {
+    position: absolute; top: 8px; right: 8px; background: rgba(10,10,10,0.72); color: #fff;
+    font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 100px;
+  }
+  .reading-photo-nav { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .reading-photo-nav img {
+    width: 48px; height: 48px; object-fit: cover; border-radius: 6px; cursor: pointer;
+    border: 1.5px solid var(--border); opacity: 0.6; transition: opacity 0.15s ease, border-color 0.15s ease;
+  }
+  .reading-photo-nav img.active { opacity: 1; border-color: var(--ink); }
+
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 10px; }
+  .stat-tile { text-align: center; padding: 10px 4px; border: 1px solid var(--border); border-radius: 10px; background: #fbfbfa; }
+  .stat-value { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+  .stat-label { font-size: 10px; color: var(--ink-muted); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 600; }
+
+  /* ---------- rendimiento por estándares (hero) ---------- */
+  .standards-hero { background: linear-gradient(165deg, #fff 0%, #fafafa 100%); }
+  .standards-top { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+  .standards-gauge {
+    --pct: 0; --grade-color: #9ca3af;
+    width: 118px; height: 118px; border-radius: 50%; flex-shrink: 0; position: relative;
+    background: conic-gradient(var(--grade-color) calc(var(--pct) * 1%), #ececec 0);
+    transition: background 0.4s ease;
+  }
+  .standards-gauge::before { content: ""; position: absolute; inset: 9px; border-radius: 50%; background: #fff; box-shadow: inset 0 1px 2px rgba(0,0,0,0.04); }
+  .standards-gauge-inner { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .standards-gauge-value { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .standards-gauge-label { font-size: 10px; color: var(--ink-muted); font-weight: 700; margin-top: 1px; }
+  .standards-info { flex: 1; min-width: 220px; }
+  .standards-grade { font-size: 19px; font-weight: 800; color: var(--grade-color-text, var(--ink)); }
+  .standards-sub { font-size: 12.5px; color: var(--ink-muted); margin-top: 3px; line-height: 1.45; max-width: 420px; }
+  .standards-subscores { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .standards-subscore {
+    display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: var(--ink-secondary);
+    background: #fff; border: 1px solid var(--border); border-radius: 100px; padding: 6px 12px 6px 8px;
+  }
+  .standards-subscore .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .standards-subscore .n { color: var(--ink-muted); font-weight: 600; }
+  .standards-findings { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+  .standards-finding { display: flex; gap: 8px; font-size: 12.5px; color: var(--ink-secondary); padding: 4px 0; line-height: 1.45; }
+  .standards-finding svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 2px; color: var(--ink-muted); }
+  @media (max-width: 640px) {
+    .standards-top { gap: 16px; }
+    .standards-gauge { width: 96px; height: 96px; }
+    .standards-gauge-value { font-size: 26px; }
+  }
+
+  h3.card-title { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-secondary); margin: 0 0 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+  h3.card-title svg { width: 13px; height: 13px; color: var(--ink-muted); }
+
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+  .bar-label { flex: 0 0 108px; font-size: 12px; font-weight: 500; color: var(--ink); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-track { flex: 1; background: var(--track); border-radius: 5px; height: 18px; }
+  .bar-fill { height: 100%; border-radius: 5px; min-width: 5px; background: var(--fill); transition: width 0.4s cubic-bezier(.16,1,.3,1); }
+  .bar-value { flex: 0 0 70px; font-size: 11.5px; font-weight: 500; color: var(--ink-secondary); font-variant-numeric: tabular-nums; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 7px 4px; border-bottom: 1px solid var(--border); color: var(--ink); }
+  td { font-weight: 500; }
+  th { color: var(--ink-muted); font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .oos-flag { display: inline-flex; vertical-align: -2px; }
+  .oos-flag svg { width: 12px; height: 12px; color: var(--ink-muted); }
+
+  .notes { font-size: 11.5px; color: var(--ink-muted); margin-top: 12px; line-height: 1.5; }
+
+  /* ---------- daily metrics ---------- */
+  .daily-table-wrap { max-height: 260px; overflow-y: auto; overflow-x: auto; }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-scroll table { width: 100%; min-width: 600px; }
+  .table-scroll td:first-child, .table-scroll th:first-child { white-space: nowrap; }
+  table.daily { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  table.daily th, table.daily td { text-align: right; padding: 6px 4px; border-bottom: 1px solid var(--border); }
+  table.daily th:first-child, table.daily td:first-child { text-align: left; }
+  table.daily th { color: var(--ink-muted); font-weight: 700; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.03em; }
+  table.daily td { font-weight: 500; font-variant-numeric: tabular-nums; }
+
+  /* ---------- replenishment ---------- */
+  .replen-summary { display: flex; align-items: center; justify-content: space-between; padding: 10px 0 14px; border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+  .replen-summary .v { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
+  .replen-summary .l { font-size: 10.5px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.03em; font-weight: 600; }
+  .replen-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: #fbfbfa; margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .replen-item .name { font-weight: 600; }
+  .replen-item .meta { color: var(--ink-muted); font-size: 11px; }
+  .replen-urgency { font-weight: 800; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+  /* ---------- cumplimiento de planograma ---------- */
+  .compliance-card .card-title svg:first-child { color: var(--ink); }
+  .compliance-head { display: flex; align-items: center; gap: 18px; padding: 6px 0 16px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+  .compliance-score { flex-shrink: 0; text-align: center; }
+  .compliance-score .v { font-size: 34px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+  .compliance-score .l { font-size: 10px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.03em; font-weight: 700; margin-top: 3px; }
+  .compliance-score.ok .v { color: #1a7f3c; }
+  .compliance-score.warn .v { color: #b4780a; }
+  .compliance-score.bad .v { color: #c23030; }
+  .compliance-impact { flex: 1; }
+  .compliance-impact .v { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
+  .compliance-impact .l { font-size: 10.5px; color: var(--ink-muted); font-weight: 600; }
+  .compliance-impact .note { font-size: 10.5px; color: var(--ink-muted); margin-top: 2px; }
+  .compliance-inventory-value {
+    border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; margin-bottom: 12px;
+    background: #fbfbfa;
+  }
+  .compliance-inventory-value:empty { display: none; }
+  .inv-value-label { font-size: 10.5px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.03em; font-weight: 700; }
+  .inv-value-amount { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; margin-top: 2px; }
+  .inv-value-note { font-size: 10.5px; color: var(--ink-muted); margin-top: 2px; }
+  .compliance-priority-banner {
+    display: flex; align-items: flex-start; gap: 8px; background: #fdecec; border: 1px solid #f3c6c6;
+    color: #9a2020; border-radius: 9px; padding: 10px 12px; font-size: 12px; font-weight: 600; margin-bottom: 12px;
+  }
+  .compliance-priority-banner svg { flex-shrink: 0; width: 16px; height: 16px; margin-top: 1px; }
+  .compliance-band-bars { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; margin-bottom: 14px; }
+  .compliance-band-tile { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; text-align: center; }
+  .compliance-band-tile .v { font-size: 15px; font-weight: 800; }
+  .compliance-band-tile .l { font-size: 9.5px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.02em; font-weight: 700; margin-top: 1px; }
+  .compliance-subtitle { font-size: 11px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.03em; font-weight: 700; margin: 4px 0 8px; }
+  .replen-item.priority { border-color: #eab9b9; background: #fdf4f4; }
+  .tag-badge {
+    display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase;
+    padding: 1px 5px; border-radius: 4px; margin-left: 6px; background: var(--ink); color: #fff;
+  }
+  .foreign-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 7px 10px; border-radius: 8px; border: 1px dashed var(--border-strong); margin-bottom: 6px; font-size: 12px;
+  }
+  .foreign-item .meta { color: var(--ink-muted); font-size: 11px; }
+
+  /* ---------- modal de precios ---------- */
+  #pricesModalBackdrop {
+    display: none; position: fixed; inset: 0; background: rgba(10,10,10,0.6); z-index: 60;
+    align-items: center; justify-content: center; padding: 24px;
+  }
+  .prices-modal { max-width: 640px; height: 82vh; }
+  #pricesModalHost { flex: 1; padding: 16px 20px 20px; overflow-y: auto; min-height: 0; }
+  .price-band-group { margin-bottom: 16px; }
+  .price-band-title {
+    font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em;
+    color: var(--ink-secondary); padding: 6px 0; border-bottom: 1px solid var(--border); margin-bottom: 8px;
+  }
+  .price-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+  .price-row .name { flex: 1; font-size: 12.5px; }
+  .price-row input {
+    width: 110px; padding: 6px 8px; border-radius: 7px; border: 1px solid var(--border-strong);
+    font-family: inherit; font-size: 13px; text-align: right; background: #fafafa;
+  }
+  .price-row input:focus { outline: none; border-color: var(--ink); background: #fff; }
+
+  .planogram-detail-scroll { max-height: 420px; overflow-y: auto; }
+  .status-chip {
+    display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 5px; white-space: nowrap;
+  }
+  .status-chip.ok { background: #e6f4ea; color: #1a7f3c; }
+  .status-chip.low { background: #fdf1de; color: #b4780a; }
+  .status-chip.missing { background: #fdecec; color: #9a2020; }
+  .status-chip.misplaced { background: #eaf1fb; color: #2f6fb0; margin-left: 4px; }
+  .status-chip.supplier { background: #fbe2e6; color: #b0102a; margin-left: 4px; }
+  .row-dim { color: var(--ink-muted); }
+
+  .row-actions { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; white-space: nowrap; }
+  .row-actions .qty-input {
+    width: 42px; padding: 4px 5px; border-radius: 6px; border: 1px solid var(--border-strong);
+    font-family: inherit; font-size: 11.5px; text-align: center; background: #fafafa;
+  }
+  .mini-btn {
+    font-family: inherit; font-size: 10px; font-weight: 700; padding: 4px 7px; border-radius: 6px;
+    border: 1px solid var(--border-strong); background: #fff; color: var(--ink-secondary); cursor: pointer;
+    white-space: nowrap;
+  }
+  .mini-btn:hover { border-color: var(--ink); color: var(--ink); }
+  .mini-btn.warn { border-color: #eab9b9; color: #9a2020; }
+  .mini-btn.warn:hover { background: #fdecec; }
+
+  /* ---------- 3D shelf ---------- */
+  h3.card-title { position: relative; }
+  .expand-btn {
+    margin-left: auto; display: flex; align-items: center; gap: 5px;
+    background: #fff; border: 1px solid var(--border-strong); color: var(--ink-secondary);
+    border-radius: 6px; padding: 5px 9px; font-family: inherit; font-size: 10.5px; font-weight: 700;
+    text-transform: none; letter-spacing: normal; cursor: pointer;
+  }
+  .expand-btn:hover { border-color: var(--ink); color: var(--ink); }
+  .expand-btn svg { width: 12px; height: 12px; margin: 0; }
+
+  .shelf3d-legend { display: flex; gap: 14px; margin-bottom: 10px; font-size: 11px; color: var(--ink-secondary); font-weight: 600; }
+  .shelf3d-legend span { display: flex; align-items: center; gap: 5px; }
+  .shelf3d-legend .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  .shelf3d-legend .swatch.ghost { background: repeating-linear-gradient(45deg, #8d8e92 0 2px, transparent 2px 4px); border: 1px solid var(--border-strong); }
+  .shelf3d-legend .swatch.low { background: #b4780a; }
+  .shelf3d-legend .swatch.foreign { background: #2f6fb0; }
+  .shelf3d-legend .swatch.supplier { background: #d7263d; }
+  .shelf3d-legend .swatch.misplaced-marker { background: #9b59b6; }
+
+  #shelf3d { width: 100%; height: 320px; border-radius: 10px; border: 1px solid var(--border); overflow: hidden; background: var(--page); cursor: grab; }
+  #shelf3d canvas { display: block; }
+  #shelf3d.hovering { cursor: pointer; }
+
+  .shelf3d-info { margin-top: 10px; font-size: 12.5px; color: var(--ink-muted); min-height: 18px; }
+  .shelf3d-detail-card {
+    border: 1px solid var(--border-strong); border-radius: 10px; padding: 12px 14px; background: #fbfbfa;
+  }
+  .s3d-title { font-size: 14px; font-weight: 800; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .s3d-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .s3d-grid .s3d-l { display: block; font-size: 9.5px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.03em; font-weight: 700; }
+  .s3d-grid .s3d-v { display: block; font-size: 13px; font-weight: 600; color: var(--ink); margin-top: 1px; }
+
+  #shelf3dModalBackdrop {
+    display: none; position: fixed; inset: 0; background: rgba(10,10,10,0.6); z-index: 60;
+    align-items: center; justify-content: center; padding: 24px;
+  }
+  .shelf3d-modal {
+    background: #fff; border-radius: 16px; width: 100%; max-width: 1200px; height: 88vh;
+    display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 30px 80px -20px rgba(0,0,0,0.5);
+  }
+  .shelf3d-modal-head { display: flex; align-items: baseline; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .shelf3d-modal-head strong { font-size: 15px; margin-right: 8px; }
+  #shelf3dModalHost { flex: 1; padding: 16px 20px 20px; display: flex; flex-direction: column; min-height: 0; }
+  #shelf3dModalHost #shelf3dHost { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  #shelf3dModalHost #shelf3d { flex: 1; height: auto; min-height: 0; }
+  #shelf3dModalHost .shelf3d-info { flex: 0 0 auto; }
+
+  /* ---------- cámara en vivo ---------- */
+  #cameraModalBackdrop {
+    display: none; position: fixed; inset: 0; background: rgba(10,10,10,0.85); z-index: 60;
+    align-items: center; justify-content: center; padding: 16px;
+  }
+  .camera-modal {
+    background: #0a0a0a; border-radius: 16px; width: 100%; max-width: 620px; height: 92vh; max-height: 820px;
+    display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 30px 80px -20px rgba(0,0,0,0.6);
+  }
+  .camera-modal-head { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 16px; color: #fff; }
+  .camera-modal-head strong { font-size: 14px; display: block; }
+  .camera-modal-head .hint { font-size: 11px; color: #a9a9a6; }
+  .camera-modal-head .btn-delete { background: transparent; border: 1px solid #313131; color: #fff; }
+  .camera-modal-head .btn-delete:hover { border-color: #666; background: transparent; }
+
+  .camera-stage { position: relative; flex: 1; min-height: 0; background: #000; overflow: hidden; }
+  .camera-stage video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .camera-overlay { position: absolute; inset: 0; pointer-events: none; }
+  .guide-line {
+    position: absolute; top: 8%; bottom: 8%; width: 2px; background: rgba(255,255,255,0.85);
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.4); transition: left 0.2s ease, right 0.2s ease;
+  }
+  .guide-line::before, .guide-line::after {
+    content: ""; position: absolute; left: 50%; width: 16px; height: 2px; background: rgba(255,255,255,0.85);
+    transform: translateX(-50%);
+  }
+  .guide-line::before { top: 0; }
+  .guide-line::after { bottom: 0; }
+  .guide-line.left { left: 12%; }
+  .guide-line.right { right: 12%; }
+  .guide-rail {
+    position: absolute; left: 12%; right: 12%; top: 62%; height: 1px;
+    background: repeating-linear-gradient(90deg, rgba(177,226,39,0.9) 0 8px, transparent 8px 14px);
+  }
+  .guide-label-top {
+    position: absolute; top: 4%; left: 0; right: 0; text-align: center;
+    color: #fff; font-size: 12px; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  }
+  .guide-label-brands {
+    position: absolute; top: 9%; left: 8%; right: 8%; text-align: center;
+    color: #d8d8d5; font-size: 10.5px; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+    display: none;
+  }
+  .guide-label-brands.active { display: block; }
+  .guide-label-width {
+    position: absolute; bottom: 10%; left: 50%; transform: translateX(-50%);
+    color: #fff; font-size: 13px; font-weight: 800; background: rgba(10,10,10,0.55);
+    padding: 4px 10px; border-radius: 100px;
+  }
+  .camera-error {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    text-align: center; padding: 24px; color: #fff; font-size: 13px; background: rgba(10,10,10,0.9);
+  }
+  .camera-flash {
+    position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none;
+    transition: opacity 0.5s ease-out;
+  }
+  .camera-flash.active { opacity: 0.85; transition: opacity 0.05s ease-out; }
+  .camera-toast {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%) translateY(-12px);
+    display: flex; align-items: center; gap: 6px; background: rgba(20,20,18,0.92); color: #fff;
+    font-size: 12.5px; font-weight: 700; padding: 8px 14px; border-radius: 100px;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  .camera-toast.active { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .camera-toast svg { width: 15px; height: 15px; color: #b1e227; flex-shrink: 0; }
+
+  .camera-controls { padding: 14px 16px 18px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .camera-shots-strip { display: flex; gap: 6px; overflow-x: auto; max-width: 100%; padding: 2px; }
+  .camera-shots-strip img {
+    width: 44px; height: 44px; object-fit: cover; border-radius: 6px; flex-shrink: 0;
+    border: 1.5px solid rgba(255,255,255,0.5);
+  }
+  .module-width-picker { display: flex; gap: 6px; }
+  .module-width-picker button {
+    background: transparent; border: 1px solid #313131; color: #a9a9a6; border-radius: 100px;
+    padding: 6px 12px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+  }
+  .module-width-picker button.active { background: #fff; color: #000; border-color: #fff; }
+  .shutter-btn {
+    width: 62px; height: 62px; border-radius: 50%; border: 3px solid #fff; background: transparent;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+    transition: transform 0.1s ease;
+  }
+  .shutter-btn span { width: 48px; height: 48px; border-radius: 50%; background: #fff; transition: transform 0.1s ease; }
+  .shutter-btn:active span { transform: scale(0.88); }
+  .shutter-btn.flashing { transform: scale(0.9); }
+  .camera-hint { color: #a9a9a6; font-size: 11px; }
+
+  .history-list { display: flex; flex-direction: column; gap: 6px; max-height: 420px; overflow-y: auto; }
+  .history-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); cursor: pointer;
+    font-size: 12px; background: #fbfbfa; transition: border-color 0.12s ease, background 0.12s ease;
+  }
+  .history-item:hover { border-color: var(--border-strong); }
+  .history-item.active { border-color: var(--ink); background: #f4f4f2; }
+  .history-thumb-wrap { position: relative; flex-shrink: 0; }
+  .history-thumb { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; display: block; border: 1px solid var(--border); background: var(--track); }
+  .history-thumb.placeholder { display: flex; align-items: center; justify-content: center; color: var(--ink-muted); }
+  .history-thumb.placeholder svg { width: 16px; height: 16px; }
+  .history-multi-badge {
+    position: absolute; bottom: -3px; right: -3px; background: var(--ink); color: #fff;
+    font-size: 8.5px; font-weight: 700; border-radius: 4px; padding: 1px 3px; line-height: 1.3;
+  }
+  .history-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .history-item .t { font-weight: 600; }
+  .history-item .n { color: var(--ink-muted); font-variant-numeric: tabular-nums; font-size: 11px; }
+
+  /* ---------- modal ---------- */
+  #modalBackdrop {
+    display: none; position: fixed; inset: 0; background: rgba(10,10,10,0.45);
+    align-items: center; justify-content: center; z-index: 50; padding: 20px;
+  }
+  .modal {
+    background: #fff; border-radius: 14px; padding: 22px; width: 100%; max-width: 380px;
+    box-shadow: 0 24px 60px -20px rgba(0,0,0,0.4);
+  }
+  .modal h2 { margin: 0 0 4px; font-size: 17px; font-weight: 800; }
+  .modal p.hint { margin: 0 0 16px; font-size: 12.5px; color: var(--ink-muted); }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 11.5px; font-weight: 700; color: var(--ink-secondary); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .field input, .field select {
+    width: 100%; padding: 10px 11px; border-radius: 8px; border: 1px solid var(--border-strong);
+    font-family: inherit; font-size: 14px; color: var(--ink); background: #fafafa;
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--ink); background: #fff; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+  .modal-actions button {
+    flex: 1; padding: 10px; border-radius: 8px; font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer;
+  }
+  .modal-actions .cancel { background: #fff; border: 1px solid var(--border-strong); color: var(--ink); }
+  .modal-actions .confirm { background: var(--ink); border: none; color: #fff; }
+
+  .advanced-toggle {
+    display: flex; align-items: center; gap: 6px; background: none; border: none; padding: 4px 0;
+    font-family: inherit; font-size: 12px; font-weight: 700; color: var(--ink-muted); cursor: pointer;
+    margin-bottom: 4px;
+  }
+  .advanced-toggle:hover { color: var(--ink-secondary); }
+  .advanced-toggle svg { width: 14px; height: 14px; transition: transform 0.15s ease; }
+  .advanced-toggle.open svg { transform: rotate(180deg); }
+  .advanced-fields { padding-top: 6px; }
+  .field-hint { margin: 5px 2px 0; font-size: 11px; color: var(--ink-muted); line-height: 1.4; }
+
+  /* ---------- auth ---------- */
+  #authView {
+    display: flex; min-height: 100vh; align-items: center; justify-content: center;
+    background: var(--page); padding: 20px;
+  }
+  .auth-shell { width: 100%; max-width: 380px; }
+  .auth-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 32px 28px; text-align: center;
+    box-shadow: 0 1px 2px rgba(10,10,10,0.03), 0 20px 48px -24px rgba(10,10,10,0.14);
+  }
+  .auth-mark { width: 72px; height: 72px; margin: 0 auto 14px; border-radius: 50%; display: block; }
+  .auth-card h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
+  .auth-subtitle { margin: 2px 0 22px; font-size: 12.5px; color: var(--ink-muted); font-weight: 500; }
+  .auth-card .field { text-align: left; }
+  .auth-card .status { justify-content: center; text-align: center; }
+
+  .auth-tabs { display: flex; gap: 6px; background: var(--page); border-radius: 9px; padding: 3px; margin-bottom: 18px; }
+  .auth-tab {
+    flex: 1; background: none; border: none; border-radius: 7px; padding: 8px; cursor: pointer;
+    font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--ink-muted);
+  }
+  .auth-tab.active { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(10,10,10,0.08); }
+
+  .auth-remember {
+    display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-secondary);
+    font-weight: 500; margin: -2px 0 4px; cursor: pointer;
+  }
+  .auth-remember input { width: 14px; height: 14px; accent-color: var(--ink); cursor: pointer; }
+
+  #quickAccessBlock { margin-bottom: 18px; }
+  .auth-divider {
+    display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 11px;
+    color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.03em; font-weight: 700;
+  }
+  .auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+  /* ---------- responsive móvil ---------- */
+  @media (max-width: 640px) {
+    .shell { padding: 16px 14px 40px; }
+
+    .topbar { flex-wrap: wrap; row-gap: 8px; padding: 11px 14px; gap: 8px; }
+    .topbar .subtitle { display: none; }
+    .topbar .spacer { min-width: 6px; }
+    .topbar .btn-back, .topbar .btn-new { padding: 7px 9px; font-size: 11.5px; gap: 5px; }
+    .topbar .live-pill { padding: 4px 8px 4px 7px; font-size: 10.5px; }
+    #logoutBtn .btn-label { display: none; }
+
+    .kpi-row { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .kpi-tile { padding: 11px 12px; }
+    .kpi-value { font-size: 21px; }
+    .kpi-icon { width: 24px; height: 24px; }
+
+    .section-head { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .section-head > div { width: 100%; justify-content: space-between; }
+
+    .point-grid { grid-template-columns: 1fr; }
+
+    .detail-head { flex-direction: column; align-items: stretch; }
+    .detail-head > div:last-child { display: flex; gap: 8px; }
+    .detail-head > div:last-child > * { flex: 1; }
+    .detail-head h1 { font-size: 19px; }
+
+    .stat-row { grid-template-columns: repeat(2, 1fr); }
+    .stat-value { font-size: 20px; }
+
+    .detail-kpi-strip { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .detail-kpi-strip .kpi-chip { padding: 10px 11px; }
+    .detail-kpi-strip .kpi-chip .v { font-size: 19px; }
+    .detail-tabs { margin: 0 -14px 16px; padding: 0 14px; }
+    .detail-tab { font-size: 12.5px; padding: 9px 10px; }
+
+    .table-scroll { position: relative; margin: 0 -18px; padding: 0 18px; }
+    .table-scroll::before {
+      content: "Desliza para ver todas las columnas →";
+      display: block; font-size: 10.5px; color: var(--ink-muted);
+      text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 6px;
+    }
+
+    .s3d-grid { grid-template-columns: repeat(2, 1fr); }
+
+    .camera-modal { height: 96vh; border-radius: 12px; }
+    .shelf3d-modal { height: 94vh; border-radius: 12px; }
+
+    .planogram-picker { flex-wrap: wrap; }
+    .planogram-picker select { max-width: 100%; flex: 1; }
+
+    .compliance-head { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .compliance-band-bars { grid-template-columns: repeat(2, 1fr); }
+    .replen-item { flex-direction: column; align-items: flex-start; gap: 4px; }
+
+    #pricesModalBackdrop { padding: 10px; }
+    .prices-modal { height: 94vh; border-radius: 12px; max-width: 100%; }
+    .price-row { flex-wrap: wrap; }
+    .price-row input { width: 90px; }
+  }
+
+  /* ---------- footer ---------- */
+  .app-footer {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 18px 20px 26px; font-size: 11px; color: var(--ink-muted); font-weight: 500;
+  }
+  .app-footer img { width: 16px; height: 16px; opacity: 0.55; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/controls/OrbitControls.js": "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js"
+  }
+}
+</script>
+</head>
+<body>
+  <section id="authView">
+    <div class="auth-shell">
+      <div class="auth-card">
+        <img class="auth-mark" src="/static/assets/salco-logo.png" alt="Salcobrand" />
+        <p class="auth-subtitle">Control de Inventario de Farmacia</p>
+
+        <div id="quickAccessBlock" style="display:none;">
+          <button class="primary" id="quickAccessBtn" type="button"></button>
+          <div class="auth-divider">o ingresa manualmente</div>
+        </div>
+
+        <div class="auth-tabs">
+          <button class="auth-tab active" data-mode="login" type="button">Iniciar sesión</button>
+          <button class="auth-tab" data-mode="register" type="button">Crear cuenta</button>
+        </div>
+
+        <form id="authForm">
+          <div class="field">
+            <label for="authUsername">Usuario</label>
+            <input type="text" id="authUsername" autocomplete="username" minlength="3" required />
+          </div>
+          <div class="field">
+            <label for="authPassword">Contraseña</label>
+            <input type="password" id="authPassword" autocomplete="current-password" minlength="6" required />
+          </div>
+          <label class="auth-remember">
+            <input type="checkbox" id="authRemember" checked />
+            Recordar acceso en este dispositivo
+          </label>
+          <div class="status" id="authStatus"></div>
+          <button class="primary" type="submit" id="authSubmitBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
+            <span id="authSubmitText">Iniciar sesión</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <div id="appRoot" style="display:none;">
+  <nav class="topbar">
+    <img class="mark" src="/static/assets/salco-logo.png" alt="Salcobrand" />
+    <div>
+      <div class="title">Salcobrand</div>
+      <div class="subtitle">Control de Inventario de Farmacia</div>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn-back" id="backBtn" style="display:none;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      Dashboard
+    </button>
+    <div class="live-pill"><span class="dot"></span>En vivo</div>
+    <button class="btn-back" id="logoutBtn" title="Cerrar sesión">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l-5-5 5-5M5 12h13"/></svg>
+      <span class="btn-label" id="currentUsername">Salir</span>
+    </button>
+    <button class="btn-new" id="newPointBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Nuevo punto
+    </button>
+  </nav>
+
+  <main class="shell">
+    <section id="dashboardView">
+      <div id="supplierStockoutBanner" class="supplier-stockout-banner" style="display:none;"></div>
+      <div class="kpi-row">
+        <div class="kpi-tile">
+          <div><div class="kpi-value" id="kpiPoints">0</div><div class="kpi-label">Puntos totales</div></div>
+          <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V9.5L12 4l8 5.5V21M9 21v-6h6v6"/></svg></div>
+        </div>
+        <div class="kpi-tile">
+          <div><div class="kpi-value" id="kpiLive">0</div><div class="kpi-label">En vivo (15 min)</div></div>
+          <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 5v5l3 3"/></svg></div>
+        </div>
+        <div class="kpi-tile">
+          <div><div class="kpi-value" id="kpiReadings">0</div><div class="kpi-label">Lecturas totales</div></div>
+          <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1-2h7l1 2h2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5v-9Z"/><circle cx="12" cy="12.5" r="3.2"/></svg></div>
+        </div>
+        <div class="kpi-tile">
+          <div><div class="kpi-value" id="kpiAvg">0</div><div class="kpi-label">Caras prom. / punto</div></div>
+          <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M12 19V4M20 19v-7"/></svg></div>
+        </div>
+        <div class="kpi-tile" id="kpiStandardsTile" style="display:none;">
+          <div><div class="kpi-value" id="kpiStandards">–</div><div class="kpi-label">Rendimiento promedio</div></div>
+          <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 3 6.5 7 1-5 5 1.2 7L12 18l-6.2 3.5L7 14.5l-5-5 7-1L12 2Z"/></svg></div>
+        </div>
+        <div class="kpi-tile" id="kpiPlanogramTile" style="display:none;">
+          <div><div class="kpi-value" id="kpiPlanogram">–</div><div class="kpi-label">Cumplim. planograma <span class="tab-adv-badge">avanzado</span></div></div>
+          <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        </div>
+      </div>
+
+      <div class="section-head">
+        <h2>Puntos de venta</h2>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span class="hint" id="lastPoll">—</span>
+          <a class="btn-delete" href="/api/export.csv" download>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/></svg>
+            Descargar CSV
+          </a>
+        </div>
+      </div>
+      <div class="point-grid" id="pointGrid"></div>
+    </section>
+
+    <section id="detailView">
+      <div class="detail-head">
+        <div>
+          <h1 id="detailName">—</h1>
+          <div class="meta"><span id="detailCode">—</span> · <span id="detailStatus">—</span></div>
+          <div class="planogram-picker">
+            <label for="detailPlanogramSelect">Planograma:</label>
+            <select id="detailPlanogramSelect">
+              <option value="">Sin planograma — análisis libre</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <a class="btn-delete" id="exportPointBtn" href="#" download>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"/></svg>
+            Exportar CSV
+          </a>
+          <button class="btn-delete" id="deletePointBtn" title="Eliminar punto">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0-.8 12.1a1.5 1.5 0 0 1-1.5 1.4H9.3a1.5 1.5 0 0 1-1.5-1.4L7 7"/></svg>
+            Eliminar punto
+          </button>
+        </div>
+      </div>
+
+      <div class="detail-kpi-strip" id="detailKpiStrip" style="display:none;"></div>
+
+      <div class="detail-tabs" id="detailTabs">
+        <button class="detail-tab active" data-tab="resumen" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1-2h7l1 2h2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5v-9Z"/><circle cx="12" cy="12.5" r="3.2"/></svg>
+          Resumen
+        </button>
+        <button class="detail-tab" data-tab="cumplimiento" id="tabBtnCumplimiento" type="button" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Planograma <span class="tab-adv-badge">avanzado</span>
+        </button>
+        <button class="detail-tab" data-tab="productos" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M3.5 9.5h17M9 9.5V20"/></svg>
+          Productos
+        </button>
+        <button class="detail-tab" data-tab="historial" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+          Historial
+        </button>
+        <button class="detail-tab" data-tab="tresd" id="tabBtn3D" type="button" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg>
+          3D
+        </button>
+      </div>
+
+      <div class="tab-panel" data-tab-panel="resumen">
+        <div class="card standards-hero" id="standardsCard" style="display:none;">
+          <div class="standards-top">
+            <div class="standards-gauge" id="standardsGauge">
+              <div class="standards-gauge-inner">
+                <div class="standards-gauge-value" id="standardsScoreValue">–</div>
+                <div class="standards-gauge-label">/ 100</div>
+              </div>
+            </div>
+            <div class="standards-info">
+              <div class="standards-grade" id="standardsGrade">–</div>
+              <div class="standards-sub">Rendimiento de la góndola según estándares generales de ejecución</div>
+              <div class="standards-subscores" id="standardsSubscores"></div>
+            </div>
+          </div>
+          <div class="standards-findings" id="standardsFindings"></div>
+        </div>
+
+        <div class="detail-grid">
+          <div>
+            <div class="card capture">
+              <h3 class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1-2h7l1 2h2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5v-9Z"/><circle cx="12" cy="12.5" r="3.4"/></svg>
+                Nueva lectura
+              </h3>
+              <button class="primary" id="openCameraBtn" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1-2h7l1 2h2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5v-9Z"/>
+                  <circle cx="12" cy="12.5" r="3.4"/>
+                </svg>
+                Abrir cámara en vivo
+              </button>
+              <label for="photoInput" id="captureLabel">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0 4 4m-4-4-4 4M4 16.5v2A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5v-2"/></svg>
+                Subir desde galería
+              </label>
+              <div class="photo-strip" id="photoStrip" style="display:none;"></div>
+              <input type="file" id="photoInput" accept="image/*" multiple />
+              <p class="capture-hint">La cámara en vivo muestra líneas guía para encuadrar 1 módulo de percha. Si el punto tiene un planograma asignado, la guía se ajusta automáticamente a su ancho (ej. 0.95 m) y te muestra las marcas esperadas en ese tramo. ¿Percha más ancha? Agrega hasta 6 fotos en orden de izquierda a derecha — se combinan en una sola lectura. La profundidad (unidades detrás de cada cara) la estima la IA por producto, no se ingresa manual.</p>
+              <button class="primary" id="analyzeBtn" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M20 7V5a1 1 0 0 0-1-1h-2M4 17v2a1 1 0 0 0 1 1h2M20 17v2a1 1 0 0 1-1 1h-2M3 12h18"/></svg>
+                <span id="analyzeBtnText">Analizar percha</span>
+              </button>
+              <div class="status" id="statusMsg"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="card" id="photoCard" style="display:none;">
+              <h3 class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1-2h7l1 2h2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5v-9Z"/><circle cx="12" cy="12.5" r="3.4"/></svg>
+                Foto de esta lectura
+              </h3>
+              <div class="reading-photo-main">
+                <img id="readingPhoto" class="reading-photo" alt="Foto de la percha analizada" />
+                <span class="reading-photo-count" id="readingPhotoCount" style="display:none;"></span>
+              </div>
+              <div class="reading-photo-nav" id="readingPhotoNav"></div>
+            </div>
+
+            <div class="card">
+              <div class="stat-row">
+                <div class="stat-tile"><div class="stat-value" id="statTotalFacings">–</div><div class="stat-label">Caras totales</div></div>
+                <div class="stat-tile"><div class="stat-value" id="statProducts">–</div><div class="stat-label">Productos</div></div>
+                <div class="stat-tile"><div class="stat-value" id="statCategories">–</div><div class="stat-label">Categorías</div></div>
+                <div class="stat-tile"><div class="stat-value" id="statLevels">–</div><div class="stat-label">Niveles</div></div>
+                <div class="stat-tile"><div class="stat-value" id="statEmpty">–</div><div class="stat-label">Espacio vacío</div></div>
+                <div class="stat-tile"><div class="stat-value" id="statPerMeter">–</div><div class="stat-label">Caras / m lineal</div></div>
+                <div class="stat-tile"><div class="stat-value" id="statUnits">–</div><div class="stat-label">Unidades (est.)</div></div>
+                <div class="stat-tile"><div class="stat-value" id="statArea">–</div><div class="stat-label">m² exhibición</div></div>
+              </div>
+              <div class="notes" id="notesMsg"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" data-tab-panel="cumplimiento" style="display:none;">
+        <div class="card compliance-card" id="complianceCard" style="display:none;">
+          <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            Cumplimiento de planograma
+            <button class="expand-btn" id="editPricesBtn" type="button" title="Cargar/editar precios">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              Precios
+            </button>
+          </h3>
+          <div id="complianceHead" class="compliance-head"></div>
+          <div id="complianceInventoryValue" class="compliance-inventory-value"></div>
+          <div id="compliancePriorityBanner" class="compliance-priority-banner" style="display:none;"></div>
+          <div id="complianceBandBars" class="compliance-band-bars"></div>
+          <div id="complianceReplenishmentWrap">
+            <div class="compliance-subtitle">Reponer según planograma</div>
+            <div id="complianceReplenishment"></div>
+          </div>
+          <div id="complianceMisplacedWrap" style="display:none;">
+            <div class="compliance-subtitle">Mal ubicados dentro de su nivel (reordenar)</div>
+            <div id="complianceMisplaced"></div>
+          </div>
+          <div id="complianceForeignWrap" style="display:none;">
+            <div class="compliance-subtitle">Posibles productos fuera de este planograma</div>
+            <div id="complianceForeign"></div>
+          </div>
+          <div id="complianceMissingTagsWrap" style="display:none;">
+            <div class="compliance-subtitle">Sin rótulo de precio visible</div>
+            <div id="complianceMissingTags"></div>
+          </div>
+        </div>
+
+        <div class="card" id="stockActionsCard" style="display:none;">
+          <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7 12 3 4 7v10l8 4 8-4V7Z"/><path d="M4 7l8 4 8-4M12 11v10"/></svg>
+            Solicitudes y ajustes pendientes
+          </h3>
+          <div id="stockActionsList"></div>
+        </div>
+
+        <div class="card" id="planogramDetailCard" style="display:none;">
+          <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M3.5 9.5h17M9 9.5V20"/></svg>
+            Detalle completo del planograma
+          </h3>
+          <p class="capture-hint" style="margin:0 0 10px;">Todas las posiciones del planograma, cumplan o no — para ver el cumplimiento en su totalidad, no solo lo que falta.</p>
+          <div class="table-scroll planogram-detail-scroll">
+            <table>
+              <thead><tr><th class="num">Nivel</th><th class="num">Pos.</th><th>Producto</th><th>Estado</th><th class="num">Esperado</th><th class="num">Detectado</th><th class="num">Rótulo</th><th class="num">Penalización</th><th>Acción</th></tr></thead>
+              <tbody id="planogramDetailTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" data-tab-panel="productos" style="display:none;">
+        <div class="card">
+          <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M12 19V4M20 19v-7"/></svg>
+            % de participación en la percha por categoría
+          </h3>
+          <div id="categoryChart"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M3.5 9.5h17M9 9.5V20"/></svg>
+            Caras por producto
+          </h3>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Producto</th><th>Laboratorio</th><th>Categoría</th><th class="num">Nivel</th><th class="num">Caras</th><th class="num">Prof. est.</th><th class="num">Unidades est.</th></tr></thead>
+              <tbody id="productsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" data-tab-panel="historial" style="display:none;">
+        <div class="card">
+          <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+            Historial de lecturas
+          </h3>
+          <div class="history-list" id="historyList"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M3.5 9.5h17M8 4v3M16 4v3"/></svg>
+            Métricas por día
+          </h3>
+          <div id="dailyMetrics"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5"/></svg>
+            Reabastecimiento (estimado desde fotos)
+          </h3>
+          <div id="replenishmentBlock"></div>
+        </div>
+      </div>
+
+      <div class="tab-panel" data-tab-panel="tresd" style="display:none;">
+        <div class="card" id="shelf3dCard" style="display:none;">
+          <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg>
+            Posicionamiento 3D (aproximado)
+            <button class="expand-btn" id="expand3dBtn" title="Ver en pantalla completa">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H5a1 1 0 0 0-1 1v4M15 4h4a1 1 0 0 1 1 1v4M9 20H5a1 1 0 0 1-1-1v-4M15 20h4a1 1 0 0 0 1-1v-4"/></svg>
+              Pantalla completa
+            </button>
+          </h3>
+          <p class="capture-hint" style="margin:0 0 10px;">Reconstrucción aproximada a partir de la foto — no son coordenadas exactas. Arrastra para rotar, scroll para acercar, clic en una caja para ver su detalle.</p>
+          <div class="shelf3d-legend" id="shelf3dLegend">
+            <span><span class="swatch ghost"></span>Quiebre de stock</span>
+          </div>
+          <div id="shelf3dHost">
+            <div id="shelf3d"></div>
+            <div id="shelf3dInfo" class="shelf3d-info">Haz clic en una caja para ver su detalle.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer class="app-footer">
+    <img src="/static/assets/neuramorphic-mark.svg" alt="Neuramorphic" />
+    <span>Potenciado por neuramorphic.ai — San Francisco, California</span>
+  </footer>
+  </div>
+
+  <div id="modalBackdrop">
+    <div class="modal">
+      <h2>Nueva góndola</h2>
+      <p class="hint">Sube una foto y evaluamos su rendimiento al instante. Cada punto guarda su propio historial.</p>
+      <div class="field">
+        <label for="newPointName">Nombre del punto</label>
+        <input type="text" id="newPointName" placeholder="Ej: Sucursal Providencia" />
+      </div>
+      <button type="button" class="advanced-toggle" id="advancedToggle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        Opciones avanzadas
+      </button>
+      <div class="advanced-fields" id="advancedFields" style="display:none;">
+        <div class="field">
+          <label for="newPointCode">Número de punto / escáner (opcional)</label>
+          <input type="text" id="newPointCode" placeholder="Se asigna automático si lo dejas vacío" />
+        </div>
+        <div class="field">
+          <label for="newPointPlanogram">Planograma asignado (opcional)</label>
+          <select id="newPointPlanogram">
+            <option value="">Sin planograma — evaluación por estándares</option>
+          </select>
+          <p class="field-hint">Solo si además quieres comparar posición por posición contra un planograma específico.</p>
+        </div>
+      </div>
+      <div class="status" id="modalStatus"></div>
+      <div class="modal-actions">
+        <button class="cancel" id="modalCancel">Cancelar</button>
+        <button class="confirm" id="modalConfirm">Crear punto</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="shelf3dModalBackdrop">
+    <div class="shelf3d-modal">
+      <div class="shelf3d-modal-head">
+        <div>
+          <strong>Posicionamiento 3D</strong>
+          <span class="hint" id="shelf3dModalSubtitle"></span>
+        </div>
+        <button class="btn-delete" id="closeShelf3dModal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          Cerrar
+        </button>
+      </div>
+      <div id="shelf3dModalHost"></div>
+    </div>
+  </div>
+
+  <div id="pricesModalBackdrop">
+    <div class="shelf3d-modal prices-modal">
+      <div class="shelf3d-modal-head">
+        <div>
+          <strong>Precios del planograma</strong>
+          <span class="hint" id="pricesModalSubtitle"></span>
+        </div>
+        <button class="btn-delete" id="closePricesModal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          Cerrar
+        </button>
+      </div>
+      <div id="pricesModalHost">
+        <p class="capture-hint" style="margin:0 0 10px;">Carga el precio de venta (CLP) de cada posición para estimar el impacto en $ de los quiebres de este planograma. Los productos sin precio no se contabilizan en el impacto.</p>
+        <div class="status" id="pricesStatus"></div>
+        <div id="pricesList"></div>
+        <div class="modal-actions" style="margin-top:12px;">
+          <button class="confirm" id="pricesSaveBtn">Guardar precios</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="cameraModalBackdrop">
+    <div class="camera-modal">
+      <div class="camera-modal-head">
+        <div>
+          <strong>Cámara en vivo</strong>
+          <span class="hint">Alinea los bordes del módulo con las líneas guía</span>
+        </div>
+        <button class="btn-delete" id="closeCameraModal" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          Cerrar
+        </button>
+      </div>
+      <div class="camera-stage">
+        <video id="cameraVideo" playsinline muted autoplay></video>
+        <div class="camera-overlay">
+          <div class="guide-line left"></div>
+          <div class="guide-line right"></div>
+          <div class="guide-rail"></div>
+          <div class="guide-label-top">Encuadra 1 módulo de percha</div>
+          <div class="guide-label-brands" id="guideBrandsLabel"></div>
+          <div class="guide-label-width" id="guideWidthLabel">1.0 m</div>
+        </div>
+        <div class="camera-error" id="cameraError" style="display:none;"></div>
+        <div class="camera-flash" id="cameraFlash"></div>
+        <div class="camera-toast" id="cameraToast"></div>
+      </div>
+      <div class="camera-controls">
+        <div class="camera-shots-strip" id="cameraShotsStrip" style="display:none;"></div>
+        <div class="module-width-picker" id="moduleWidthPicker"></div>
+        <button class="shutter-btn" id="shutterBtn" type="button" title="Capturar foto">
+          <span></span>
+        </button>
+        <div class="camera-hint">Foto <span id="cameraShotCount">0</span>/6 · toca el disparador para agregar a la lectura</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const ICON_WARNING = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 16.5h.01M10.4 3.6 2.7 17a1.6 1.6 0 0 0 1.4 2.4h15.8a1.6 1.6 0 0 0 1.4-2.4L13.6 3.6a1.6 1.6 0 0 0-2.8 0Z"/></svg>';
+  const ICON_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg>';
+  const ICON_SPINNER = '<svg class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9" opacity="0.9"/></svg>';
+  const ICON_SCAN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M20 7V5a1 1 0 0 0-1-1h-2M4 17v2a1 1 0 0 0 1 1h2M20 17v2a1 1 0 0 1-1 1h-2M3 12h18"/></svg>';
+  const ICON_EMPTY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V7"/></svg>';
+  const ICON_ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+  const ICON_LAYERS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 4.5-8 4.5-8-4.5L12 3Z"/><path d="m4 12 8 4.5 8-4.5"/></svg>';
+  const ICON_REMOVE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+  const ICON_PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
+  const ICON_TRIANGLE = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5l7 12H5z"/></svg>';
+
+  const POLL_MS = 5000;
+  const LIVE_WINDOW_MS = 15 * 60 * 1000;
+  const MAX_IMAGES = 6;
+
+  let points = [];
+  let currentPoint = null;
+  let currentReadingId = null;
+  let currentCompliancePlanogramId = null;
+  let currentSupplierStockoutIds = new Set();
+  let pollTimer = null;
+
+  const dashboardView = document.getElementById("dashboardView");
+  const detailView = document.getElementById("detailView");
+  const backBtn = document.getElementById("backBtn");
+
+  function switchTab(tabName) {
+    document.querySelectorAll(".tab-panel").forEach((panel) => {
+      panel.style.display = panel.dataset.tabPanel === tabName ? "block" : "none";
+    });
+    document.querySelectorAll(".detail-tab").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.tab === tabName);
+    });
+  }
+
+  document.getElementById("detailTabs").addEventListener("click", (e) => {
+    const btn = e.target.closest(".detail-tab");
+    if (!btn) return;
+    switchTab(btn.dataset.tab);
+  });
+
+  function isLive(iso) {
+    if (!iso) return false;
+    return (Date.now() - new Date(iso).getTime()) < LIVE_WINDOW_MS;
+  }
+
+  function relativeTime(iso) {
+    if (!iso) return "sin lecturas";
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const min = Math.floor(diffMs / 60000);
+    if (min < 1) return "hace instantes";
+    if (min < 60) return `hace ${min} min`;
+    const hrs = Math.floor(min / 60);
+    if (hrs < 24) return `hace ${hrs} h`;
+    return `hace ${Math.floor(hrs / 24)} d`;
+  }
+
+  function escapeHtml(str) {
+    return String(str ?? "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+  }
+
+  function sparklineSvg(values) {
+    if (!values || values.filter((v) => v != null).length < 2) return "";
+    const w = 72, h = 26, pad = 3;
+    const vals = values.map((v) => v ?? 0);
+    const min = Math.min(...vals), max = Math.max(...vals);
+    const range = max - min || 1;
+    const step = (w - pad * 2) / (vals.length - 1);
+    const points = vals.map((v, i) => {
+      const x = pad + i * step;
+      const y = pad + (1 - (v - min) / range) * (h - pad * 2);
+      return [x, y];
+    });
+    const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+    const areaPath = `${linePath} L${points[points.length - 1][0].toFixed(1)},${h} L${points[0][0].toFixed(1)},${h} Z`;
+    return `<svg class="sparkline" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><path class="area" d="${areaPath}"/><path class="line" d="${linePath}"/></svg>`;
+  }
+
+  function deltaBadge(values) {
+    if (!values || values.length < 2) return "";
+    const prev = values[values.length - 2] ?? 0;
+    const curr = values[values.length - 1] ?? 0;
+    const diff = curr - prev;
+    if (diff === 0) return `<span class="delta-badge">· sin cambio</span>`;
+    const dir = diff > 0 ? "up" : "down";
+    return `<span class="delta-badge ${dir}">${ICON_TRIANGLE}${diff > 0 ? "+" : ""}${diff} vs. anterior</span>`;
+  }
+
+  // ---------- dashboard ----------
+  async function fetchPoints() {
+    try {
+      const res = await fetch("/api/points");
+      points = await res.json();
+      renderDashboard();
+      document.getElementById("lastPoll").textContent = "Actualizado hace instantes";
+    } catch (e) {
+      document.getElementById("lastPoll").textContent = "Sin conexión con el servidor";
+    }
+    loadSupplierStockoutBanner();
+  }
+
+  async function loadSupplierStockoutBanner() {
+    const banner = document.getElementById("supplierStockoutBanner");
+    try {
+      const res = await fetch("/api/supplier-stockouts");
+      const list = res.ok ? await res.json() : [];
+      if (!list.length) {
+        banner.style.display = "none";
+        return;
+      }
+      banner.style.display = "flex";
+      banner.innerHTML = `
+        ${ICON_PRIORITY}
+        <div class="supplier-stockout-text">
+          <strong>${list.length} producto${list.length === 1 ? "" : "s"} en quiebre de proveedor</strong>
+          <span>${list.slice(0, 5).map((s) => `${escapeHtml(s.product_title)} (${escapeHtml(s.point_name)})`).join(" · ")}${list.length > 5 ? "…" : ""}</span>
+        </div>`;
+    } catch (e) {
+      banner.style.display = "none";
+    }
+  }
+
+  function renderDashboard() {
+    const total = points.length;
+    const live = points.filter((p) => p.latest && isLive(p.latest.created_at)).length;
+    const readingsTotal = points.reduce((s, p) => s + (p.readings_count || 0), 0);
+    const facingsVals = points.filter((p) => p.latest).map((p) => p.latest.total_facings || 0);
+    const avg = facingsVals.length ? Math.round(facingsVals.reduce((a, b) => a + b, 0) / facingsVals.length) : 0;
+
+    document.getElementById("kpiPoints").textContent = total;
+    document.getElementById("kpiLive").textContent = live;
+    document.getElementById("kpiReadings").textContent = readingsTotal;
+    document.getElementById("kpiAvg").textContent = avg;
+
+    const complianceVals = points.filter((p) => p.latest && p.latest.compliance && p.latest.compliance.compliance_pct != null)
+      .map((p) => p.latest.compliance.compliance_pct);
+    const kpiPlanogramTile = document.getElementById("kpiPlanogramTile");
+    if (complianceVals.length) {
+      const avgCompliance = complianceVals.reduce((a, b) => a + b, 0) / complianceVals.length;
+      kpiPlanogramTile.style.display = "flex";
+      document.getElementById("kpiPlanogram").textContent = avgCompliance.toFixed(0) + "%";
+    } else {
+      kpiPlanogramTile.style.display = "none";
+    }
+
+    const standardsVals = points.filter((p) => p.latest && p.latest.standards && p.latest.standards.overall_score != null)
+      .map((p) => p.latest.standards.overall_score);
+    const kpiStandardsTile = document.getElementById("kpiStandardsTile");
+    if (standardsVals.length) {
+      const avgStandards = standardsVals.reduce((a, b) => a + b, 0) / standardsVals.length;
+      kpiStandardsTile.style.display = "flex";
+      document.getElementById("kpiStandards").textContent = avgStandards.toFixed(0);
+    } else {
+      kpiStandardsTile.style.display = "none";
+    }
+
+    const grid = document.getElementById("pointGrid");
+    if (!total) {
+      grid.innerHTML = `<div class="empty-state">${ICON_EMPTY}<p>Todavía no hay puntos de venta. Crea el primero con "Nuevo punto".</p></div>`;
+      return;
+    }
+
+    grid.innerHTML = "";
+    points.forEach((p) => {
+      const live = p.latest && isLive(p.latest.created_at);
+      const card = document.createElement("div");
+      card.className = "point-card view-fade";
+      card.addEventListener("click", () => openPoint(p.id));
+
+      let statsHtml = `<div class="point-empty">Sin lecturas todavía — abre el punto para agregar la primera foto.</div>`;
+      let barsHtml = "";
+      let thumbHtml = "";
+      let trendHtml = "";
+      if (p.latest) {
+        const urls = p.latest.image_urls || [];
+        if (urls.length) {
+          const badge = urls.length > 1 ? `<span class="photo-count-badge">${ICON_LAYERS}${urls.length}</span>` : "";
+          thumbHtml = `<div class="point-thumb-wrap"><img class="point-thumb" src="${urls[0]}" alt="Última foto de ${escapeHtml(p.name)}" loading="lazy" />${badge}</div>`;
+        }
+        const cats = (p.latest.categories || []).slice().sort((a, b) => (b.share_pct ?? 0) - (a.share_pct ?? 0)).slice(0, 3);
+        const compliancePct = p.latest.compliance ? p.latest.compliance.compliance_pct : null;
+        const standardsScore = p.latest.standards ? p.latest.standards.overall_score : null;
+        statsHtml = `
+          <div class="point-stats">
+            ${standardsScore != null ? `<div class="point-stat"><div class="v" style="color:${p.latest.standards.grade_color || 'inherit'};">${standardsScore}</div><div class="l">Rendimiento</div></div>` : ""}
+            <div class="point-stat"><div class="v">${p.latest.total_facings ?? "–"}</div><div class="l">Caras</div></div>
+            <div class="point-stat"><div class="v">${(p.latest.products || []).length}</div><div class="l">Productos</div></div>
+            ${compliancePct != null ? `<div class="point-stat"><div class="v">${compliancePct.toFixed(0)}%</div><div class="l">Planograma</div></div>` : `<div class="point-stat"><div class="v">${(p.latest.categories || []).length}</div><div class="l">Categorías</div></div>`}
+          </div>`;
+        barsHtml = `<div class="mini-bars">${cats.map((c) => `
+            <div class="mini-bar-row">
+              <div class="mini-bar-label" title="${escapeHtml(c.category)}">${escapeHtml(c.category)}</div>
+              <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${Math.max(c.share_pct ?? 0, 0)}%;"></div></div>
+              <div class="mini-bar-pct">${(c.share_pct ?? 0).toFixed(0)}%</div>
+            </div>`).join("")}</div>`;
+        const spark = sparklineSvg(p.recent_facings);
+        if (spark) trendHtml = `<div class="trend-row">${spark}${deltaBadge(p.recent_facings)}</div>`;
+      }
+
+      card.innerHTML = `
+        <div class="row-top">
+          <span class="point-code">${escapeHtml(p.id)}</span>
+          <span class="status-pill ${live ? "live" : "stale"}"><span class="dot"></span>${live ? "En vivo" : relativeTime(p.latest ? p.latest.created_at : null)}</span>
+        </div>
+        <div class="point-name">${escapeHtml(p.name)}</div>
+        ${p.planogram_name ? `<div class="point-planogram-badge">${escapeHtml(p.planogram_name)}</div>` : ""}
+        ${thumbHtml}
+        ${statsHtml}
+        ${trendHtml}
+        ${barsHtml}
+        <div class="point-footer">
+          <span>${p.readings_count} lectura${p.readings_count === 1 ? "" : "s"}</span>
+          <span class="go">Ver detalle ${ICON_ARROW}</span>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  // ---------- detail ----------
+  async function openPoint(pointId) {
+    dashboardView.style.display = "none";
+    detailView.style.display = "block";
+    detailView.classList.add("view-fade");
+    backBtn.style.display = "flex";
+    location.hash = pointId;
+    resetCapture();
+    switchTab("resumen");
+    await loadPointDetail(pointId);
+  }
+
+  function closeDetail() {
+    if (typeof closeCamera === "function") closeCamera();
+    detailView.style.display = "none";
+    dashboardView.style.display = "block";
+    dashboardView.classList.add("view-fade");
+    backBtn.style.display = "none";
+    currentPoint = null;
+    currentReadingId = null;
+    history.replaceState(null, "", location.pathname);
+    fetchPoints();
+  }
+
+  async function loadPointDetail(pointId) {
+    const res = await fetch(`/api/points/${encodeURIComponent(pointId)}`);
+    if (!res.ok) { closeDetail(); return; }
+    currentPoint = await res.json();
+
+    document.getElementById("detailName").textContent = currentPoint.name;
+    document.getElementById("detailCode").textContent = currentPoint.id;
+    document.getElementById("exportPointBtn").href = `/api/points/${encodeURIComponent(currentPoint.id)}/export.csv`;
+    const latest = currentPoint.readings[0];
+    document.getElementById("detailStatus").textContent = latest
+      ? (isLive(latest.created_at) ? "En vivo" : "Última lectura " + relativeTime(latest.created_at))
+      : "Sin lecturas";
+
+    if (!planograms.length) await fetchPlanograms();
+    const planogramSelect = document.getElementById("detailPlanogramSelect");
+    planogramSelect.innerHTML = `<option value="">Sin planograma — análisis libre</option>` + planogramOptionsHtml(currentPoint.planogram_id);
+
+    await loadSupplierStockouts(pointId);
+    loadStockActions(pointId);
+
+    renderHistory();
+    if (currentPoint.readings.length) {
+      selectReading(currentReadingId && currentPoint.readings.some(r => r.id === currentReadingId) ? currentReadingId : currentPoint.readings[0].id);
+    } else {
+      renderReading(null);
+    }
+    loadDailyMetrics(pointId);
+    loadReplenishment(pointId);
+  }
+
+  // ---------- quiebre de proveedor y solicitudes/ajustes ----------
+  async function loadSupplierStockouts(pointId) {
+    try {
+      const res = await fetch(`/api/points/${encodeURIComponent(pointId)}/supplier-stockouts`);
+      const list = res.ok ? await res.json() : [];
+      currentSupplierStockoutIds = new Set(list.map((s) => s.planogram_item_id));
+      if (window.setSupplierStockoutIds) window.setSupplierStockoutIds(currentSupplierStockoutIds);
+    } catch (e) {
+      currentSupplierStockoutIds = new Set();
+    }
+  }
+
+  async function loadStockActions(pointId) {
+    const card = document.getElementById("stockActionsCard");
+    const list = document.getElementById("stockActionsList");
+    try {
+      const res = await fetch(`/api/points/${encodeURIComponent(pointId)}/stock-actions`);
+      const actions = res.ok ? await res.json() : [];
+      if (!actions.length) {
+        card.style.display = "none";
+        return;
+      }
+      card.style.display = "block";
+      list.innerHTML = actions.map((a) => `
+        <div class="replen-item">
+          <div>
+            <div class="name">${escapeHtml(a.product_title)}<span class="tag-badge" style="background:${a.action_type === "ajuste_robo" ? "#9a2020" : "#0a0a0a"};">${a.action_type === "ajuste_robo" ? "Ajuste robo" : "Solicitud"}</span></div>
+            <div class="meta">${a.quantity} unidad${a.quantity === 1 ? "" : "es"} · pedido por ${escapeHtml(a.created_by || "—")} · ${relativeTime(a.created_at)}${a.note ? " · " + escapeHtml(a.note) : ""}</div>
+          </div>
+          <button class="mini-btn" data-resolve-action="${a.id}">Resolver</button>
+        </div>`).join("");
+    } catch (e) {
+      card.style.display = "none";
+    }
+  }
+
+  document.getElementById("stockActionsList").addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-resolve-action]");
+    if (!btn || !currentPoint) return;
+    await fetch(`/api/stock-actions/${btn.dataset.resolveAction}/resolve`, { method: "POST" });
+    loadStockActions(currentPoint.id);
+  });
+
+  document.getElementById("planogramDetailTable").addEventListener("click", async (e) => {
+    const btn = e.target.closest("button[data-action]");
+    if (!btn || !currentPoint) return;
+    const row = btn.closest("tr");
+    const qtyInput = row.querySelector("input[data-role='qty']");
+    const qty = qtyInput ? parseInt(qtyInput.value, 10) || 1 : 1;
+    const itemId = btn.dataset.itemId ? parseInt(btn.dataset.itemId, 10) : null;
+    const title = btn.dataset.title;
+
+    btn.disabled = true;
+    try {
+      if (btn.dataset.action === "proveedor") {
+        await fetch(`/api/points/${encodeURIComponent(currentPoint.id)}/supplier-stockouts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ planogram_item_id: itemId, product_title: title }),
+        });
+        await loadSupplierStockouts(currentPoint.id);
+        const reading = currentPoint.readings.find((r) => r.id === currentReadingId);
+        renderPlanogramDetailTable(reading ? reading.compliance : null);
+        if (window.render3DShelf) window.render3DShelf(reading);
+      } else {
+        await fetch(`/api/points/${encodeURIComponent(currentPoint.id)}/stock-actions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ planogram_item_id: itemId, product_title: title, action_type: btn.dataset.action, quantity: qty }),
+        });
+        loadStockActions(currentPoint.id);
+      }
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  function renderHistory() {
+    const list = document.getElementById("historyList");
+    if (!currentPoint.readings.length) {
+      list.innerHTML = `<div class="point-empty">Todavía no hay lecturas para este punto.</div>`;
+      return;
+    }
+    list.innerHTML = "";
+    currentPoint.readings.forEach((r) => {
+      const item = document.createElement("div");
+      item.className = "history-item" + (r.id === currentReadingId ? " active" : "");
+      const urls = r.image_urls || [];
+      const badge = urls.length > 1 ? `<span class="history-multi-badge">${urls.length}</span>` : "";
+      const thumb = urls.length
+        ? `<div class="history-thumb-wrap"><img class="history-thumb" src="${urls[0]}" alt="Foto lectura ${r.id}" loading="lazy" />${badge}</div>`
+        : `<div class="history-thumb placeholder">${ICON_EMPTY}</div>`;
+      item.innerHTML = `
+        ${thumb}
+        <div class="history-info">
+          <span class="t">${relativeTime(r.created_at)}</span>
+          <span class="n">${r.total_facings ?? "–"} caras · ${(r.products || []).length} productos</span>
+        </div>
+      `;
+      item.addEventListener("click", () => selectReading(r.id));
+      list.appendChild(item);
+    });
+  }
+
+  function selectReading(readingId) {
+    currentReadingId = readingId;
+    renderHistory();
+    const reading = currentPoint.readings.find((r) => r.id === readingId);
+    renderReading(reading);
+  }
+
+  const STATUS_RANK = { ok: 0, low: 1, missing: 2, foreign: 3 };
+
+  function mergeDuplicateProducts(products) {
+    const groups = new Map();
+    const order = [];
+    products.forEach((p) => {
+      const key = (p.product || "").trim().toLowerCase() + "|" + (p.brand || "").trim().toLowerCase();
+      const unitsEst = (p.facings || 0) * (p.estimated_depth || 1);
+      if (!groups.has(key)) {
+        groups.set(key, { ...p, facings: p.facings || 0, _unitsEst: unitsEst, _mergedCount: 1 });
+        order.push(key);
+      } else {
+        const g = groups.get(key);
+        g.facings += p.facings || 0;
+        g._unitsEst += unitsEst;
+        g._mergedCount += 1;
+        g.out_of_stock = g.out_of_stock || p.out_of_stock;
+        const curRank = STATUS_RANK[g.planogram_status] ?? 4;
+        const newRank = STATUS_RANK[p.planogram_status] ?? 4;
+        if (newRank < curRank) { g.planogram_status = p.planogram_status; g.planogram_tag = p.planogram_tag; }
+      }
+    });
+    return order.map((key) => {
+      const g = groups.get(key);
+      g.estimated_depth = g._mergedCount > 1 ? Math.round(g._unitsEst / Math.max(g.facings, 1)) : g.estimated_depth;
+      return g;
+    });
+  }
+
+  function renderPlanogramDetailTable(compliance) {
+    const card = document.getElementById("planogramDetailCard");
+    const tbody = document.getElementById("planogramDetailTable");
+    if (!compliance || !compliance.items || !compliance.items.length) {
+      card.style.display = "none";
+      return;
+    }
+    card.style.display = "block";
+    const rows = compliance.items.slice().sort((a, b) => (a.band - b.band) || (a.position_in_section - b.position_in_section));
+    tbody.innerHTML = rows.map((it) => {
+      const statusLabel = it.status === "ok" ? "Cumple" : it.status === "low" ? "Bajo lo esperado" : "Quiebre";
+      const isSupplier = currentSupplierStockoutIds.has(it.planogram_item_id) && it.status !== "ok";
+      const misplacedChip = it.orden_incorrecto ? `<span class="status-chip misplaced">Mal ubicado</span>` : "";
+      const supplierChip = isSupplier ? `<span class="status-chip supplier">Quiebre proveedor</span>` : "";
+      const penalizacion = it.status === "ok" && !it.orden_incorrecto
+        ? `<span class="row-dim">—</span>`
+        : (it.deficit_value_clp != null ? formatClp(it.deficit_value_clp) : (it.deficit > 0 ? `${it.deficit} cara${it.deficit === 1 ? "" : "s"}` : "—"));
+      const priceTagCell = it.price_tag_visible == null
+        ? `<span class="row-dim">—</span>`
+        : it.price_tag_visible
+          ? `<span class="status-chip ok">Sí</span>`
+          : `<span class="status-chip missing">No</span>`;
+      const actionsCell = it.status === "ok"
+        ? `<span class="row-dim">—</span>`
+        : `<div class="row-actions">
+            <input type="number" min="1" value="${Math.max(1, it.deficit || 1)}" class="qty-input" data-role="qty" />
+            <button class="mini-btn" data-action="solicitud" data-item-id="${it.planogram_item_id}" data-title="${escapeHtml(it.title)}" title="Solicitar reposición">Solicitar</button>
+            <button class="mini-btn" data-action="ajuste_robo" data-item-id="${it.planogram_item_id}" data-title="${escapeHtml(it.title)}" title="Ajustar por robo">Robo</button>
+            ${!isSupplier ? `<button class="mini-btn warn" data-action="proveedor" data-item-id="${it.planogram_item_id}" data-title="${escapeHtml(it.title)}" title="Marcar quiebre de proveedor">Proveedor</button>` : ""}
+          </div>`;
+      return `<tr>
+        <td class="num">${it.band}</td>
+        <td class="num">${it.position_in_section}</td>
+        <td>${escapeHtml(it.title)}${it.tag ? `<span class="tag-badge">${escapeHtml(it.tag)}</span>` : ""}</td>
+        <td><span class="status-chip ${it.status}">${statusLabel}</span>${misplacedChip}${supplierChip}</td>
+        <td class="num">${it.expected_facings}</td>
+        <td class="num">${it.detected_facings}</td>
+        <td class="num">${priceTagCell}</td>
+        <td class="num">${penalizacion}</td>
+        <td>${actionsCell}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  function renderReading(reading) {
+    const products = reading ? (reading.products || []) : [];
+    const categories = reading ? (reading.categories || []) : [];
+    const urls = reading ? (reading.image_urls || []) : [];
+
+    const photoCard = document.getElementById("photoCard");
+    const readingPhoto = document.getElementById("readingPhoto");
+    const readingPhotoCount = document.getElementById("readingPhotoCount");
+    const readingPhotoNav = document.getElementById("readingPhotoNav");
+    if (urls.length) {
+      readingPhoto.src = urls[0];
+      photoCard.style.display = "block";
+      if (urls.length > 1) {
+        readingPhotoCount.style.display = "block";
+        readingPhotoCount.textContent = `1 / ${urls.length}`;
+        readingPhotoNav.innerHTML = "";
+        urls.forEach((u, i) => {
+          const thumb = document.createElement("img");
+          thumb.src = u;
+          thumb.className = i === 0 ? "active" : "";
+          thumb.addEventListener("click", () => {
+            readingPhoto.src = u;
+            readingPhotoCount.textContent = `${i + 1} / ${urls.length}`;
+            readingPhotoNav.querySelectorAll("img").forEach((el) => el.classList.remove("active"));
+            thumb.classList.add("active");
+          });
+          readingPhotoNav.appendChild(thumb);
+        });
+      } else {
+        readingPhotoCount.style.display = "none";
+        readingPhotoNav.innerHTML = "";
+      }
+    } else {
+      photoCard.style.display = "none";
+    }
+
+    renderStandardsCard(reading);
+
+    document.getElementById("statTotalFacings").textContent = reading ? (reading.total_facings ?? "–") : "–";
+    document.getElementById("statProducts").textContent = products.length;
+    document.getElementById("statCategories").textContent = categories.length;
+    document.getElementById("statLevels").textContent = reading ? (reading.shelf_levels_detected ?? "–") : "–";
+    document.getElementById("statEmpty").textContent = reading && reading.empty_space_pct != null ? `${reading.empty_space_pct.toFixed ? reading.empty_space_pct.toFixed(0) : reading.empty_space_pct}%` : "–";
+    document.getElementById("statPerMeter").textContent = reading && reading.facings_per_linear_meter != null ? reading.facings_per_linear_meter : "–";
+    document.getElementById("statUnits").textContent = reading && reading.total_units_estimate != null ? reading.total_units_estimate : "–";
+    document.getElementById("statArea").textContent = reading && reading.display_area_m2 != null ? `${reading.display_area_m2} m²` : "–";
+    document.getElementById("notesMsg").textContent = reading ? (reading.notes || "") : "";
+
+    const chart = document.getElementById("categoryChart");
+    chart.innerHTML = "";
+    categories.slice().sort((a, b) => (b.share_pct ?? 0) - (a.share_pct ?? 0)).forEach((cat) => {
+      const row = document.createElement("div");
+      row.className = "bar-row";
+      row.innerHTML = `
+        <div class="bar-label" title="${escapeHtml(cat.category)}">${escapeHtml(cat.category)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${Math.max(cat.share_pct ?? 0, 0)}%;"></div></div>
+        <div class="bar-value">${(cat.share_pct ?? 0).toFixed(1)}% · ${cat.total_facings ?? 0}</div>
+      `;
+      chart.appendChild(row);
+    });
+    if (!categories.length) chart.innerHTML = `<div class="point-empty">Sube una foto para ver el desglose por categoría.</div>`;
+
+    const tbody = document.getElementById("productsTable");
+    tbody.innerHTML = "";
+    mergeDuplicateProducts(products).sort((a, b) => (b.facings ?? 0) - (a.facings ?? 0)).forEach((p) => {
+      const tr = document.createElement("tr");
+      const oosFlag = p.out_of_stock ? ` <span class="oos-flag" title="Quiebre de stock detectado">${ICON_WARNING}</span>` : "";
+      const foreignFlag = p.planogram_status === "foreign" ? ` <span class="oos-flag" title="Fuera de este planograma">${ICON_FOREIGN}</span>` : "";
+      const dupFlag = p._mergedCount > 1 ? ` <span class="tag-badge" title="Se detectó ${p._mergedCount} veces y se fusionó en una sola fila">×${p._mergedCount}</span>` : "";
+      const depth = p.estimated_depth || 1;
+      const unitsEst = p._unitsEst != null ? p._unitsEst : (p.facings ?? 0) * depth;
+      tr.innerHTML = `<td>${escapeHtml(p.product)}${oosFlag}${foreignFlag}${dupFlag}</td><td>${escapeHtml(p.brand || "—")}</td><td>${escapeHtml(p.category)}</td><td class="num">${p.shelf_level ?? "—"}</td><td class="num">${p.facings ?? 0}</td><td class="num">${depth}</td><td class="num">${unitsEst}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    renderComplianceCard(reading);
+    renderPlanogramDetailTable(reading ? reading.compliance : null);
+
+    const shelf3dCard = document.getElementById("shelf3dCard");
+    const tabBtn3D = document.getElementById("tabBtn3D");
+    if (products.length) {
+      shelf3dCard.style.display = "block";
+      tabBtn3D.style.display = "flex";
+      if (window.render3DShelf) window.render3DShelf(reading);
+    } else {
+      shelf3dCard.style.display = "none";
+      tabBtn3D.style.display = "none";
+    }
+
+    document.getElementById("tabBtnCumplimiento").style.display = reading && reading.compliance ? "flex" : "none";
+    renderDetailKpiStrip(reading);
+  }
+
+  function renderDetailKpiStrip(reading) {
+    const strip = document.getElementById("detailKpiStrip");
+    const compliance = reading ? reading.compliance : null;
+    if (!compliance) {
+      strip.style.display = "none";
+      strip.innerHTML = "";
+      return;
+    }
+    strip.style.display = "grid";
+    const pct = compliance.compliance_pct ?? 0;
+    const scoreClass = pct >= 90 ? "ok" : pct >= 60 ? "warn" : "bad";
+    const ptPct = compliance.price_tag_compliance_pct;
+    const ptTarget = compliance.price_tag_target_pct ?? 95;
+    const ptClass = ptPct == null ? "" : ptPct >= ptTarget ? "ok" : ptPct >= ptTarget - 15 ? "warn" : "bad";
+    strip.innerHTML = `
+      <div class="kpi-chip"><div class="v ${scoreClass}">${pct.toFixed(0)}%</div><div class="l">Cumplimiento</div></div>
+      <div class="kpi-chip"><div class="v">${formatClp(compliance.impact_clp)}</div><div class="l">Impacto quiebre</div></div>
+      <div class="kpi-chip"><div class="v">${formatClp(compliance.inventory_value_clp)}</div><div class="l">Valor inventario</div></div>
+      <div class="kpi-chip"><div class="v ${ptClass}">${ptPct != null ? ptPct.toFixed(0) + "%" : "—"}</div><div class="l">Rótulo precio</div></div>
+    `;
+  }
+
+  // ---------- cumplimiento de planograma ----------
+  const ICON_FOREIGN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>';
+  const ICON_PRIORITY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 16.5h.01M10.4 3.6 2.7 17a1.6 1.6 0 0 0 1.4 2.4h15.8a1.6 1.6 0 0 0 1.4-2.4L13.6 3.6a1.6 1.6 0 0 0-2.8 0Z"/></svg>';
+
+  function formatClp(value) {
+    if (value == null) return "—";
+    return "$" + Math.round(value).toLocaleString("es-CL");
+  }
+
+  const STANDARDS_SUBSCORE_LABELS = {
+    stock: "Disponibilidad", space: "Exhibición", price: "Rótulos de precio", organization: "Organización",
+  };
+  const STANDARDS_SUBSCORE_ICONS = {
+    stock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7 12 3 4 7m16 0v10l-8 4m8-14-8 4m0 10-8-4V7m8 4v10"/></svg>',
+    space: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h13A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-9Z"/><path d="M4 12h16"/></svg>',
+    price: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+    organization: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>',
+  };
+
+  function standardsDotColor(score) {
+    if (score == null) return "#c7c7c7";
+    if (score >= 90) return "#16a34a";
+    if (score >= 75) return "#65a30d";
+    if (score >= 55) return "#d97706";
+    return "#dc2626";
+  }
+
+  function renderStandardsCard(reading) {
+    const card = document.getElementById("standardsCard");
+    const standards = reading ? reading.standards : null;
+    if (!standards || standards.overall_score == null) {
+      card.style.display = "none";
+      return;
+    }
+    card.style.display = "block";
+
+    const gauge = document.getElementById("standardsGauge");
+    gauge.style.setProperty("--pct", standards.overall_score);
+    gauge.style.setProperty("--grade-color", standards.grade_color || "#9ca3af");
+
+    document.getElementById("standardsScoreValue").textContent = standards.overall_score;
+    const gradeEl = document.getElementById("standardsGrade");
+    gradeEl.textContent = standards.grade || "—";
+    gradeEl.style.setProperty("--grade-color-text", standards.grade_color || "var(--ink)");
+
+    const subEl = document.getElementById("standardsSubscores");
+    subEl.innerHTML = ["stock", "space", "price", "organization"].map((key) => {
+      const val = standards[`${key}_score`];
+      if (val == null) return "";
+      return `<div class="standards-subscore">
+        <span class="dot" style="background:${standardsDotColor(val)};"></span>
+        ${STANDARDS_SUBSCORE_LABELS[key]} <span class="n">${val}</span>
+      </div>`;
+    }).join("");
+
+    const findingsEl = document.getElementById("standardsFindings");
+    findingsEl.innerHTML = (standards.findings || []).map((f) => `
+      <div class="standards-finding">${f.startsWith("Sin hallazgos") ? ICON_CHECK : ICON_WARNING}<span>${escapeHtml(f)}</span></div>
+    `).join("");
+  }
+
+  function renderComplianceCard(reading) {
+    const card = document.getElementById("complianceCard");
+    const compliance = reading ? reading.compliance : null;
+    const legend = document.getElementById("shelf3dLegend");
+    if (!compliance) {
+      card.style.display = "none";
+      currentCompliancePlanogramId = null;
+      legend.innerHTML = `<span><span class="swatch ghost"></span>Quiebre de stock</span>`;
+      return;
+    }
+    card.style.display = "block";
+    currentCompliancePlanogramId = compliance.planogram_id;
+    legend.innerHTML = `
+      <span><span class="swatch ghost"></span>Quiebre</span>
+      <span><span class="swatch low"></span>Bajo lo esperado</span>
+      <span><span class="swatch supplier"></span>Quiebre de proveedor</span>
+      <span><span class="swatch misplaced-marker"></span>Mal ubicado</span>
+    `;
+
+    const pct = compliance.compliance_pct ?? 0;
+    const scoreClass = pct >= 90 ? "ok" : pct >= 60 ? "warn" : "bad";
+    const impactNote = compliance.items_missing_price
+      ? `${compliance.items_missing_price} posiciones sin precio cargado — impacto parcial`
+      : "Impacto calculado sobre todas las posiciones";
+
+    const ptPct = compliance.price_tag_compliance_pct;
+    const ptTarget = compliance.price_tag_target_pct ?? 95;
+    const ptClass = ptPct == null ? "" : ptPct >= ptTarget ? "ok" : ptPct >= ptTarget - 15 ? "warn" : "bad";
+
+    document.getElementById("complianceHead").innerHTML = `
+      <div class="compliance-score ${scoreClass}">
+        <div class="v">${pct.toFixed ? pct.toFixed(0) : pct}%</div>
+        <div class="l">Cumplimiento</div>
+      </div>
+      <div class="compliance-score ${ptClass}">
+        <div class="v">${ptPct != null ? ptPct.toFixed(0) + "%" : "—"}</div>
+        <div class="l">Rótulo precio (meta ${ptTarget}%)</div>
+      </div>
+      <div class="compliance-impact">
+        <div class="v">${formatClp(compliance.impact_clp)}</div>
+        <div class="l">Impacto estimado en $ por quiebre vs. ${escapeHtml(compliance.planogram_name)}</div>
+        <div class="note">${escapeHtml(impactNote)}</div>
+      </div>
+    `;
+
+    const invEl = document.getElementById("complianceInventoryValue");
+    if (compliance.inventory_value_clp != null) {
+      const invNote = compliance.inventory_items_missing_price
+        ? `${compliance.inventory_items_missing_price} posiciones con producto detectado pero sin precio — valor parcial`
+        : "Precios auto-detectados por OCR del rótulo (o cargados a mano)";
+      invEl.innerHTML = `
+        <div class="inv-value-label">Valor de inventario en esta percha</div>
+        <div class="inv-value-amount">${formatClp(compliance.inventory_value_clp)}</div>
+        <div class="inv-value-note">${escapeHtml(invNote)}</div>
+      `;
+    } else {
+      invEl.innerHTML = "";
+    }
+
+    const banner = document.getElementById("compliancePriorityBanner");
+    if (compliance.priority_breaches && compliance.priority_breaches.length) {
+      banner.style.display = "flex";
+      banner.innerHTML = `${ICON_PRIORITY}<span>${compliance.priority_breaches.length} producto${compliance.priority_breaches.length === 1 ? "" : "s"} TOP/Lanzamiento en quiebre: ${compliance.priority_breaches.slice(0, 4).map((b) => escapeHtml(b.title)).join(", ")}${compliance.priority_breaches.length > 4 ? "…" : ""}</span>`;
+    } else {
+      banner.style.display = "none";
+      banner.innerHTML = "";
+    }
+
+    const bandBars = document.getElementById("complianceBandBars");
+    bandBars.innerHTML = (compliance.band_summary || []).map((b) => `
+      <div class="compliance-band-tile">
+        <div class="v">${b.compliance_pct != null ? b.compliance_pct.toFixed(0) + "%" : "–"}</div>
+        <div class="l">Nivel ${b.band}</div>
+      </div>`).join("");
+
+    const replenEl = document.getElementById("complianceReplenishment");
+    if (!compliance.replenishment || !compliance.replenishment.length) {
+      replenEl.innerHTML = `<div class="point-empty">Sin faltantes detectados contra el planograma. ${ICON_CHECK}</div>`;
+    } else {
+      replenEl.innerHTML = compliance.replenishment.map((r) => `
+        <div class="replen-item ${r.tag ? "priority" : ""}">
+          <div>
+            <div class="name">${escapeHtml(r.title)}${r.tag ? `<span class="tag-badge">${escapeHtml(r.tag)}</span>` : ""}</div>
+            <div class="meta">Nivel ${r.band} · posición ${r.position_in_section} · repón ${r.deficit} cara${r.deficit === 1 ? "" : "s"}${r.deficit_value_clp != null ? " · " + formatClp(r.deficit_value_clp) : ""}</div>
+          </div>
+          <div class="replen-urgency">${r.status === "missing" ? "Quiebre" : "Parcial"}</div>
+        </div>`).join("");
+    }
+
+    const misplacedWrap = document.getElementById("complianceMisplacedWrap");
+    const misplacedEl = document.getElementById("complianceMisplaced");
+    if (compliance.misplaced_items && compliance.misplaced_items.length) {
+      misplacedWrap.style.display = "block";
+      misplacedEl.innerHTML = compliance.misplaced_items.map((m) => `
+        <div class="foreign-item">
+          <div>
+            <div class="name">${escapeHtml(m.title)}${m.tag ? `<span class="tag-badge">${escapeHtml(m.tag)}</span>` : ""}</div>
+            <div class="meta">Nivel ${m.band} · va en la posición ${m.position_in_section} del planograma, pero se detectó fuera de esa secuencia</div>
+          </div>
+        </div>`).join("");
+    } else {
+      misplacedWrap.style.display = "none";
+      misplacedEl.innerHTML = "";
+    }
+
+    const foreignWrap = document.getElementById("complianceForeignWrap");
+    const foreignEl = document.getElementById("complianceForeign");
+    if (compliance.foreign_products && compliance.foreign_products.length) {
+      foreignWrap.style.display = "block";
+      foreignEl.innerHTML = compliance.foreign_products.map((f) => `
+        <div class="foreign-item">
+          <div>
+            <div class="name">${escapeHtml(f.product)}</div>
+            <div class="meta">${escapeHtml(f.brand || "")} · nivel ${f.shelf_level ?? "—"} · confianza ${escapeHtml(f.confidence_fuera_de_planograma)}</div>
+          </div>
+        </div>`).join("");
+    } else {
+      foreignWrap.style.display = "none";
+      foreignEl.innerHTML = "";
+    }
+
+    const missingTagsWrap = document.getElementById("complianceMissingTagsWrap");
+    const missingTagsEl = document.getElementById("complianceMissingTags");
+    if (compliance.missing_price_tags && compliance.missing_price_tags.length) {
+      missingTagsWrap.style.display = "block";
+      missingTagsEl.innerHTML = compliance.missing_price_tags.map((m) => `
+        <div class="foreign-item">
+          <div>
+            <div class="name">${escapeHtml(m.title)}${m.tag ? `<span class="tag-badge">${escapeHtml(m.tag)}</span>` : ""}</div>
+            <div class="meta">Nivel ${m.band} · posición ${m.position_in_section}</div>
+          </div>
+        </div>`).join("");
+    } else {
+      missingTagsWrap.style.display = "none";
+      missingTagsEl.innerHTML = "";
+    }
+  }
+
+  // ---------- editor de precios del planograma ----------
+  const pricesModalBackdrop = document.getElementById("pricesModalBackdrop");
+  const pricesStatus = document.getElementById("pricesStatus");
+
+  document.getElementById("editPricesBtn").addEventListener("click", async () => {
+    if (!currentCompliancePlanogramId) return;
+    pricesStatus.innerHTML = `${ICON_SPINNER} Cargando planograma…`;
+    pricesStatus.classList.remove("error");
+    document.getElementById("pricesList").innerHTML = "";
+    pricesModalBackdrop.style.display = "flex";
+    try {
+      const res = await fetch(`/api/planograms/${encodeURIComponent(currentCompliancePlanogramId)}`);
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const pg = await res.json();
+      document.getElementById("pricesModalSubtitle").textContent = `— ${pg.name}`;
+      const byBand = {};
+      pg.items.forEach((it) => {
+        (byBand[it.band] = byBand[it.band] || []).push(it);
+      });
+      const list = document.getElementById("pricesList");
+      list.innerHTML = Object.keys(byBand).sort((a, b) => a - b).map((band) => `
+        <div class="price-band-group">
+          <div class="price-band-title">Nivel ${band}</div>
+          ${byBand[band].map((it) => `
+            <div class="price-row">
+              <div class="name">${escapeHtml(it.title)}${it.tag ? `<span class="tag-badge">${escapeHtml(it.tag)}</span>` : ""}${it.price_source === "ocr" ? `<span class="tag-badge" style="background:#2f6fb0;" title="Detectado automáticamente por OCR del rótulo">OCR</span>` : ""}</div>
+              <input type="number" min="0" step="1" placeholder="CLP" data-code="${escapeHtml(it.internal_code)}" value="${it.price_clp != null ? Math.round(it.price_clp) : ""}" />
+            </div>`).join("")}
+        </div>`).join("");
+      pricesStatus.innerHTML = "";
+    } catch (e) {
+      pricesStatus.innerHTML = `${ICON_WARNING} No se pudo cargar el planograma: ${escapeHtml(e.message)}`;
+      pricesStatus.classList.add("error");
+    }
+  });
+
+  document.getElementById("closePricesModal").addEventListener("click", () => { pricesModalBackdrop.style.display = "none"; });
+  pricesModalBackdrop.addEventListener("click", (e) => { if (e.target === pricesModalBackdrop) pricesModalBackdrop.style.display = "none"; });
+
+  document.getElementById("pricesSaveBtn").addEventListener("click", async () => {
+    if (!currentCompliancePlanogramId) return;
+    const inputs = document.querySelectorAll("#pricesList input[data-code]");
+    const prices = {};
+    inputs.forEach((inp) => {
+      if (inp.value !== "") prices[inp.dataset.code] = parseFloat(inp.value);
+    });
+    pricesStatus.innerHTML = `${ICON_SPINNER} Guardando…`;
+    pricesStatus.classList.remove("error");
+    try {
+      const res = await fetch(`/api/planograms/${encodeURIComponent(currentCompliancePlanogramId)}/prices`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prices }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `Error ${res.status}`);
+      }
+      pricesStatus.innerHTML = `${ICON_CHECK} Precios guardados.`;
+      if (currentPoint && currentReadingId) {
+        const reading = currentPoint.readings.find((r) => r.id === currentReadingId);
+        if (reading) {
+          const res2 = await fetch(`/api/points/${encodeURIComponent(currentPoint.id)}`);
+          if (res2.ok) {
+            currentPoint = await res2.json();
+            const updated = currentPoint.readings.find((r) => r.id === currentReadingId);
+            renderReading(updated || null);
+          }
+        }
+      }
+      setTimeout(() => { pricesModalBackdrop.style.display = "none"; }, 700);
+    } catch (e) {
+      pricesStatus.innerHTML = `${ICON_WARNING} ${escapeHtml(e.message)}`;
+      pricesStatus.classList.add("error");
+    }
+  });
+
+  // ---------- métricas diarias ----------
+  async function loadDailyMetrics(pointId) {
+    const el = document.getElementById("dailyMetrics");
+    try {
+      const res = await fetch(`/api/points/${encodeURIComponent(pointId)}/daily-metrics`);
+      const days = await res.json();
+      if (!days.length) {
+        el.innerHTML = `<div class="point-empty">Todavía no hay suficientes lecturas para agrupar por día.</div>`;
+        return;
+      }
+      el.innerHTML = `
+        <div class="daily-table-wrap">
+          <table class="daily">
+            <thead><tr><th>Día</th><th>Lecturas</th><th>Caras prom.</th><th>Espacio vacío</th></tr></thead>
+            <tbody>
+              ${days.slice().reverse().map((d) => `
+                <tr>
+                  <td>${escapeHtml(d.date)}</td>
+                  <td>${d.readings}</td>
+                  <td>${d.avg_total_facings ?? "–"}</td>
+                  <td>${d.avg_empty_space_pct != null ? d.avg_empty_space_pct.toFixed(0) + "%" : "–"}</td>
+                </tr>`).join("")}
+            </tbody>
+          </table>
+        </div>`;
+    } catch (e) {
+      el.innerHTML = `<div class="point-empty">No se pudieron cargar las métricas diarias.</div>`;
+    }
+  }
+
+  // ---------- reabastecimiento ----------
+  async function loadReplenishment(pointId) {
+    const el = document.getElementById("replenishmentBlock");
+    try {
+      const res = await fetch(`/api/points/${encodeURIComponent(pointId)}/replenishment`);
+      const data = await res.json();
+      const avgEmpty = data.avg_empty_space_pct;
+      const delta = data.empty_space_trend_delta;
+      let deltaHtml = "";
+      if (delta != null && delta !== 0) {
+        const dir = delta > 0 ? "down" : "up";
+        deltaHtml = `<span class="delta-badge ${dir}">${ICON_TRIANGLE}${delta > 0 ? "+" : ""}${delta} pts</span>`;
+      }
+      let html = `
+        <div class="replen-summary">
+          <div><div class="v">${avgEmpty != null ? avgEmpty.toFixed(0) + "%" : "–"}</div><div class="l">Espacio vacío prom.</div></div>
+          ${deltaHtml}
+        </div>`;
+      if (!data.recurring_stockouts.length) {
+        html += `<div class="point-empty">Sin quiebres de stock recurrentes detectados en las últimas lecturas.</div>`;
+      } else {
+        html += data.recurring_stockouts.map((r) => `
+          <div class="replen-item">
+            <div>
+              <div class="name">${escapeHtml(r.product)}</div>
+              <div class="meta">${escapeHtml(r.brand || "")} · ${escapeHtml(r.category || "")} · quiebre en ${r.times_out_of_stock}/${r.times_seen} lecturas</div>
+            </div>
+            <div class="replen-urgency">${r.urgency_pct.toFixed(0)}%</div>
+          </div>`).join("");
+      }
+      el.innerHTML = html;
+    } catch (e) {
+      el.innerHTML = `<div class="point-empty">No se pudo cargar el estimado de reabastecimiento.</div>`;
+    }
+  }
+
+  // ---------- capture / analyze (multi-foto) ----------
+  const photoInput = document.getElementById("photoInput");
+  const captureLabel = document.getElementById("captureLabel");
+  const photoStrip = document.getElementById("photoStrip");
+  const analyzeBtn = document.getElementById("analyzeBtn");
+  const analyzeBtnText = document.getElementById("analyzeBtnText");
+  const statusMsg = document.getElementById("statusMsg");
+  let selectedFiles = [];
+  let selectedWidths = []; // metros lineales por foto (null si viene de galería)
+
+  function resetCapture() {
+    selectedFiles = [];
+    selectedWidths = [];
+    photoInput.value = "";
+    statusMsg.innerHTML = "";
+    statusMsg.classList.remove("error");
+    renderPhotoStrip();
+  }
+
+  function renderPhotoStrip() {
+    if (typeof renderCameraShotsStrip === "function") renderCameraShotsStrip();
+    if (!selectedFiles.length) {
+      photoStrip.style.display = "none";
+      captureLabel.style.display = "flex";
+      analyzeBtn.disabled = true;
+      analyzeBtnText.textContent = "Analizar percha";
+      return;
+    }
+    captureLabel.style.display = "none";
+    photoStrip.style.display = "flex";
+    photoStrip.innerHTML = "";
+    selectedFiles.forEach((file, i) => {
+      const item = document.createElement("div");
+      item.className = "photo-strip-item";
+      const img = document.createElement("img");
+      img.src = URL.createObjectURL(file);
+      item.appendChild(img);
+      const badge = document.createElement("span");
+      badge.className = "order-badge";
+      badge.textContent = selectedWidths[i] ? `${i + 1} · ${selectedWidths[i]}m` : i + 1;
+      item.appendChild(badge);
+      const removeBtn = document.createElement("button");
+      removeBtn.className = "remove-btn";
+      removeBtn.innerHTML = ICON_REMOVE;
+      removeBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        selectedFiles.splice(i, 1);
+        selectedWidths.splice(i, 1);
+        renderPhotoStrip();
+      });
+      item.appendChild(removeBtn);
+      photoStrip.appendChild(item);
+    });
+    if (selectedFiles.length < MAX_IMAGES) {
+      const addTile = document.createElement("button");
+      addTile.className = "photo-strip-add";
+      addTile.innerHTML = ICON_PLUS;
+      addTile.title = "Agregar otra foto";
+      addTile.addEventListener("click", () => photoInput.click());
+      photoStrip.appendChild(addTile);
+    }
+    analyzeBtn.disabled = false;
+    analyzeBtnText.textContent = `Analizar percha (${selectedFiles.length} foto${selectedFiles.length === 1 ? "" : "s"})`;
+  }
+
+  photoInput.addEventListener("change", () => {
+    const files = Array.from(photoInput.files || []);
+    for (const f of files) {
+      if (selectedFiles.length >= MAX_IMAGES) break;
+      selectedFiles.push(f);
+      selectedWidths.push(null);
+    }
+    photoInput.value = "";
+    statusMsg.innerHTML = "";
+    statusMsg.classList.remove("error");
+    renderPhotoStrip();
+  });
+
+  analyzeBtn.addEventListener("click", async () => {
+    if (!selectedFiles.length || !currentPoint) return;
+    analyzeBtn.disabled = true;
+    statusMsg.classList.remove("error");
+    statusMsg.innerHTML = `${ICON_SPINNER} Analizando percha…`;
+    analyzeBtn.querySelector("svg").outerHTML = ICON_SPINNER;
+    analyzeBtnText.textContent = "Analizando…";
+
+    const formData = new FormData();
+    selectedFiles.forEach((f) => formData.append("images", f));
+    const totalMeters = selectedWidths.reduce((s, w) => s + (w || 0), 0);
+    if (totalMeters > 0) formData.append("linear_meters", totalMeters.toFixed(2));
+
+    try {
+      const res = await fetch(`/api/points/${encodeURIComponent(currentPoint.id)}/analyze`, { method: "POST", body: formData });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `Error ${res.status}`);
+      }
+      const reading = await res.json();
+      if (!reading || reading.error) throw new Error((reading && reading.detail) || "Error al analizar");
+      statusMsg.innerHTML = `${ICON_CHECK} Análisis completo.`;
+      currentReadingId = reading.id;
+      await loadPointDetail(currentPoint.id);
+      resetCapture();
+    } catch (e) {
+      statusMsg.innerHTML = `${ICON_WARNING} ${escapeHtml(e.message)}`;
+      statusMsg.classList.add("error");
+    } finally {
+      analyzeBtn.disabled = selectedFiles.length === 0;
+      const svg = analyzeBtn.querySelector("svg");
+      if (svg) svg.outerHTML = ICON_SCAN;
+      analyzeBtnText.textContent = selectedFiles.length
+        ? `Analizar percha (${selectedFiles.length} foto${selectedFiles.length === 1 ? "" : "s"})`
+        : "Analizar percha";
+    }
+  });
+
+  // ---------- cámara en vivo ----------
+  const cameraModalBackdrop = document.getElementById("cameraModalBackdrop");
+  const cameraVideo = document.getElementById("cameraVideo");
+  const cameraError = document.getElementById("cameraError");
+  const moduleWidthPicker = document.getElementById("moduleWidthPicker");
+  const guideWidthLabel = document.getElementById("guideWidthLabel");
+  const guideBrandsLabel = document.getElementById("guideBrandsLabel");
+  const guideLineLeft = document.querySelector(".guide-line.left");
+  const guideLineRight = document.querySelector(".guide-line.right");
+  const STANDARD_WIDTHS = [0.9, 1.0, 1.2];
+  const planogramDetailCache = {};
+  let mediaStream = null;
+  let currentModuleWidth = 1.0;
+
+  function insetForWidth(w) {
+    return Math.max(4, Math.min(30, 15 - (w - 1.0) * 25));
+  }
+
+  function updateGuideWidth(w) {
+    const inset = insetForWidth(w);
+    guideLineLeft.style.left = inset + "%";
+    guideLineRight.style.right = inset + "%";
+    guideWidthLabel.textContent = w.toFixed(2).replace(/0$/, "") + " m";
+  }
+
+  function renderWidthPicker(planogramWidthM) {
+    const widths = planogramWidthM && !STANDARD_WIDTHS.some((w) => Math.abs(w - planogramWidthM) < 0.01)
+      ? [planogramWidthM, ...STANDARD_WIDTHS]
+      : STANDARD_WIDTHS;
+    currentModuleWidth = planogramWidthM || 1.0;
+    moduleWidthPicker.innerHTML = widths.map((w) => {
+      const isPlanogramWidth = planogramWidthM && Math.abs(w - planogramWidthM) < 0.01;
+      const active = Math.abs(w - currentModuleWidth) < 0.01;
+      const label = w.toFixed(2).replace(/0$/, "") + " m" + (isPlanogramWidth ? " · planograma" : "");
+      return `<button type="button" data-width="${w}" class="${active ? "active" : ""}">${escapeHtml(label)}</button>`;
+    }).join("");
+    moduleWidthPicker.querySelectorAll("button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        currentModuleWidth = parseFloat(btn.dataset.width);
+        moduleWidthPicker.querySelectorAll("button").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        updateGuideWidth(currentModuleWidth);
+      });
+    });
+    updateGuideWidth(currentModuleWidth);
+  }
+
+  function extractBrandHints(items) {
+    const seen = new Map();
+    items.forEach((it) => {
+      const word = (it.title || "").split(/\s+/)[0].replace(/[.,;:]+$/, "");
+      if (word.length < 3 || /^\d+$/.test(word)) return;
+      seen.set(word, (seen.get(word) || 0) + 1);
+    });
+    return [...seen.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([w]) => w);
+  }
+
+  async function loadPlanogramForCamera() {
+    if (!currentPoint || !currentPoint.planogram_id) return null;
+    const id = currentPoint.planogram_id;
+    if (planogramDetailCache[id]) return planogramDetailCache[id];
+    try {
+      const res = await fetch(`/api/planograms/${encodeURIComponent(id)}`);
+      if (!res.ok) return null;
+      const pg = await res.json();
+      planogramDetailCache[id] = pg;
+      return pg;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function openCamera() {
+    cameraError.style.display = "none";
+    cameraModalBackdrop.style.display = "flex";
+    document.getElementById("cameraShotCount").textContent = selectedFiles.length;
+    renderCameraShotsStrip();
+
+    const pg = await loadPlanogramForCamera();
+    const planogramWidthM = pg && pg.module_cm ? pg.module_cm / 100 : null;
+    renderWidthPicker(planogramWidthM);
+    if (pg && pg.items && pg.items.length) {
+      const brands = extractBrandHints(pg.items);
+      guideBrandsLabel.textContent = brands.length ? `Marcas esperadas: ${brands.join(" · ")}` : "";
+      guideBrandsLabel.classList.toggle("active", brands.length > 0);
+    } else {
+      guideBrandsLabel.textContent = "";
+      guideBrandsLabel.classList.remove("active");
+    }
+
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false,
+      });
+      cameraVideo.srcObject = mediaStream;
+    } catch (e) {
+      cameraError.style.display = "flex";
+      cameraError.innerHTML = `${ICON_WARNING} No se pudo acceder a la cámara (${escapeHtml(e.message || e.name || "permiso denegado")}). Cierra esta ventana y usa "Subir desde galería".`;
+    }
+  }
+
+  function closeCamera() {
+    if (mediaStream) {
+      mediaStream.getTracks().forEach((t) => t.stop());
+      mediaStream = null;
+    }
+    cameraModalBackdrop.style.display = "none";
+  }
+
+  document.getElementById("openCameraBtn").addEventListener("click", openCamera);
+  document.getElementById("closeCameraModal").addEventListener("click", closeCamera);
+  cameraModalBackdrop.addEventListener("click", (e) => { if (e.target === cameraModalBackdrop) closeCamera(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && cameraModalBackdrop.style.display === "flex") closeCamera();
+  });
+
+  const cameraFlash = document.getElementById("cameraFlash");
+  const cameraToast = document.getElementById("cameraToast");
+  const cameraShotsStrip = document.getElementById("cameraShotsStrip");
+  const shutterBtn = document.getElementById("shutterBtn");
+  let cameraToastTimer = null;
+
+  function flashCamera() {
+    cameraFlash.classList.add("active");
+    shutterBtn.classList.add("flashing");
+    setTimeout(() => cameraFlash.classList.remove("active"), 60);
+    setTimeout(() => shutterBtn.classList.remove("flashing"), 120);
+  }
+
+  function showCameraToast(text, isError) {
+    cameraToast.innerHTML = `${isError ? ICON_WARNING : ICON_CHECK} ${escapeHtml(text)}`;
+    cameraToast.classList.add("active");
+    if (cameraToastTimer) clearTimeout(cameraToastTimer);
+    cameraToastTimer = setTimeout(() => cameraToast.classList.remove("active"), 1600);
+  }
+
+  function renderCameraShotsStrip() {
+    if (!selectedFiles.length) {
+      cameraShotsStrip.style.display = "none";
+      return;
+    }
+    cameraShotsStrip.style.display = "flex";
+    cameraShotsStrip.innerHTML = "";
+    selectedFiles.forEach((file) => {
+      const img = document.createElement("img");
+      img.src = URL.createObjectURL(file);
+      cameraShotsStrip.appendChild(img);
+    });
+    cameraShotsStrip.scrollLeft = cameraShotsStrip.scrollWidth;
+  }
+
+  shutterBtn.addEventListener("click", () => {
+    if (selectedFiles.length >= MAX_IMAGES) {
+      showCameraToast(`Ya agregaste el máximo de ${MAX_IMAGES} fotos`, true);
+      return;
+    }
+    if (!cameraVideo.videoWidth) {
+      showCameraToast("La cámara todavía está cargando, espera un segundo", true);
+      return;
+    }
+    flashCamera();
+    const canvas = document.createElement("canvas");
+    canvas.width = cameraVideo.videoWidth;
+    canvas.height = cameraVideo.videoHeight;
+    canvas.getContext("2d").drawImage(cameraVideo, 0, 0);
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        showCameraToast("No se pudo capturar la foto, intenta de nuevo", true);
+        return;
+      }
+      const file = new File([blob], `percha-${Date.now()}.jpg`, { type: "image/jpeg" });
+      selectedFiles.push(file);
+      selectedWidths.push(currentModuleWidth);
+      renderPhotoStrip();
+      document.getElementById("cameraShotCount").textContent = selectedFiles.length;
+      showCameraToast(`Foto ${selectedFiles.length}/${MAX_IMAGES} agregada`);
+      statusMsg.innerHTML = "";
+      statusMsg.classList.remove("error");
+      if (selectedFiles.length >= MAX_IMAGES) setTimeout(closeCamera, 700);
+    }, "image/jpeg", 0.9);
+  });
+
+  // ---------- planogramas ----------
+  let planograms = [];
+  async function fetchPlanograms() {
+    try {
+      const res = await fetch("/api/planograms");
+      planograms = res.ok ? await res.json() : [];
+    } catch (e) {
+      planograms = [];
+    }
+    return planograms;
+  }
+
+  function planogramOptionsHtml(selectedId) {
+    return planograms.map((pg) => `<option value="${pg.id}" ${pg.id === selectedId ? "selected" : ""}>${escapeHtml(pg.name)} (${pg.module_cm}cm · ${pg.bands} niveles)</option>`).join("");
+  }
+
+  // ---------- new point modal ----------
+  const modalBackdrop = document.getElementById("modalBackdrop");
+  const modalStatus = document.getElementById("modalStatus");
+
+  document.getElementById("newPointBtn").addEventListener("click", async () => {
+    document.getElementById("newPointName").value = "";
+    document.getElementById("newPointCode").value = "";
+    modalStatus.innerHTML = "";
+    document.getElementById("advancedFields").style.display = "none";
+    document.getElementById("advancedToggle").classList.remove("open");
+    await fetchPlanograms();
+    document.getElementById("newPointPlanogram").innerHTML = `<option value="">Sin planograma — evaluación por estándares</option>` + planogramOptionsHtml(null);
+    modalBackdrop.style.display = "flex";
+  });
+  document.getElementById("advancedToggle").addEventListener("click", () => {
+    const fields = document.getElementById("advancedFields");
+    const btn = document.getElementById("advancedToggle");
+    const isOpen = fields.style.display !== "none";
+    fields.style.display = isOpen ? "none" : "block";
+    btn.classList.toggle("open", !isOpen);
+  });
+  document.getElementById("modalCancel").addEventListener("click", () => { modalBackdrop.style.display = "none"; });
+  modalBackdrop.addEventListener("click", (e) => { if (e.target === modalBackdrop) modalBackdrop.style.display = "none"; });
+
+  document.getElementById("modalConfirm").addEventListener("click", async () => {
+    const name = document.getElementById("newPointName").value.trim();
+    const code = document.getElementById("newPointCode").value.trim();
+    const planogramId = document.getElementById("newPointPlanogram").value;
+    if (!name) {
+      modalStatus.innerHTML = `${ICON_WARNING} El nombre es obligatorio`;
+      modalStatus.classList.add("error");
+      return;
+    }
+    const formData = new FormData();
+    formData.append("name", name);
+    if (code) formData.append("point_id", code);
+    if (planogramId) formData.append("planogram_id", planogramId);
+
+    try {
+      const res = await fetch("/api/points", { method: "POST", body: formData });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `Error ${res.status}`);
+      }
+      const point = await res.json();
+      modalBackdrop.style.display = "none";
+      await fetchPoints();
+      openPoint(point.id);
+    } catch (e) {
+      modalStatus.classList.add("error");
+      modalStatus.innerHTML = `${ICON_WARNING} ${escapeHtml(e.message)}`;
+    }
+  });
+
+  // ---------- posicionamiento 3D: pantalla completa ----------
+  const shelf3dModalBackdrop = document.getElementById("shelf3dModalBackdrop");
+  document.getElementById("expand3dBtn").addEventListener("click", () => {
+    document.getElementById("shelf3dModalSubtitle").textContent = currentPoint ? `— ${currentPoint.name}` : "";
+    if (window.expandShelf3D) window.expandShelf3D();
+  });
+  document.getElementById("closeShelf3dModal").addEventListener("click", () => {
+    if (window.collapseShelf3D) window.collapseShelf3D();
+  });
+  shelf3dModalBackdrop.addEventListener("click", (e) => {
+    if (e.target === shelf3dModalBackdrop && window.collapseShelf3D) window.collapseShelf3D();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && shelf3dModalBackdrop.style.display === "flex" && window.collapseShelf3D) {
+      window.collapseShelf3D();
+    }
+  });
+
+  backBtn.addEventListener("click", closeDetail);
+
+  document.getElementById("detailPlanogramSelect").addEventListener("change", async (e) => {
+    if (!currentPoint) return;
+    const planogramId = e.target.value || null;
+    try {
+      const res = await fetch(`/api/points/${encodeURIComponent(currentPoint.id)}/planogram`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planogram_id: planogramId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `Error ${res.status}`);
+      }
+      currentPoint = await res.json();
+    } catch (err) {
+      alert("No se pudo actualizar el planograma: " + err.message);
+      e.target.value = currentPoint.planogram_id || "";
+    }
+  });
+
+  document.getElementById("deletePointBtn").addEventListener("click", async () => {
+    if (!currentPoint) return;
+    const ok = confirm(`¿Eliminar el punto "${currentPoint.name}" (${currentPoint.id}) y todo su historial de lecturas y fotos? Esta acción no se puede deshacer.`);
+    if (!ok) return;
+    try {
+      const res = await fetch(`/api/points/${encodeURIComponent(currentPoint.id)}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `Error ${res.status}`);
+      }
+      closeDetail();
+    } catch (e) {
+      alert("No se pudo eliminar el punto: " + e.message);
+    }
+  });
+
+  // ---------- polling ----------
+  function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(() => {
+      if (detailView.style.display === "block" && currentPoint) {
+        loadPointDetail(currentPoint.id);
+      } else {
+        fetchPoints();
+      }
+    }, POLL_MS);
+  }
+
+  function initApp() {
+    fetchPoints().then(() => {
+      const deepLinkId = location.hash.replace("#", "").trim();
+      if (deepLinkId) openPoint(deepLinkId);
+    });
+    startPolling();
+  }
+
+  // ---------- autenticación ----------
+  const REMEMBER_KEY = "pf_remember_creds";
+  const authView = document.getElementById("authView");
+  const appRoot = document.getElementById("appRoot");
+  const authForm = document.getElementById("authForm");
+  const authUsername = document.getElementById("authUsername");
+  const authPassword = document.getElementById("authPassword");
+  const authRemember = document.getElementById("authRemember");
+  const authStatus = document.getElementById("authStatus");
+  const authSubmitBtn = document.getElementById("authSubmitBtn");
+  const authSubmitText = document.getElementById("authSubmitText");
+  const quickAccessBlock = document.getElementById("quickAccessBlock");
+  const quickAccessBtn = document.getElementById("quickAccessBtn");
+  let authMode = "login";
+
+  function getRememberedCreds() {
+    try {
+      const raw = localStorage.getItem(REMEMBER_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveRememberedCreds(username, password) {
+    localStorage.setItem(REMEMBER_KEY, JSON.stringify({ username, password }));
+  }
+
+  function clearRememberedCreds() {
+    localStorage.removeItem(REMEMBER_KEY);
+  }
+
+  function refreshQuickAccessBlock() {
+    const creds = getRememberedCreds();
+    if (creds && creds.username) {
+      quickAccessBlock.style.display = "block";
+      quickAccessBtn.innerHTML = `${ICON_CHECK} Acceso directo como ${escapeHtml(creds.username)}`;
+    } else {
+      quickAccessBlock.style.display = "none";
+    }
+  }
+
+  function setAuthMode(mode) {
+    authMode = mode;
+    document.querySelectorAll(".auth-tab").forEach((t) => t.classList.toggle("active", t.dataset.mode === mode));
+    authSubmitText.textContent = mode === "login" ? "Iniciar sesión" : "Crear cuenta";
+    authPassword.setAttribute("autocomplete", mode === "login" ? "current-password" : "new-password");
+    authStatus.innerHTML = "";
+    authStatus.classList.remove("error");
+  }
+
+  document.querySelectorAll(".auth-tab").forEach((tab) => {
+    tab.addEventListener("click", () => setAuthMode(tab.dataset.mode));
+  });
+
+  function showAuthView() {
+    appRoot.style.display = "none";
+    authView.style.display = "flex";
+    refreshQuickAccessBlock();
+  }
+
+  function showAppRoot(username) {
+    authView.style.display = "none";
+    appRoot.style.display = "block";
+    document.getElementById("currentUsername").textContent = username;
+    initApp();
+  }
+
+  async function submitAuth(username, password) {
+    authSubmitBtn.disabled = true;
+    authStatus.classList.remove("error");
+    authStatus.innerHTML = `${ICON_SPINNER} Un momento…`;
+    try {
+      const res = await fetch(`/api/auth/${authMode === "login" ? "login" : "register"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || `Error ${res.status}`);
+
+      if (authRemember.checked) {
+        saveRememberedCreds(username, password);
+      } else {
+        clearRememberedCreds();
+      }
+      authStatus.innerHTML = "";
+      showAppRoot(data.username);
+    } catch (e) {
+      authStatus.classList.add("error");
+      authStatus.innerHTML = `${ICON_WARNING} ${escapeHtml(e.message)}`;
+    } finally {
+      authSubmitBtn.disabled = false;
+    }
+  }
+
+  authForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const username = authUsername.value.trim();
+    const password = authPassword.value;
+    if (!username || !password) return;
+    submitAuth(username, password);
+  });
+
+  quickAccessBtn.addEventListener("click", () => {
+    const creds = getRememberedCreds();
+    if (!creds) return;
+    authUsername.value = creds.username;
+    authPassword.value = creds.password;
+    setAuthMode("login");
+    submitAuth(creds.username, creds.password);
+  });
+
+  document.getElementById("logoutBtn").addEventListener("click", async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (e) {
+      // ignora errores de red al cerrar sesión
+    }
+    location.hash = "";
+    showAuthView();
+  });
+
+  async function checkAuthAndStart() {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (res.ok) {
+        const data = await res.json();
+        showAppRoot(data.username);
+        return;
+      }
+    } catch (e) {
+      // sin conexión: cae a la vista de login
+    }
+    showAuthView();
+  }
+
+  checkAuthAndStart();
+</script>
+
+<script type="module">
+  import * as THREE from "three";
+  import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+  const PRODUCT_COLOR = new THREE.Color(0x0a0a0a);
+  const LOW_COLOR = new THREE.Color(0xb4780a);
+  const FOREIGN_COLOR = new THREE.Color(0x2f6fb0);
+  const SUPPLIER_COLOR = new THREE.Color(0xd7263d);
+  const MISPLACED_MARKER_COLOR = new THREE.Color(0x9b59b6);
+  const SHELF_COLOR = 0xb5b5b1;
+
+  function colorForProduct(p) {
+    if (p.planogram_status === "low") return LOW_COLOR;
+    if (p.planogram_status === "foreign") return FOREIGN_COLOR;
+    return PRODUCT_COLOR;
+  }
+
+  let supplierStockoutIds3D = new Set();
+  window.setSupplierStockoutIds = function (ids) {
+    supplierStockoutIds3D = new Set(ids || []);
+  };
+
+  function colorForPlanogramItem(it) {
+    if (supplierStockoutIds3D.has(it.planogram_item_id) && it.status !== "ok") return SUPPLIER_COLOR;
+    if (it.status === "low") return LOW_COLOR;
+    return PRODUCT_COLOR;
+  }
+  const FLOOR_COLOR = 0xe6e6e3;
+  const HOVER_LIGHTEN = 0.22;
+
+  function escapeHtmlS3D(str) {
+    return String(str ?? "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+  }
+
+  let scene, camera, renderer, controls, raycaster, pointer;
+  let productMeshes = [];
+  let hoveredMesh = null;
+  let selectedMesh = null;
+  let selectionOutline = null;
+  let lastReading = null;
+  let lastDims = null;
+  let isExpanded = false;
+
+  function initScene() {
+    const canvasHost = document.getElementById("shelf3d");
+    if (!canvasHost || scene) return;
+
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf0f0ef);
+    scene.fog = new THREE.Fog(0xf0f0ef, 14, 30);
+
+    camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    camera.position.set(5, 4, 9);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    canvasHost.appendChild(renderer.domElement);
+
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.minDistance = 2;
+    controls.maxDistance = 40;
+    controls.maxPolarAngle = Math.PI * 0.52;
+
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xcccccc, 0.55));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.1);
+    dirLight.position.set(7, 12, 8);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.set(1024, 1024);
+    dirLight.shadow.camera.near = 1;
+    dirLight.shadow.camera.far = 40;
+    scene.add(dirLight);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+
+    raycaster = new THREE.Raycaster();
+    pointer = new THREE.Vector2();
+    renderer.domElement.addEventListener("click", onCanvasClick);
+    renderer.domElement.addEventListener("pointermove", onCanvasMove);
+    renderer.domElement.addEventListener("pointerleave", () => setHovered(null));
+
+    resizeRenderer();
+    animate();
+  }
+
+  function currentCanvasHost() {
+    return document.getElementById("shelf3d");
+  }
+
+  function resizeRenderer() {
+    const host = currentCanvasHost();
+    if (!host || !renderer) return;
+    host.style.height = isExpanded ? "" : "320px";
+    const width = host.clientWidth || 400;
+    const height = isExpanded ? Math.max(host.clientHeight, 360) : 320;
+    renderer.setSize(width, height, true);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+    if (controls) controls.update();
+    if (renderer && scene && camera) renderer.render(scene, camera);
+  }
+
+  function makeLabelSprite(text) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 96;
+    const ctx = canvas.getContext("2d");
+    ctx.font = "700 46px Inter, system-ui, sans-serif";
+    ctx.fillStyle = "#55565a";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, 0, 52);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;
+    const mat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(1.3, 0.5, 1);
+    sprite.userData.isShelf = true;
+    return sprite;
+  }
+
+  function clearScene() {
+    if (!scene) return;
+    [...scene.children].forEach((child) => {
+      if (child.userData && (child.userData.isProductBox || child.userData.isShelf)) {
+        scene.remove(child);
+        if (child.geometry) child.geometry.dispose();
+        if (child.material && child.material.map) child.material.map.dispose();
+        if (child.material) child.material.dispose();
+      }
+    });
+    productMeshes = [];
+    hoveredMesh = null;
+    selectedMesh = null;
+    if (selectionOutline) { scene.remove(selectionOutline); selectionOutline = null; }
+  }
+
+  function setHovered(mesh) {
+    if (hoveredMesh === mesh) return;
+    if (hoveredMesh && hoveredMesh !== selectedMesh) {
+      hoveredMesh.material.color.copy(hoveredMesh.userData.baseColor);
+    }
+    hoveredMesh = mesh;
+    if (hoveredMesh && hoveredMesh !== selectedMesh) {
+      hoveredMesh.material.color.copy(hoveredMesh.userData.baseColor).offsetHSL(0, 0, HOVER_LIGHTEN);
+    }
+    const host = currentCanvasHost();
+    if (host) host.classList.toggle("hovering", !!mesh);
+  }
+
+  function setSelected(mesh) {
+    if (selectedMesh) {
+      selectedMesh.material.color.copy(selectedMesh.userData.baseColor);
+    }
+    if (selectionOutline) {
+      scene.remove(selectionOutline);
+      selectionOutline = null;
+    }
+    selectedMesh = mesh;
+    if (selectedMesh) {
+      selectedMesh.material.color.copy(selectedMesh.userData.baseColor).offsetHSL(0, 0, HOVER_LIGHTEN * 0.6);
+      selectionOutline = new THREE.BoxHelper(selectedMesh, 0xffffff);
+      selectionOutline.material.linewidth = 2;
+      selectionOutline.userData.isProductBox = true;
+      scene.add(selectionOutline);
+    }
+    renderInfoPanel(mesh ? mesh.userData.product : null);
+  }
+
+  function estadoLabel(p) {
+    if (p.out_of_stock) return "Quiebre";
+    if (p.planogram_status === "foreign") return "Fuera de planograma";
+    if (p.planogram_status === "low") return "Bajo lo esperado";
+    return "Disponible";
+  }
+
+  function estadoLabelPlanogram(it) {
+    if (supplierStockoutIds3D.has(it.planogram_item_id) && it.status !== "ok") return "Quiebre de proveedor";
+    if (it.status === "missing") return "Quiebre";
+    if (it.status === "low") return "Bajo lo esperado";
+    return "Cumple";
+  }
+
+  function renderInfoPanel(p) {
+    const info = document.getElementById("shelf3dInfo");
+    if (!info) return;
+    if (!p) {
+      info.innerHTML = "Haz clic en una caja para ver su detalle.";
+      return;
+    }
+    if (p._kind === "planogram") {
+      info.innerHTML = `
+        <div class="shelf3d-detail-card">
+          <div class="s3d-title">${escapeHtmlS3D(p.title || "—")}${p.tag ? `<span class="tag-badge">${escapeHtmlS3D(p.tag)}</span>` : ""}</div>
+          <div class="s3d-grid">
+            <div><span class="s3d-l">Nivel</span><span class="s3d-v">${p.band ?? "—"}</span></div>
+            <div><span class="s3d-l">Posición</span><span class="s3d-v">${p.position_in_section ?? "—"}</span></div>
+            <div><span class="s3d-l">Esperado</span><span class="s3d-v">${p.expected_facings ?? "—"} caras</span></div>
+            <div><span class="s3d-l">Detectado</span><span class="s3d-v">${p.detected_facings ?? "—"} caras${p.uncertain ? " · por confirmar" : ""}</span></div>
+            <div><span class="s3d-l">Estado</span><span class="s3d-v">${escapeHtmlS3D(estadoLabelPlanogram(p))}${p.uncertain ? " (revisar)" : ""}</span></div>
+            <div><span class="s3d-l">Rótulo precio</span><span class="s3d-v">${p.price_tag_visible == null ? "—" : (p.price_tag_visible ? "Sí" : "No")}</span></div>
+          </div>
+        </div>`;
+      return;
+    }
+    info.innerHTML = `
+      <div class="shelf3d-detail-card">
+        <div class="s3d-title">${escapeHtmlS3D(p.product || "—")}</div>
+        <div class="s3d-grid">
+          <div><span class="s3d-l">Laboratorio</span><span class="s3d-v">${escapeHtmlS3D(p.brand || "—")}</span></div>
+          <div><span class="s3d-l">Categoría</span><span class="s3d-v">${escapeHtmlS3D(p.category || "—")}</span></div>
+          <div><span class="s3d-l">Caras</span><span class="s3d-v">${p.facings ?? "—"}</span></div>
+          <div><span class="s3d-l">Nivel</span><span class="s3d-v">${p.shelf_level ?? "—"}</span></div>
+          <div><span class="s3d-l">Posición</span><span class="s3d-v">${p.position_index ?? "—"}</span></div>
+          <div><span class="s3d-l">Estado</span><span class="s3d-v">${escapeHtmlS3D(estadoLabel(p))}</span></div>
+        </div>
+      </div>`;
+  }
+
+  function pickAtEvent(event) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+    const hits = raycaster.intersectObjects(productMeshes);
+    return hits.length ? hits[0].object : null;
+  }
+
+  function onCanvasClick(event) {
+    if (!camera || !productMeshes.length) return;
+    setSelected(pickAtEvent(event));
+  }
+
+  function onCanvasMove(event) {
+    if (!camera || !productMeshes.length) return;
+    setHovered(pickAtEvent(event));
+  }
+
+  function buildScene(reading) {
+    clearScene();
+    renderInfoPanel(null);
+
+    const compliance = reading && reading.compliance;
+    if (compliance && compliance.items && compliance.items.length) {
+      return buildPlanogramScene(compliance);
+    }
+
+    const products = (reading && reading.products) || [];
+    if (!products.length) return { maxTotalWidth: 1, levelCount: 0 };
+
+    const levels = {};
+    products.forEach((p, i) => {
+      const lvl = p.shelf_level || 1;
+      levels[lvl] = levels[lvl] || [];
+      levels[lvl].push({ ...p, _originalIndex: i });
+    });
+    const levelKeys = Object.keys(levels).map(Number).sort((a, b) => a - b);
+
+    const unitWidth = 0.5;
+    const boxHeight = 0.85;
+    const boxDepth = 0.5;
+    const levelGap = 1.15;
+    let maxTotalWidth = 1;
+
+    levelKeys.forEach((lvl, li) => {
+      const items = levels[lvl].slice().sort((a, b) => {
+        const ai = a.position_index ?? a._originalIndex;
+        const bi = b.position_index ?? b._originalIndex;
+        return ai - bi;
+      });
+      const y = -li * levelGap;
+      let xCursor = 0;
+      const widths = items.map((p) => Math.max(1, p.facings || 1) * unitWidth);
+      const totalWidth = widths.reduce((s, w) => s + w, 0) + items.length * 0.06;
+      maxTotalWidth = Math.max(maxTotalWidth, totalWidth);
+
+      const shelfGeo = new THREE.BoxGeometry(Math.max(totalWidth, 1), 0.06, boxDepth + 0.3);
+      const shelfMesh = new THREE.Mesh(shelfGeo, new THREE.MeshStandardMaterial({ color: SHELF_COLOR, roughness: 0.85 }));
+      shelfMesh.position.set(totalWidth / 2, y - boxHeight / 2 - 0.05, 0);
+      shelfMesh.receiveShadow = true;
+      shelfMesh.userData.isShelf = true;
+      scene.add(shelfMesh);
+
+      const label = makeLabelSprite(`N${lvl}`);
+      label.position.set(-0.85, y, 0);
+      scene.add(label);
+
+      items.forEach((p, i) => {
+        const width = widths[i];
+        const baseColor = colorForProduct(p).clone();
+        const geo = new THREE.BoxGeometry(width * 0.9, boxHeight, boxDepth);
+        const isGhost = !!p.out_of_stock;
+        const mat = isGhost
+          ? new THREE.MeshStandardMaterial({ color: baseColor, wireframe: true, transparent: true, opacity: 0.55 })
+          : new THREE.MeshStandardMaterial({ color: baseColor, roughness: 0.55, metalness: 0.04 });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(xCursor + width / 2, y, 0);
+        mesh.castShadow = !isGhost;
+        mesh.receiveShadow = true;
+        mesh.userData.isProductBox = true;
+        mesh.userData.product = p;
+        mesh.userData.baseColor = baseColor;
+        scene.add(mesh);
+        productMeshes.push(mesh);
+        xCursor += width + 0.06;
+      });
+    });
+
+    const floorGeo = new THREE.PlaneGeometry(200, 200);
+    const floorMesh = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({ color: FLOOR_COLOR, roughness: 1 }));
+    floorMesh.rotation.x = -Math.PI / 2;
+    floorMesh.position.set(0, -levelKeys.length * levelGap - 0.35, 0);
+    floorMesh.receiveShadow = true;
+    floorMesh.userData.isShelf = true;
+    scene.add(floorMesh);
+
+    return { maxTotalWidth, levelCount: levelKeys.length, levelGap };
+  }
+
+  function buildPlanogramScene(compliance) {
+    const items = compliance.items.slice().sort((a, b) => (a.band - b.band) || (a.position_in_section - b.position_in_section));
+    const levels = {};
+    items.forEach((it) => {
+      levels[it.band] = levels[it.band] || [];
+      levels[it.band].push(it);
+    });
+    const levelKeys = Object.keys(levels).map(Number).sort((a, b) => a - b);
+
+    const unitWidth = 0.5;
+    const boxHeight = 0.85;
+    const boxDepth = 0.5;
+    const levelGap = 1.15;
+    let maxTotalWidth = 1;
+
+    levelKeys.forEach((lvl, li) => {
+      const levelItems = levels[lvl];
+      const y = -li * levelGap;
+      let xCursor = 0;
+      const widths = levelItems.map((it) => Math.max(1, it.expected_facings || 1) * unitWidth);
+      const totalWidth = widths.reduce((s, w) => s + w, 0) + levelItems.length * 0.06;
+      maxTotalWidth = Math.max(maxTotalWidth, totalWidth);
+
+      const shelfGeo = new THREE.BoxGeometry(Math.max(totalWidth, 1), 0.06, boxDepth + 0.3);
+      const shelfMesh = new THREE.Mesh(shelfGeo, new THREE.MeshStandardMaterial({ color: SHELF_COLOR, roughness: 0.85 }));
+      shelfMesh.position.set(totalWidth / 2, y - boxHeight / 2 - 0.05, 0);
+      shelfMesh.receiveShadow = true;
+      shelfMesh.userData.isShelf = true;
+      scene.add(shelfMesh);
+
+      const label = makeLabelSprite(`N${lvl}`);
+      label.position.set(-0.85, y, 0);
+      scene.add(label);
+
+      levelItems.forEach((it, i) => {
+        const width = widths[i];
+        const baseColor = colorForPlanogramItem(it).clone();
+        const geo = new THREE.BoxGeometry(width * 0.9, boxHeight, boxDepth);
+        const isGhost = it.status === "missing";
+        const mat = isGhost
+          ? new THREE.MeshStandardMaterial({ color: baseColor, wireframe: true, transparent: true, opacity: 0.55 })
+          : new THREE.MeshStandardMaterial({ color: baseColor, roughness: 0.55, metalness: 0.04 });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(xCursor + width / 2, y, 0);
+        mesh.castShadow = !isGhost;
+        mesh.receiveShadow = true;
+        mesh.userData.isProductBox = true;
+        mesh.userData.product = { ...it, _kind: "planogram" };
+        mesh.userData.baseColor = baseColor;
+        scene.add(mesh);
+        productMeshes.push(mesh);
+
+        if (it.orden_incorrecto) {
+          const markerGeo = new THREE.BoxGeometry(width * 0.9, 0.07, 0.07);
+          const markerMesh = new THREE.Mesh(markerGeo, new THREE.MeshStandardMaterial({ color: MISPLACED_MARKER_COLOR }));
+          markerMesh.position.set(xCursor + width / 2, y + boxHeight / 2 + 0.08, boxDepth / 2 - 0.05);
+          markerMesh.userData.isShelf = true;
+          scene.add(markerMesh);
+        }
+
+        xCursor += width + 0.06;
+      });
+    });
+
+    const floorGeo = new THREE.PlaneGeometry(200, 200);
+    const floorMesh = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({ color: FLOOR_COLOR, roughness: 1 }));
+    floorMesh.rotation.x = -Math.PI / 2;
+    floorMesh.position.set(0, -levelKeys.length * levelGap - 0.35, 0);
+    floorMesh.receiveShadow = true;
+    floorMesh.userData.isShelf = true;
+    scene.add(floorMesh);
+
+    return { maxTotalWidth, levelCount: levelKeys.length, levelGap };
+  }
+
+  function frameCamera(dims) {
+    if (!camera || !controls) return;
+    const { maxTotalWidth, levelCount, levelGap } = dims;
+    const centerX = maxTotalWidth / 2;
+    const centerY = -(Math.max(levelCount, 1) - 1) * (levelGap || 1.15) / 2;
+    const dist = Math.max(maxTotalWidth, Math.max(levelCount, 1) * (levelGap || 1.15)) * (isExpanded ? 1.4 : 1.15) + 3;
+    camera.position.set(centerX + dist * 0.35, dist * 0.42, dist * 0.78);
+    controls.target.set(centerX, centerY, 0);
+  }
+
+  window.render3DShelf = function (reading) {
+    lastReading = reading;
+    initScene();
+    if (!scene) return;
+    resizeRenderer();
+    lastDims = buildScene(reading);
+    frameCamera(lastDims);
+  };
+
+  window.expandShelf3D = function () {
+    const host = document.getElementById("shelf3dHost");
+    const modalHost = document.getElementById("shelf3dModalHost");
+    const backdrop = document.getElementById("shelf3dModalBackdrop");
+    if (!host || !modalHost || !backdrop) return;
+    modalHost.appendChild(host);
+    backdrop.style.display = "flex";
+    isExpanded = true;
+    requestAnimationFrame(() => {
+      resizeRenderer();
+      if (lastDims) frameCamera(lastDims);
+    });
+  };
+
+  window.collapseShelf3D = function () {
+    const card = document.getElementById("shelf3dCard");
+    const backdrop = document.getElementById("shelf3dModalBackdrop");
+    const host = document.getElementById("shelf3dHost");
+    if (!card || !host) return;
+    card.appendChild(host);
+    if (backdrop) backdrop.style.display = "none";
+    isExpanded = false;
+    requestAnimationFrame(() => {
+      resizeRenderer();
+      if (lastDims) frameCamera(lastDims);
+    });
+  };
+</script>
+</body>
+</html>

@@ -1,0 +1,404 @@
+/* Neuravision design system.
+   Tokens live on :root; the tenant colours (primary, sidebar) are set inline on #nv.
+   Rules scoped to #nv only touch visual properties, so module layouts keep working. */
+
+:root {
+  --nv-font: var(--nv-font-inter, 'Inter'), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --nv-bg: #f5f6f8;
+  --nv-surface: #ffffff;
+  --nv-surface-2: #f9fafb;
+  --nv-surface-3: #f2f4f7;
+  --nv-border: #e6e8ec;
+  --nv-border-strong: #d0d5dd;
+  --nv-text: #101828;
+  --nv-text-secondary: #344054;
+  --nv-text-muted: #667085;
+  --nv-text-subtle: #98a2b3;
+  --nv-primary: #087e85;
+  --nv-on-primary: #ffffff;
+  --nv-primary-hover: color-mix(in srgb, var(--nv-primary) 86%, #000);
+  --nv-primary-soft: color-mix(in srgb, var(--nv-primary) 8%, #fff);
+  --nv-primary-ring: color-mix(in srgb, var(--nv-primary) 24%, transparent);
+  --nv-accent: #b1e225;
+  --nv-chart-2: #6172f3;
+  --nv-success: #067647;
+  --nv-success-soft: #ecfdf3;
+  --nv-success-border: #abefc6;
+  --nv-warning: #b54708;
+  --nv-warning-soft: #fffaeb;
+  --nv-warning-border: #fedf89;
+  --nv-warning-text: #93370d;
+  --nv-danger: #d92d20;
+  --nv-danger-soft: #fef3f2;
+  --nv-danger-border: #fecdca;
+  --nv-sidebar-bg: #0f1b2d;
+  --nv-sidebar-fg: #ffffff;
+  --nv-radius-sm: 8px;
+  --nv-radius: 10px;
+  --nv-radius-lg: 14px;
+  --nv-shadow-xs: 0 1px 2px rgba(16, 24, 40, .05);
+  --nv-shadow-sm: 0 1px 3px rgba(16, 24, 40, .07), 0 1px 2px rgba(16, 24, 40, .04);
+  --nv-shadow-lg: 0 18px 40px -12px rgba(16, 24, 40, .22);
+  --nv-sidebar-w: 256px;
+  --nv-topbar-h: 60px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  font-family: var(--nv-font);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--nv-text);
+  background: var(--nv-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+/* ---------- Shell ---------- */
+#nv.shell {
+  display: grid;
+  grid-template-columns: var(--nv-sidebar-w) minmax(0, 1fr);
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 0;
+  gap: 0;
+  background: var(--nv-bg);
+}
+#nv .nv-content { min-width: 0; display: flex; flex-direction: column; }
+#nv main { flex: 1; min-width: 0; width: 100%; max-width: none; margin: 0; padding: 0; font-size: 14px; line-height: 1.55; }
+#nv .nv-page { width: 100%; max-width: 1360px; margin: 0 auto; padding: 28px 32px 56px; animation: nv-fade .22s ease-out; }
+@keyframes nv-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* Module roots become the page itself: no outer card. */
+#nv .nv-page > * {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  max-width: none;
+}
+
+/* ---------- Sidebar ---------- */
+#nv .nv-sidebar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  padding: 18px 12px 14px;
+  background: var(--nv-sidebar-bg);
+  color: var(--nv-sidebar-fg);
+  border-right: 1px solid color-mix(in srgb, var(--nv-sidebar-fg) 8%, transparent);
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--nv-sidebar-fg) 20%, transparent) transparent;
+}
+#nv .nv-sidebar-top { display: flex; align-items: center; justify-content: space-between; padding: 2px 8px; }
+#nv .nv-brand { display: flex; align-items: center; gap: 10px; }
+.nv-mark {
+  display: inline-grid; place-items: center; flex: none;
+  width: 30px; height: 30px; border-radius: 9px;
+  background: var(--nv-accent); color: #0b0f14;
+  font-size: 18px; font-weight: 800; line-height: 1; letter-spacing: -.06em;
+}
+#nv .nv-brand-name { font-size: 16px; font-weight: 700; letter-spacing: -.03em; }
+#nv .nv-sidebar-close { display: none; color: inherit; }
+#nv .nv-tenant {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  padding: 10px; border-radius: 12px;
+  background: color-mix(in srgb, var(--nv-sidebar-fg) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--nv-sidebar-fg) 9%, transparent);
+}
+#nv .nv-tenant img, #nv .nv-tenant-initial { flex: none; width: 34px; height: 34px; border-radius: 9px; object-fit: contain; background: #fff; }
+#nv .nv-tenant-initial { display: grid; place-items: center; color: var(--nv-text); font-weight: 700; font-size: 14px; }
+#nv .nv-tenant-info { min-width: 0; }
+#nv .nv-tenant strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
+#nv .nv-tenant small { display: block; margin-top: 1px; font-size: 11px; opacity: .6; }
+#nv .nv-sidebar nav { display: grid; gap: 14px; }
+#nv .nv-nav-section { display: grid; gap: 1px; }
+#nv .nv-nav-group { margin: 0 0 4px; padding: 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .02em; opacity: .5; }
+#nv .nv-sidebar nav button, #nv .nv-logout {
+  position: relative;
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; min-height: 36px; padding: 7px 10px;
+  border: 0; border-radius: 8px;
+  background: transparent; color: inherit;
+  font: inherit; font-size: 13.5px; font-weight: 500; text-align: left;
+  cursor: pointer; opacity: .78;
+  transition: background .15s, opacity .15s;
+}
+#nv .nv-sidebar nav button .nv-icon, #nv .nv-logout .nv-icon { flex: none; opacity: .9; }
+#nv .nv-sidebar nav button:hover, #nv .nv-logout:hover { opacity: 1; background: color-mix(in srgb, var(--nv-sidebar-fg) 7%, transparent); }
+#nv .nv-sidebar nav button[aria-current=page] { opacity: 1; font-weight: 600; background: color-mix(in srgb, var(--nv-sidebar-fg) 11%, transparent); }
+#nv .nv-sidebar nav button[aria-current=page]::before {
+  content: ''; position: absolute; left: -12px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0;
+  background: var(--nv-accent);
+}
+#nv .nv-sidebar :is(button):focus-visible { outline: 2px solid var(--nv-accent); outline-offset: 1px; }
+#nv .nv-sidebar-footer { margin-top: auto; padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--nv-sidebar-fg) 10%, transparent); display: grid; gap: 4px; }
+#nv .nv-user { display: flex; align-items: center; gap: 10px; padding: 6px 10px; min-width: 0; }
+#nv .nv-user strong { display: block; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#nv .nv-user small { display: block; font-size: 11.5px; opacity: .6; }
+.nv-avatar {
+  display: inline-grid; place-items: center; flex: none;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--nv-accent), #5fd3b6);
+  color: #0b0f14; font-size: 12px; font-weight: 700;
+}
+
+/* ---------- Top bar ---------- */
+#nv .nv-topbar {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; gap: 12px;
+  height: var(--nv-topbar-h); padding: 0 32px;
+  background: color-mix(in srgb, var(--nv-surface) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--nv-border);
+}
+#nv .nv-menu { display: none; }
+#nv .nv-breadcrumb { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; color: var(--nv-text-muted); }
+#nv .nv-breadcrumb span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#nv .nv-breadcrumb .nv-icon { color: var(--nv-text-subtle); flex: none; }
+#nv .nv-breadcrumb strong { color: var(--nv-text); font-weight: 600; white-space: nowrap; }
+#nv .nv-topbar-user { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+#nv .nv-topbar-user-text { display: grid; line-height: 1.25; text-align: right; }
+#nv .nv-topbar-user strong { font-size: 13px; font-weight: 600; }
+#nv .nv-topbar-user small { font-size: 11.5px; color: var(--nv-text-muted); }
+.nv-icon-button {
+  display: inline-grid; place-items: center;
+  width: 36px; height: 36px; padding: 0;
+  border: 1px solid var(--nv-border); border-radius: 9px;
+  background: var(--nv-surface); color: var(--nv-text-secondary); cursor: pointer;
+}
+.nv-icon-button:hover { background: var(--nv-surface-3); }
+#nv .nv-sidebar .nv-icon-button { border-color: color-mix(in srgb, var(--nv-sidebar-fg) 15%, transparent); background: transparent; }
+
+#nv .nv-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin: 16px 32px 0; padding: 10px 14px;
+  border: 1px solid var(--nv-warning-border); border-radius: var(--nv-radius);
+  background: var(--nv-warning-soft); color: var(--nv-warning-text); font-size: 13.5px;
+}
+#nv .nv-banner button { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
+#nv .nv-banner button:hover { background: color-mix(in srgb, var(--nv-warning) 10%, transparent); }
+
+.nv-toast {
+  position: fixed; left: 50%; bottom: 24px; z-index: 100; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 10px 10px 16px; border-radius: 12px;
+  background: #101828; color: #fff; font-size: 13.5px;
+  box-shadow: var(--nv-shadow-lg); animation: nv-toast .25s ease-out;
+}
+.nv-toast button { border: 0; border-radius: 8px; padding: 6px 10px; background: rgba(255, 255, 255, .12); color: #fff; font: inherit; font-size: 12.5px; cursor: pointer; }
+@keyframes nv-toast { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* ---------- Typography ---------- */
+#nv main h1 { margin: 4px 0 6px; font-size: 26px; line-height: 1.2; font-weight: 650; letter-spacing: -.025em; color: var(--nv-text); }
+#nv main h2 { font-size: 16px; line-height: 1.35; font-weight: 600; letter-spacing: -.01em; color: var(--nv-text); }
+#nv main h3 { font-size: 14px; font-weight: 600; color: var(--nv-text); }
+#nv main :is(h2, h3):not(:first-child) { margin-top: 22px; }
+#nv main p { color: var(--nv-text-muted); line-height: 1.6; }
+#nv main strong, #nv main b { color: inherit; font-weight: 600; }
+#nv main small { color: var(--nv-text-muted); }
+#nv main a { color: var(--nv-primary); text-underline-offset: 2px; }
+#nv main .eyebrow,
+#nv .nv-page > * > small:first-child,
+#nv .nv-page > * > :first-child > small:first-child,
+#nv .nv-page > * > :first-child > :first-child > small:first-child {
+  display: block; margin: 0 0 2px; color: var(--nv-text-muted);
+  font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+}
+#nv main :is(.head, .heading) h1 { margin-top: 2px; }
+#nv main :is(.head, .heading) p { margin: 4px 0 0; }
+#nv main .head, #nv main .heading { margin-bottom: 22px; }
+#nv main .tag { color: var(--nv-text-muted); font-size: 12px; }
+
+/* ---------- Surfaces / cards ---------- */
+#nv main :is(.card, .panel, .metric, .kpi-card, .filter-toolbar, .filters, .table, .tablewrap, .table-wrap, .summary > *, .metrics > article),
+#nv .nv-page > * > section:not(.nv-plain),
+#nv main form > fieldset {
+  background: var(--nv-surface);
+  border: 1px solid var(--nv-border);
+  border-radius: var(--nv-radius-lg);
+  box-shadow: var(--nv-shadow-xs);
+}
+#nv main .filter-toolbar, #nv main .filters { background: var(--nv-surface); padding: 14px 16px; }
+#nv main form > fieldset { padding: 20px; }
+/* Generic content sections turned into cards need breathing room. */
+#nv .nv-page > * > section:not(.nv-plain) { margin-top: 16px; }
+#nv .nv-page > * > section:not(.nv-plain):not(.panel) { padding: 20px 22px; }
+#nv .nv-page > * > section:not(.nv-plain) > :first-child { margin-top: 0; }
+/* A card inside a card is flat. */
+#nv .nv-page > * > section :is(form > fieldset, .table, .tablewrap, .table-wrap, .card, .panel),
+#nv main :is(.card, .panel) :is(form > fieldset, .card) {
+  background: var(--nv-surface-2); box-shadow: none;
+}
+#nv .nv-page > * > section :is(.table, .tablewrap, .table-wrap) { background: var(--nv-surface); }
+#nv main td button + button { margin-left: 6px; }
+#nv main .panelhead { border-bottom: 1px solid var(--nv-border); padding: 14px 18px; }
+#nv main .panelhead h2 { margin: 0; }
+#nv main .content { padding: 18px; }
+#nv main .empty { color: var(--nv-text-muted); }
+
+/* KPI tiles */
+#nv main :is(.metric, .metrics > article, .kpi-card) { padding: 16px 18px; min-height: 0; }
+#nv main :is(.metric, .metrics > article, .kpi-card) :is(span, label):first-child { color: var(--nv-text-muted); font-size: 13px; font-weight: 500; }
+#nv main :is(.metric, .metrics > article, .kpi-card) strong {
+  display: block; margin: 6px 0 2px; color: var(--nv-text);
+  font-size: 28px; line-height: 1.15; font-weight: 650; letter-spacing: -.03em; font-variant-numeric: tabular-nums;
+}
+#nv main :is(.metric, .metrics > article, .kpi-card) small { color: var(--nv-text-subtle); font-size: 12px; }
+
+/* Alerts and notices */
+#nv main :is(.message, .notice, .warning, p[role=alert], div[role=alert]):not(.nv-banner) {
+  border: 1px solid var(--nv-warning-border); border-radius: var(--nv-radius);
+  background: var(--nv-warning-soft); color: var(--nv-warning-text);
+  padding: 12px 14px; box-shadow: none;
+}
+#nv main :is(.message, .notice, .warning) :is(p, strong) { color: inherit; }
+#nv main [role=status]:not(.skeleton) { color: var(--nv-text-muted); }
+
+/* Pills / badges */
+#nv main :is(.pill, .badge) {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: 999px;
+  border: 1px solid var(--nv-border); background: var(--nv-surface-2);
+  color: var(--nv-text-secondary); font-size: 12px; font-weight: 500;
+}
+
+/* ---------- Controls ---------- */
+#nv main :is(input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]), select, textarea) {
+  min-height: 38px; padding: 8px 12px;
+  border: 1px solid var(--nv-border-strong); border-radius: var(--nv-radius-sm);
+  background-color: var(--nv-surface); color: var(--nv-text);
+  font: inherit; font-size: 13.5px; font-weight: 400;
+  box-shadow: var(--nv-shadow-xs);
+  transition: border-color .15s, box-shadow .15s;
+}
+#nv main textarea { min-height: 88px; }
+#nv main select {
+  appearance: none; -webkit-appearance: none; padding-right: 34px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center; background-size: 16px;
+}
+#nv main :is(input, select, textarea)::placeholder { color: var(--nv-text-subtle); }
+#nv main :is(input, select, textarea):hover:not(:disabled) { border-color: color-mix(in srgb, var(--nv-border-strong) 60%, var(--nv-text-muted)); }
+#nv main :is(input, select, textarea):focus { outline: none; border-color: var(--nv-primary); box-shadow: 0 0 0 4px var(--nv-primary-ring); }
+#nv main :is(input, select, textarea):disabled { background-color: var(--nv-surface-3); color: var(--nv-text-subtle); cursor: not-allowed; }
+#nv main input[type=checkbox], #nv main input[type=radio] { accent-color: var(--nv-primary); width: 16px; height: 16px; }
+#nv main input[type=file] {
+  padding: 6px; border: 1px dashed var(--nv-border-strong); border-radius: var(--nv-radius);
+  background: var(--nv-surface-2); color: var(--nv-text-muted); font: inherit; font-size: 13px; max-width: 100%;
+}
+#nv main input[type=file]::file-selector-button {
+  margin-right: 10px; padding: 7px 12px; border: 1px solid var(--nv-border-strong); border-radius: 7px;
+  background: var(--nv-surface); color: var(--nv-text-secondary); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer;
+}
+#nv main label { color: var(--nv-text-secondary); font-size: 12.5px; font-weight: 500; }
+#nv main fieldset > legend { padding: 0 6px; color: var(--nv-text); font-weight: 600; }
+
+/* Buttons: no type / submit = primary, type=button = secondary (existing convention). */
+#nv main button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 38px; padding: 8px 14px;
+  border: 1px solid var(--nv-primary); border-radius: var(--nv-radius-sm);
+  background: var(--nv-primary); color: var(--nv-on-primary);
+  font: inherit; font-size: 13.5px; font-weight: 600; line-height: 1.2; white-space: nowrap;
+  box-shadow: var(--nv-shadow-xs); cursor: pointer;
+  transition: background-color .15s, border-color .15s, box-shadow .15s, color .15s;
+}
+#nv main button:hover:not(:disabled) { background: var(--nv-primary-hover); border-color: var(--nv-primary-hover); }
+#nv main :is(button[type=button], button.secondary, button.quiet, button.view) {
+  background: var(--nv-surface); color: var(--nv-text-secondary); border-color: var(--nv-border-strong);
+}
+#nv main :is(button[type=button], button.secondary, button.quiet, button.view):hover:not(:disabled) { background: var(--nv-surface-2); border-color: var(--nv-border-strong); color: var(--nv-text); }
+#nv main :is(button.action, button.primary) { background: var(--nv-primary); border-color: var(--nv-primary); color: var(--nv-on-primary); }
+#nv main :is(button.action, button.primary):hover:not(:disabled) { background: var(--nv-primary-hover); border-color: var(--nv-primary-hover); color: var(--nv-on-primary); }
+#nv main button.link {
+  min-height: 0; padding: 2px 0; border: 0; border-radius: 4px; box-shadow: none;
+  background: transparent; color: var(--nv-primary); font-weight: 600;
+}
+#nv main button.link:hover:not(:disabled) { background: transparent; color: var(--nv-primary-hover); text-decoration: underline; text-underline-offset: 3px; }
+#nv main button.remove { background: var(--nv-surface); color: var(--nv-danger); border-color: var(--nv-danger-border); }
+#nv main button.remove:hover:not(:disabled) { background: var(--nv-danger-soft); border-color: var(--nv-danger-border); color: var(--nv-danger); }
+#nv main button[aria-pressed=true] { background: var(--nv-primary-soft); color: var(--nv-primary); border-color: color-mix(in srgb, var(--nv-primary) 35%, transparent); box-shadow: none; }
+#nv main button:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+#nv main button:focus-visible, #nv main a:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--nv-primary-ring); }
+#nv main table button { min-height: 30px; padding: 5px 10px; font-size: 12.5px; }
+#nv main .module-tabs { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--nv-border); border-radius: 11px; background: var(--nv-surface-3); }
+#nv main .module-tabs button { border-color: transparent; background: transparent; box-shadow: none; color: var(--nv-text-muted); }
+#nv main .module-tabs button[aria-pressed=true] { background: var(--nv-surface); color: var(--nv-text); border-color: var(--nv-border); box-shadow: var(--nv-shadow-xs); }
+
+/* ---------- Tables ---------- */
+#nv main :is(.table, .tablewrap, .table-wrap) { overflow: auto; }
+#nv main table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13.5px; }
+#nv main th {
+  padding: 10px 16px; background: var(--nv-surface-2); color: var(--nv-text-muted);
+  font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none; text-align: left; white-space: nowrap;
+  border-bottom: 1px solid var(--nv-border);
+}
+#nv main td { padding: 12px 16px; border-bottom: 1px solid var(--nv-border); color: var(--nv-text-secondary); vertical-align: middle; }
+#nv main td :is(b, strong) { color: var(--nv-text); }
+#nv main tbody tr:last-child td { border-bottom: 0; }
+#nv main tbody tr { transition: background-color .12s; }
+#nv main tbody tr:hover td { background: var(--nv-surface-2); }
+
+/* Skeletons */
+#nv main .skeleton { background: linear-gradient(90deg, var(--nv-surface-3), #fafbfc, var(--nv-surface-3)); background-size: 200% 100%; animation: nv-shimmer 1.2s linear infinite; border-radius: 6px; }
+@keyframes nv-shimmer { to { background-position: -200% 0; } }
+
+/* ---------- Login-phase screens ---------- */
+.nv-splash { min-height: 100vh; display: grid; place-content: center; justify-items: center; gap: 14px; color: var(--nv-text-muted); }
+.nv-spinner { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--nv-border); border-top-color: var(--nv-text); animation: nv-spin .8s linear infinite; }
+@keyframes nv-spin { to { transform: rotate(360deg); } }
+.nv-global-alert { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 90; padding: 10px 16px; border-radius: 10px; background: #fff; color: var(--nv-danger); border: 1px solid var(--nv-danger-border); box-shadow: var(--nv-shadow-lg); font-size: 13.5px; }
+.nv-org-picker { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: radial-gradient(1200px 600px at 80% -10%, #b1e22522, transparent), var(--nv-bg); }
+.nv-org-card { width: min(100%, 440px); padding: 32px; border: 1px solid var(--nv-border); border-radius: 18px; background: var(--nv-surface); box-shadow: var(--nv-shadow-lg); }
+.nv-org-card h1 { margin: 18px 0 6px; font-size: 22px; letter-spacing: -.02em; }
+.nv-org-card p { margin: 0 0 20px; color: var(--nv-text-muted); }
+.nv-org-list { display: grid; gap: 8px; }
+.nv-org-list button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; border: 1px solid var(--nv-border); border-radius: 12px; background: var(--nv-surface); font: inherit; text-align: left; cursor: pointer; transition: border-color .15s, background .15s; }
+.nv-org-list button:hover { border-color: var(--nv-border-strong); background: var(--nv-surface-2); }
+.nv-org-list strong { display: block; font-weight: 600; }
+.nv-org-list small { color: var(--nv-text-muted); }
+.nv-org-list .nv-icon { margin-left: auto; color: var(--nv-text-subtle); }
+.nv-org-initial { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--nv-surface-3); font-weight: 700; }
+
+/* ---------- Responsive ---------- */
+#nv .nv-scrim { display: none; }
+@media (max-width: 1100px) {
+  #nv .nv-page { padding: 24px 22px 48px; }
+  #nv .nv-topbar { padding: 0 22px; }
+  #nv .nv-banner { margin: 14px 22px 0; }
+}
+@media (max-width: 900px) {
+  #nv.shell { display: block; }
+  #nv .nv-sidebar {
+    position: fixed; inset: 0 auto 0 0; width: min(86vw, 300px);
+    transform: translateX(-100%); transition: transform .22s ease-out; box-shadow: var(--nv-shadow-lg);
+  }
+  #nv .nv-sidebar[data-open=true] { transform: none; }
+  #nv .nv-sidebar-close { display: inline-grid; }
+  #nv .nv-scrim { display: block; position: fixed; inset: 0; z-index: 35; background: rgba(16, 24, 40, .45); }
+  #nv .nv-menu { display: inline-grid; }
+  #nv .nv-topbar-user-text { display: none; }
+}
+@media (max-width: 640px) {
+  #nv .nv-page { padding: 18px 14px 40px; }
+  #nv .nv-topbar { padding: 0 14px; }
+  #nv .nv-banner { margin: 12px 14px 0; }
+  #nv main h1 { font-size: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #nv .nv-page, .nv-toast, #nv .nv-sidebar { animation: none; transition: none; }
+}

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Góndolas · NeuraVision</title>
+<meta name="description" content="App de tienda: captura de góndolas, cola de envío sin conexión y reposición.">
+<meta name="tienda-version" content="2026.11.05-3">
+<meta name="theme-color" content="#f6f6f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Góndolas">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="/static/assets/pwa/icon-192.png">
+<link rel="apple-touch-icon" href="/static/assets/pwa/apple-touch-icon.png">
+<link rel="stylesheet" href="/static/tienda.css?v=2026.11.05-3">
+<script>
+  /* tema guardado antes de pintar (evita el destello) */
+  try { var t = localStorage.getItem("tienda.theme"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-mark" viewBox="0 0 100 100"><g fill="currentColor"><rect x="21.5" y="35.5" width="12" height="44.5" rx="6"/><rect x="35.5" y="25.5" width="12" height="44.5" rx="6"/><rect x="49.5" y="17.5" width="12" height="44.5" rx="6"/><rect x="63.5" y="28.5" width="12" height="44.5" rx="6"/></g></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M15 5l-7 7 7 7"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></g></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+    <symbol id="i-shelf" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M8 3v6M14 9v6M10 15v6"/></g></symbol>
+    <symbol id="i-queue" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></g></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></g></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></g></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></g></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></g></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5-8 8"/></g></symbol>
+  </defs>
+</svg>
+
+<div id="app" class="app">
+  <header class="top" id="top" hidden>
+    <div class="top-row">
+      <button class="status" id="statusBtn" type="button" aria-label="Estado de conexión y cola"><i class="dot"></i><span id="statusText">En línea</span></button>
+      <div class="top-title"><h1 id="topTitle">Góndolas</h1><div class="sub" id="topSub" hidden></div></div>
+      <button class="icon-btn" id="themeBtn" type="button" aria-label="Cambiar tema"><svg><use href="#i-moon"/></svg></button>
+    </div>
+  </header>
+
+  <main id="view" class="view" aria-live="polite"></main>
+
+  <nav class="tabs" id="tabs" hidden aria-label="Secciones">
+    <a class="tab" href="#/puntos" data-tab="puntos"><svg><use href="#i-shelf"/></svg>Góndolas</a>
+    <a class="tab" href="#/cola" data-tab="cola"><svg><use href="#i-queue"/></svg>Cola<span class="n" id="tabQueueN" hidden></span></a>
+    <a class="tab" href="#/ajustes" data-tab="ajustes"><svg><use href="#i-gear"/></svg>Ajustes</a>
+  </nav>
+</div>
+
+<!-- cámara a pantalla completa -->
+<section id="cam" class="cam" hidden aria-label="Cámara">
+  <video id="cameraVideo" playsinline muted autoplay></video>
+  <div class="flash" id="camFlash"></div>
+  <div class="guide" aria-hidden="true">
+    <div class="guide-box"></div>
+    <p class="guide-text">Un módulo completo, de frente, sin reflejos</p>
+  </div>
+  <div class="cam-live" id="camLive" aria-live="off">
+    <span class="live-pill" id="liveSharp">Nitidez</span>
+    <span class="live-pill" id="liveLight">Luz</span>
+  </div>
+  <div class="cam-top">
+    <button class="icon-btn" id="camClose" type="button" aria-label="Cerrar cámara"><svg><use href="#i-close"/></svg></button>
+    <div class="cam-title" id="camTitle">Góndola</div>
+    <div class="cam-count" id="camCount">0/6</div>
+  </div>
+  <div class="cam-msg" id="camMsg" role="status" aria-live="assertive" hidden></div>
+  <div class="cam-bottom">
+    <div class="cam-thumbs" id="camThumbs"></div>
+    <div class="cam-controls">
+      <button class="cam-side" id="camGallery" type="button">Galería</button>
+      <button class="shutter" id="shutterBtn" type="button" aria-label="Tomar foto"></button>
+      <button class="cam-side cam-done" id="camDone" type="button">Listo</button>
+    </div>
+  </div>
+  <div class="cam-error" id="cameraError" hidden>
+    <div class="box">
+      <h2>Sin acceso a la cámara</h2>
+      <p id="cameraErrorText">Usa la cámara del teléfono: las fotos pasan por las mismas verificaciones.</p>
+      <button class="btn btn-lime btn-xl" id="camFallbackBtn" type="button"><svg><use href="#i-camera"/></svg>Tomar foto</button>
+      <button class="btn" id="camFallbackGallery" type="button"><svg><use href="#i-image"/></svg>Elegir de la galería</button>
+      <button class="btn btn-ghost" id="camErrorClose" type="button">Volver</button>
+    </div>
+  </div>
+</section>
+
+<input type="file" id="fileCam" accept="image/*" capture="environment" hidden>
+<input type="file" id="fileGal" accept="image/*,.heic,.heif" multiple hidden>
+<canvas id="probeCanvas" hidden></canvas>
+<div id="sheetHost"></div>
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<script src="/static/tienda.js?v=2026.11.05-3" defer></script>
+</body>
+</html>

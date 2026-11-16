@@ -1,0 +1,26 @@
+#nv .help-page .sb-card { margin-bottom: 20px; }
+#nv .help-workflow ol { list-style: none; padding: 0; margin: 0; counter-reset: help-step; display: grid; gap: 0; }
+#nv .help-workflow li { counter-increment: help-step; display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 18px 0; border-bottom: 1px solid var(--nv-border); }
+#nv .help-workflow li:last-of-type { border-bottom: 0; padding-bottom: 0; }
+#nv .help-workflow li:first-of-type { padding-top: 0; }
+#nv .help-workflow li::before { content: counter(help-step); display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--nv-primary-soft); color: var(--nv-primary); font-weight: 700; }
+#nv .help-page h3 { margin: 0 0 6px; line-height: 1.5; }
+#nv .help-page p { margin: 0 0 12px; overflow-wrap: anywhere; }
+#nv .help-page p:last-of-type { margin-bottom: 0; }
+#nv .help-workflow li > button { align-self: start; display: inline-flex; gap: 8px; align-items: center; }
+#nv .help-read-only { padding: 12px; border-radius: 8px; background: var(--nv-warning-soft); color: var(--nv-warning-text); }
+#nv .help-module-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+#nv .help-module-grid article { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; padding-bottom: 18px; border-bottom: 1px solid var(--nv-border); }
+#nv .help-module-grid p { flex: 1; }
+#nv .help-module-grid button { margin-top: 12px; text-align: left; white-space: normal; }
+#nv .help-page :is(ul, ol) { line-height: 1.7; }
+#nv .help-page ul { margin: 0; padding-left: 20px; }
+#nv .help-page ul li { padding-left: 3px; margin: 0 0 9px; }
+#nv .help-faq details { padding: 14px 0; border-bottom: 1px solid var(--nv-border); }
+#nv .help-faq details:first-of-type { padding-top: 0; }
+#nv .help-faq details:last-of-type { border-bottom: 0; padding-bottom: 0; }
+#nv .help-faq summary { cursor: pointer; font-weight: 600; color: var(--nv-text); padding: 5px 0; }
+#nv .help-faq summary:focus-visible { outline: 2px solid var(--nv-primary); outline-offset: 4px; border-radius: 4px; }
+#nv .help-faq details[open] p { margin-top: 12px; max-width: 85ch; }
+@media (max-width: 900px) { #nv .help-workflow li { grid-template-columns: 30px minmax(0, 1fr); } #nv .help-workflow li > button { grid-column: 2; justify-self: start; } }
+@media (max-width: 600px) { #nv .help-module-grid { grid-template-columns: 1fr; } #nv .help-workflow li { gap: 10px; } }

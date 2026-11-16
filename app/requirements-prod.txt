@@ -1,0 +1,7 @@
+-r requirements.txt
+# motor NeuraVision v0.2 (todas con licencia Apache-2.0)
+transformers>=4.45,<5     # Grounding DINO (detector de vocabulario abierto) y DINOv2 (memoria visual)
+easyocr>=1.7              # OCR neuronal local
+opencv-python-headless>=4.9
+# Opcional, NO por defecto: ultralytics es AGPL-3.0 (requiere licencia comercial para un servicio cerrado)
+# ultralytics>=8.3

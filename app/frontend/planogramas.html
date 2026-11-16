@@ -1,0 +1,35 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Planogramas · NeuraVision</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--bg:#0f1115;--card:#171a21;--txt:#e6e6e6;--mut:#9aa3b2;--acc:#4fd1c5;--bad:#f87171;--ok:#86efac;--line:#2a2f3a}
+body{margin:0;font:15px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt)}
+main{max-width:900px;margin:0 auto;padding:20px 16px}h1{font-size:21px;margin:0 0 4px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin:12px 0}
+.mut{color:var(--mut)}.ok{color:var(--ok)}.bad{color:var(--bad)}.small{font-size:12px}
+input,button{font:inherit;border-radius:8px;border:1px solid var(--line);background:#0b0d12;color:var(--txt);padding:8px}
+button{background:var(--acc);color:#06201d;border:0;font-weight:700;cursor:pointer}
+table{border-collapse:collapse;width:100%;font-size:14px}td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}a{color:var(--acc)}
+</style></head><body><main>
+<h1>Planogramas</h1>
+<div class="mut">Sube el PDF del planograma tal como lo entrega Salcobrand. Se crea con sus niveles, posiciones, códigos, caras esperadas y etiquetas TOP / LANZAMIENTO. <a href="/">Volver a la app</a> · <a href="/revision">Revisión</a></div>
+<div class="card">
+  <form id="f"><label>PDF o JSON <input type="file" name="pdf" accept="application/pdf,application/json,.json" required></label>
+  <label style="margin-left:10px">Nombre (opcional) <input name="name" placeholder="CUIDADO CAPILAR GB3"></label>
+  <label style="margin-left:10px"><input type="checkbox" name="replace" value="true"> reemplazar si existe</label>
+  <button type="submit" style="margin-left:10px">Importar</button></form>
+  <div id="out" style="margin-top:10px"></div>
+</div>
+<div class="card"><b>Cambiar mi contraseña</b>
+  <form id="pw" style="margin-top:8px"><input type="password" name="current_password" placeholder="actual" required> <input type="password" name="new_password" placeholder="nueva (mín. 8)" minlength="8" required> <button type="submit">Cambiar</button> <span id="pwout" class="small"></span></form>
+</div>
+<div class="card"><b>Planogramas cargados</b><div id="list" class="mut">cargando…</div></div>
+<script>
+async function list(){const r=await fetch('/api/planograms');if(r.status===401){document.getElementById('list').innerHTML='Inicia sesión en la <a href="/">app</a> primero.';return}
+ const d=await r.json();document.getElementById('list').innerHTML=d.length?`<table><tr><th>id</th><th>nombre</th><th>niveles</th><th>productos</th></tr>${d.map(p=>`<tr><td>${p.id}</td><td>${p.name}</td><td>${p.bands??''}</td><td>${p.item_count??p.n_items??''}</td></tr>`).join('')}</table>`:'ninguno'}
+document.getElementById('f').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);const out=document.getElementById('out');out.textContent='Importando…';
+ const f=fd.get('pdf');const isJson=f&&/\.json$/i.test(f.name);if(isJson){fd.append('file',f);fd.delete('pdf');}
+ const r=await fetch(isJson?'/api/admin/planograms/import-json':'/api/admin/planograms/import-pdf',{method:'POST',body:fd});const d=await r.json();
+ out.innerHTML=r.ok?`<span class="ok">Creado <b>${d.id}</b>: ${d.n_items} productos, ${d.bands} niveles${d.module_cm?', '+d.module_cm+' cm':''}.</span><div class="small mut">${d.items_preview.join(' · ')}</div>`:`<span class="bad">${d.detail||'error'}</span>`;list()};
+document.getElementById('pw').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);const r=await fetch('/api/auth/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(fd))});const d=await r.json();document.getElementById('pwout').innerHTML=r.ok?'<span class="ok">Contraseña cambiada</span>':`<span class="bad">${d.detail||'error'}</span>`;if(r.ok)e.target.reset()};
+list();
+</script></main></body></html>

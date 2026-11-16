@@ -74,11 +74,17 @@ def main():
     ):
         service = services.get(name)
         if service is None:
+            dockerfile_path = "deploy/kilby/" + dockerfile
+            build_plan = {"root_dir": "", "strategy": "dockerfile", "runtime": "docker",
+                          "framework": "", "dockerfile_path": dockerfile_path, "install_command": "",
+                          "build_command": "", "start_command": "", "port": 8080,
+                          "health_path": "/health" if kind == "private" else "/healthz", "plan_id": plan,
+                          "env": [], "notes": [], "warnings": [], "candidates": []}
             body = {"name": name, "type": kind, "plan": plan, "environment": environment,
                     "port": 8080, "health_check_path": "/health" if kind == "private" else "/healthz",
                     "env": env, "source": {"kind": "git", "installation_id": args.installation,
                         "repo": args.repo, "branch": args.branch, "root_dir": "",
-                        "dockerfile_path": "deploy/kilby/" + dockerfile, "auto_deploy": False}}
+                        "dockerfile_path": dockerfile_path, "build_plan": build_plan, "auto_deploy": False}}
             if kind == "private":
                 body["disk"] = {"mount_path": "/data", "size_gb": 5}
             service = call("/services", body)

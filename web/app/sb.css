@@ -155,6 +155,7 @@
 #nv .sb-crop label { display: grid; gap: 4px; min-width: 0; }
 #nv main .sb-crop select { width: 100%; min-width: 0; }
 #nv .sb-crop .row { display: grid; grid-template-columns: 90px 1fr; gap: 8px; align-items: end; }
+#nv main .sb-crop .row input { width: 100%; min-width: 0; }
 #nv main .sb-crop .row button { width: 100%; }
 #nv main .sb-crop button.link { justify-self: start; }
 #nv .sb-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }

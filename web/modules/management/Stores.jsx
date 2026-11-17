@@ -6,9 +6,8 @@ import {useApi, Header, Card, Loading, Empty, ErrorBox, Modal, Pill} from '../sb
 import {SaveForm, StatusField, sortByName, enc} from './shared';
 import StoreExcel from './StoreExcel';
 import ShelfPhoto from './ShelfPhoto';
-import StoreStructures from './StoreStructures';
 
-export default function Stores({rest = [], go, notify}) {
+export default function Stores({notify}) {
   const [deleted, setDeleted] = useState(false);
   const stores = useApi(() => api('/api/admin/stores?include_deleted=' + deleted), [deleted]);
   const catalog = useApi(() => api('/api/admin/location-catalog'), []);
@@ -32,14 +31,6 @@ export default function Stores({rest = [], go, notify}) {
       setRetire(null); stores.reload(); notify(s.deleted ? 'PDV restaurado como inactivo. Puedes editarlo para activarlo.' : 'PDV eliminado del catálogo activo. Su historial se conserva.');
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   }
-  if (rest[0]) {
-    const selected = stores.data?.find(store => store.code === rest[0]);
-    return <section><Header eyebrow="Puntos de venta" title={selected ? selected.name : 'Góndolas del PDV'} subtitle="Estructuras y mediciones del local."><button type="button" onClick={() => go('pdv')}>Volver a Puntos de venta</button>{selected && !selected.deleted && <button type="button" className="action" onClick={() => setEdit(selected)}>Editar PDV y cantidades</button>}</Header>
-      <ErrorBox error={stores.error || catalog.error} onRetry={() => {stores.reload();catalog.reload();}}/>
-      {stores.loading ? <Loading/> : selected ? <StoreStructures store={selected} go={go} notify={notify} onSaved={stores.reload}/> : <Empty>El punto de venta no está disponible.</Empty>}
-      {edit && catalog.data && <Modal title="Editar PDV" wide onClose={() => setEdit(null)}><StoreForm store={edit} catalog={catalog.data} onClose={() => setEdit(null)} onSaved={() => {setEdit(null);stores.reload();notify('PDV guardado.');}}/></Modal>}
-    </section>;
-  }
   return <section><Header eyebrow="Administración" title="Puntos de venta" subtitle="Datos del local, ubicación, encargado y cantidades de góndolas por tipo."><button type="button" disabled={busy} onClick={() => setImporting(true)}>Carga masiva</button><button type="button" disabled={busy} onClick={() => exportFile(true)}>Exportar Excel</button><button className="action" disabled={!catalog.data} onClick={() => setEdit({})}>Crear PDV</button></Header>
     <ErrorBox error={stores.error || catalog.error || error} onRetry={() => {stores.reload(); catalog.reload();}}/>
     <div className="sb-toolbar store-filters"><label>Buscar<input value={q} onChange={e => setQ(e.target.value)} placeholder="Código, nombre o dirección"/></label>
@@ -51,7 +42,7 @@ export default function Stores({rest = [], go, notify}) {
     <p className="sb-hint">El Excel incluye todos los PDV activos e inactivos disponibles y sus relaciones de góndolas. El CSV usa los filtros de la tabla.</p>
     <Card body={false}>{stores.loading ? <Loading/> : !filtered.length ? <Empty>No hay puntos de venta con estos filtros.</Empty> : <div className="sb-table"><table><thead><tr><th>PDV</th><th>Tipo</th><th>Ubicación</th><th>Encargado de Local</th><th>Tipos y cantidad de góndolas</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{filtered.map(s => <tr key={s.code}>
       <td><b>{s.name}</b><small>{s.code}</small>{s.needs_completion && <Pill kind="warn">Completar datos</Pill>}</td><td>{s.store_type || 'Sin definir'}</td><td>{s.region || 'Sin región'}<small>{s.commune} · {s.address}</small></td><td>{s.manager || 'Sin asignar'}</td><td>{s.shelf_types?.length ? s.shelf_types.map(type => <small key={type.type_id}>{type.quantity} × {type.name}</small>) : 'Sin asignar'}</td><td><Pill kind={s.deleted ? 'bad' : s.status === 'Activo' ? 'ok' : ''}>{s.deleted ? 'Eliminado' : s.status}</Pill></td>
-      <td className="store-actions-cell"><div className="sb-actions store-row-actions">{!s.deleted && <><button onClick={() => setEdit(s)}>Editar</button><button onClick={() => go('pdv/' + enc(s.code))}>Góndolas</button></>}<button onClick={() => setHistory(s)}>Historial</button><button onClick={() => {setError('');setRetire(s);}}>{s.deleted ? 'Restaurar' : 'Eliminar'}</button></div></td>
+      <td className="store-actions-cell"><div className="sb-actions store-row-actions">{!s.deleted && <button onClick={() => setEdit(s)}>Editar</button>}<button onClick={() => setHistory(s)}>Historial</button><button onClick={() => {setError('');setRetire(s);}}>{s.deleted ? 'Restaurar' : 'Eliminar'}</button></div></td>
     </tr>)}</tbody></table></div>}</Card>
     {edit && catalog.data && <Modal title={edit.code ? 'Editar PDV' : 'Crear PDV'} wide onClose={() => setEdit(null)}><StoreForm store={edit} catalog={catalog.data} onClose={() => setEdit(null)} onSaved={() => {setEdit(null);stores.reload();notify('PDV guardado.');}}/></Modal>}
     {history && <History store={history} onClose={() => setHistory(null)}/>}

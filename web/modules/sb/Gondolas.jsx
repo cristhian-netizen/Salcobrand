@@ -104,7 +104,6 @@ function PointDetail({user, go, pointId, tab, notify}) {
     <ErrorBox error={actionError || error}/>
     {point.can_capture === false && <p className="sb-error">Esta estructura está inactiva. Puedes consultar sus lecturas anteriores.</p>}
     <p className="sb-hint">Planograma: {point.planogram_name || 'Sin asignar'}</p>
-    {can(user,'manage') && <button type="button" onClick={() => go('pdv/'+encodeURIComponent(point.store_id || ''))}>Administrar referencia en PDV</button>}
     <div className="sb-tabs" role="group" aria-label="Secciones de la góndola">
       {[['lecturas', 'Lecturas'], ...(can(user, 'dashboard') ? [['tendencias', 'Tendencias'], ['reposicion', 'Reposición y quiebres']] : [])].map(([id, label]) =>
         <button key={id} type="button" aria-pressed={tab === id} onClick={() => go(`gondolas/${encodeURIComponent(point.id)}/${id}`)}>{label}</button>)}

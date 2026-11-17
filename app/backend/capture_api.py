@@ -51,7 +51,7 @@ def existing_request(key, fingerprint):
     return job
 
 
-def submit(point_id, images, meters, user, request_id, selection=None, manual_store=None, manual_override=False, geometry=None, by_type=False):
+def submit(point_id, images, meters, user, request_id, selection=None, manual_store=None, manual_override=False, geometry=None, by_type=False, manual_reference=False):
     if not re.fullmatch(r"[A-Za-z0-9_-]{16,100}", request_id or ""):
         raise HTTPException(400, "La captura necesita un identificador de solicitud válido.")
     key = hashlib.sha256((user["username"] + ":" + request_id).encode()).hexdigest()
@@ -92,6 +92,11 @@ def submit(point_id, images, meters, user, request_id, selection=None, manual_st
                 capture_selection.validate_selection(selection or {}, conn)
                 if manual_store:
                     capture_selection.manual_store(conn, manual_store, manual_override)
+                    if manual_reference:
+                        reference = infrastructure.capture_context(point_id)
+                        point = db.get_point(point_id)
+                        if not reference or point.get('store_id') != manual_store:
+                            raise HTTPException(409, 'La referencia ya no está disponible en este PDV.')
                 if core.remote_enabled():
                     pending = conn.execute("SELECT status, payload_json FROM api_jobs WHERE point_id = ? AND status IN ('queued', 'running', 'failed')", (point_id,)).fetchall()
                     for row in pending:
@@ -143,7 +148,7 @@ def router(require_user, require_scan, authorize_point):
 
     @api.post('/stores/{store_code}/analysis-jobs', status_code=202)
     async def manual(store_code: str, images: List[UploadFile] = File(...), linear_meters: Optional[float] = Form(None),
-                     manual_override: bool = Form(False), levels: Optional[int] = Form(None), depths: Optional[List[float]] = Form(None),
+                     manual_override: bool = Form(False), reference_point_id: str = Form(''), levels: Optional[int] = Form(None), depths: Optional[List[float]] = Form(None),
                      category: str = Form(''), subcategory: str = Form(''), subcategories: Optional[List[str]] = Form(None),
                      request_id: str = Header(alias='Idempotency-Key'), user=Depends(require_scan)):
         scope = profiles.store_scope(user)
@@ -159,8 +164,18 @@ def router(require_user, require_scan, authorize_point):
             loaded = await core.read_image_uploads(images, max_bytes_each=25*1024*1024, max_bytes_total=100*1024*1024)
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
-        point_id = await run_in_threadpool(capture_selection.manual_point, store_code, user, values, manual_override)
-        return await run_in_threadpool(submit, point_id, loaded, linear_meters, user, request_id, values, store_code, manual_override, dimensions)
+        if reference_point_id:
+            if not manual_override:
+                raise HTTPException(400, 'Activa las medidas manuales para conservar una referencia precargada.')
+            authorize_point(reference_point_id, user)
+            reference = await run_in_threadpool(infrastructure.capture_context, reference_point_id)
+            point = db.get_point(reference_point_id)
+            if not reference or point.get('store_id') != store_code:
+                raise HTTPException(403, 'La referencia no pertenece al PDV seleccionado.')
+            point_id = reference_point_id
+        else:
+            point_id = await run_in_threadpool(capture_selection.manual_point, store_code, user, values, manual_override)
+        return await run_in_threadpool(submit, point_id, loaded, linear_meters, user, request_id, values, store_code, manual_override, dimensions, False, bool(reference_point_id))
 
     @api.get("/capture/status")
     def status(user=Depends(require_user)):

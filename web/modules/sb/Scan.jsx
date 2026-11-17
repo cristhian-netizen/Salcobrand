@@ -128,7 +128,8 @@ export default function Scan({ user, rest, go, notify }) {
   const resolution = capturePointForType(storePoints, selectedType, classification, enabled(user, 'planograms'));
   const selected = manualMode ? null : resolution.point;
   const categories = points.data?.captureOptions.categories || {};
-  const planClassification = enabled(user, 'planograms') ? selected?.planogram_classification : null;
+  const referencePoint = selected || (manualOverride ? resolution.point : null);
+  const planClassification = enabled(user, 'planograms') ? referencePoint?.planogram_classification : null;
   const captureClassification = planClassification?.category ? planClassification : classification;
   const subcategories = categories[captureClassification.category] || [];
   const classificationReady = (!Object.keys(categories).length || captureClassification.category)
@@ -331,6 +332,7 @@ export default function Scan({ user, rest, go, notify }) {
     if (width !== null) form.append("linear_meters", String(width));
     if (manualMode) {
       form.append('manual_override', String(manualOverride));
+      if (manualOverride && referencePoint) form.append('reference_point_id', referencePoint.id);
       form.append('levels', String(manualDepths.length));
       manualDepths.forEach(depth => form.append('depths', String(Number(depth))));
     } else form.append('by_type', 'true');
@@ -523,7 +525,7 @@ export default function Scan({ user, rest, go, notify }) {
                 {types.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}
               </select></label>
               <button type="button" disabled={busy || !selectedStore || !hasAssigned} aria-pressed={manualOverride} onClick={() => {
-                setManualOverride(value => !value); setMeters(''); setManualDepths(['']); setPointId(''); requestId.current = null;
+                setClassification(captureClassification); setManualOverride(value => !value); setMeters(''); setManualDepths(['']); setPointId(''); requestId.current = null;
               }}>{manualOverride ? 'Usar tipo precargado' : 'Ingresar medidas manualmente'}</button>
             </div>
             {!manualMode && selectedShelf && <div className="full scan-shelf-details">
@@ -541,6 +543,7 @@ export default function Scan({ user, rest, go, notify }) {
                 if (Number.isInteger(count) && count >= 1 && count <= 100) {setManualDepths(values => Array.from({length:count},(_,index) => values[index] ?? ''));requestId.current = null;}
               }}/></label>
               {manualDepths.map((depth,index) => <label key={index}>Profundidad nivel {index+1} (cm)<input type="number" min="0.1" max="1000" step="any" required value={depth} disabled={busy} onChange={event => {setManualDepths(values => values.map((value,i) => i === index ? event.target.value : value));requestId.current = null;}}/></label>)}
+              {referencePoint?.planogram_name && <p className="sb-hint full">Se conserva la comparación con {referencePoint.planogram_name}.</p>}
               <p className="sb-hint full">Estas medidas se guardan con la captura. {hasAssigned ? 'Puedes volver al tipo precargado con el botón superior.' : 'Este PDV permite capturar con medidas manuales.'}</p>
             </>}
             {!manualMode && <p className="sb-hint full">{enabled(user, 'planograms') && selected?.planogram_name ? `Se compara con ${selected.planogram_name}.` : 'Se identifican productos y caras. La comparación se aplica cuando hay un planograma asociado.'}</p>}

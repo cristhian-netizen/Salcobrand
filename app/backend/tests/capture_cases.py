@@ -14,6 +14,24 @@ from starlette.datastructures import UploadFile
 
 
 class CaptureCases:
+    def test_manual_type_override_keeps_planogram_reference_and_dimensions(self):
+        product=self.create_product();plan=self.save_plan(product);shelf=self.create_type();admin=self.client('admin')
+        admin.put('/api/admin/stores/L128/shelf-assignments/'+shelf['id'],json={'quantity':1,'version':0}).raise_for_status()
+        point=next(p for p in self.client('replenisher').get('/api/summary').json()['points'] if p.get('infrastructure'))
+        self.db.set_point_planogram(point['id'],plan['id'])
+        fields={'manual_override':'true','reference_point_id':point['id'],'levels':'2','depths':['25','35'],'linear_meters':'1.5'}
+        client=self.client('replenisher')
+        response=client.post('/api/stores/L128/analysis-jobs',headers={'Idempotency-Key':'keep-plan-manual-reference-001'},data=fields,files={'images':('photo.jpg',b'synthetic','image/jpeg')})
+        self.assertEqual(response.status_code,202,response.text)
+        payload=self.db.get_job(response.json()['job_id'])['payload']
+        self.assertEqual(payload['plan_snapshot']['id'],plan['id'])
+        self.assertEqual(payload['infrastructure']['depths'],[25,35])
+        self.assertEqual(payload['linear_meters'],1.5)
+        self.assertEqual(payload['infrastructure']['captureMode'],'manual')
+        self.assertEqual(admin.get('/api/admin/shelf-types').json()[0]['width_cm'],shelf['width_cm'])
+        bad=client.post('/api/stores/L129/analysis-jobs',headers={'Idempotency-Key':'wrong-store-reference-001'},data=fields,files={'images':('photo.jpg',b'synthetic','image/jpeg')})
+        self.assertEqual(bad.status_code,403)
+
     def test_replenisher_geography_is_assigned_and_administratively_ordered(self):
         admin=self.client('admin');admin.get('/api/admin/stores')
         with self.db.get_conn() as conn:

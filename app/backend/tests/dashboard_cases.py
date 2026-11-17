@@ -62,7 +62,8 @@ class DashboardCases:
         self.assertEqual(self.client(None).get('/api/dashboard').status_code, 401)
         for path in ('/api/dashboard', '/api/dashboard/export/operation.csv'):
             self.assertEqual(self.client('replenisher').get(path).status_code, 403)
-        for role in ('admin', 'analyst', 'viewer'):
+        self.assertEqual(self.client('admin').get('/api/dashboard').status_code,403)
+        for role in ('analyst', 'viewer'):
             response = self.client(role).get('/api/dashboard?to=2026-11-12')
             self.assertEqual(response.status_code, 200, response.text)
         analyst = self.client('analyst')

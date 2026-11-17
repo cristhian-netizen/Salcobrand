@@ -304,3 +304,9 @@
 #nv .capture-planograms .ct-pdf-preview { max-height: 340px; }
 #nv .capture-planograms .shelf-photo-button { width: 100%; }
 #nv .capture-planograms .shelf-photo-button img { width: auto; max-width: 100%; height: 240px; object-fit: contain; }
+
+#nv .nv-user-menu { position: relative; margin-left: auto; }
+#nv .nv-user-menu summary { cursor: pointer; list-style: none; }
+#nv .nv-user-menu summary::-webkit-details-marker { display: none; }
+#nv .nv-user-menu-items { position: absolute; right: 0; top: calc(100% + 10px); min-width: 170px; display: grid; gap: 4px; padding: 8px; background: white; border: 1px solid #dbe3ec; border-radius: 10px; box-shadow: 0 12px 30px #0f172a20; z-index: 50; }
+#nv .nv-user-menu-items button { text-align: left; }

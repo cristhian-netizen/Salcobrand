@@ -51,7 +51,7 @@ export default function PersonForm({current, self, onClose, onSaved}) {
       <label>Apellido materno<input {...change('maternal')} maxLength={80}/></label>
       <label>Email<input {...change('email')} type="email" required maxLength={180}/></label>
       <label>Nombre de usuario<input {...change('username')} readOnly={!!current.access_enabled} required minLength={3} maxLength={80} autoComplete="off"/></label>
-      <label>Rol<select {...change('role')} required disabled={own}>{Object.entries(ROLE_NAMES).map(([value,label]) => <option value={value} key={value}>{label}</option>)}</select></label>
+      <label>Rol<select {...change('role')} required disabled={own}>{Object.entries(ROLE_NAMES).filter(([value]) => value !== 'local-neura').map(([value,label]) => <option value={value} key={value}>{label}</option>)}</select></label>
       <label>Cargo<input {...change('position')} required maxLength={120}/></label>
       <label>Estado<select value={form.status} disabled={own} onChange={event => setForm({...form,status:event.target.value,endDate:event.target.value === 'De baja' ? form.endDate : ''})}><option>Vigente</option><option>Suspendido</option><option>De baja</option></select></label>
       <label>Fecha alta<input {...change('startDate')} type="date" required/></label>

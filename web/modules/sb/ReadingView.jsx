@@ -58,7 +58,7 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo}) {
       </article>
       <Metric label="Cumplimiento de planograma" value={c ? fmt.pct(c.compliance_pct) : '—'} hint={c ? `${c.total_filled_facings} de ${c.total_expected_facings} caras esperadas` : 'Góndola sin planograma'}/>
       <Metric label="Caras detectadas" value={fmt.num(reading.total_facings)} hint={`${reading.shelf_levels_detected ?? '—'} niveles · espacio vacío ${fmt.pct(reading.empty_space_pct)}`}/>
-      <Metric label="Por revisar" value={fmt.num(reading.needs_review)} hint={c ? `Impacto estimado ${clp(c.impact_clp)}` : 'Recortes dudosos del motor'}/>
+      <Metric label="Detecciones inciertas" value={fmt.num(reading.needs_review)} hint={c ? `Impacto estimado ${clp(c.impact_clp)}` : 'Recortes dudosos del motor'}/>
     </div>
     {s.findings?.length > 0 && <Card title="Hallazgos"><ul className="sb-findings">{s.findings.map((f, i) => <li key={i}>{f}</li>)}</ul></Card>}
     <Card title={`Fotos (${reading.image_urls?.length || 0})`} subtitle="Verde: correcto · Naranjo: bajo lo esperado o sin identificar · Rojo: falta · Azul: fuera de planograma.">
@@ -68,11 +68,11 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo}) {
       {[['productos', `Productos (${products.length})`], ['planograma', 'Planograma'], ['reposicion', 'Reposición']].map(([id, label]) =>
         <button key={id} type="button" aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}
     </div>
-    {tab === 'productos' && <Card body={false} title="Productos detectados" actions={can(user, 'review') && reading.needs_review > 0 && <button type="button" onClick={onConfirmGo}>Revisar {reading.needs_review} recortes</button>}>
+    {tab === 'productos' && <Card body={false} title="Productos detectados" actions={can(user, 'train') && reading.needs_review > 0 && <button type="button" onClick={onConfirmGo}>Revisar {reading.needs_review} recortes</button>}>
       {products.length ? <div className="sb-table"><table><thead><tr><th>Producto</th><th>Nivel / pos.</th><th className="sb-num">Caras</th><th>Estado</th><th className="sb-num">Confianza</th></tr></thead><tbody>
         {products.map((p, i) => <tr key={i}><td><b>{p.product}</b><small>{[p.brand, p.category].filter(Boolean).join(' · ')}</small></td>
           <td>{p.shelf_level} / {p.position_index}</td><td className="sb-num">{p.facings}</td>
-          <td><StatusPill status={p.planogram_status || p.match_status}/>{p.needs_review && <> <Pill kind="warn">Revisar</Pill></>}</td>
+          <td><StatusPill status={p.planogram_status || p.match_status}/>{p.needs_review && <> <Pill kind="warn">Confianza limitada</Pill></>}</td>
           <td className="sb-num">{typeof p.confidence === 'number' ? Math.round(p.confidence * 100) + ' %' : '—'}</td></tr>)}
       </tbody></table></div> : <Empty>El motor no detectó productos en esta lectura.</Empty>}
     </Card>}
@@ -83,7 +83,7 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo}) {
           <td><StatusPill status={item.status}/></td><td className="sb-num">{clp(item.price_clp)}</td></tr>)}
       </tbody></table></div>
       {c.foreign_products?.length > 0 && <div className="sb-card-body"><h3>Productos fuera de planograma</h3><p>{c.foreign_products.map(f => f.product).join(' · ')}</p></div>}
-    </Card> : <Card><Empty>Esta góndola no tiene planograma asignado. Asígnalo desde la góndola para medir cumplimiento.</Empty></Card>)}
+    </Card> : <Card><Empty>Esta góndola no tiene planograma asignado. Asígnalo desde Puntos de venta para medir cumplimiento.</Empty></Card>)}
     {tab === 'reposicion' && <Card body={false} title="Reposición sugerida" subtitle="Posiciones faltantes o bajo lo esperado, prioridad TOP y lanzamientos primero.">
       {c?.replenishment?.length ? <div className="sb-table"><table><thead><tr><th>Producto</th><th>Posición</th><th className="sb-num">Faltan</th><th className="sb-num">Valor</th><th>Estado</th></tr></thead><tbody>
         {c.replenishment.map(item => <tr key={item.planogram_item_id}><td><b>{item.title}</b>{item.tag && <small>{item.tag}</small>}</td><td>{item.section_label} · {item.position_in_section}</td>

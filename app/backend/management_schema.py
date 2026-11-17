@@ -76,4 +76,9 @@ CREATE TABLE IF NOT EXISTS management_events (
   id TEXT PRIMARY KEY, actor TEXT NOT NULL, action TEXT NOT NULL, resource_id TEXT NOT NULL,
   before_json TEXT, after_json TEXT, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS management_training_labels (
+ id TEXT PRIMARY KEY, reading_id INTEGER NOT NULL, image_index INTEGER NOT NULL, item_index INTEGER NOT NULL,
+ data_json TEXT NOT NULL, crop_path TEXT NOT NULL, created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+ UNIQUE(reading_id,image_index,item_index)
+);
 """

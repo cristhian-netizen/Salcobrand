@@ -132,6 +132,8 @@ def require_account(request: Request) -> dict:
     if status == 'Suspendido' and request.method not in ('GET','HEAD','OPTIONS'):
         raise HTTPException(status_code=403, detail='Tu cuenta está suspendida y permite solo consultas.')
     profile = profiles.profile_of(u)
+    if profile in profiles.INTERNAL_PROFILES and not u.get('is_internal'):
+        raise HTTPException(403, 'El perfil de proveedor requiere una cuenta interna.')
     if profile is None:
         raise HTTPException(status_code=403, detail="El perfil de la cuenta no está habilitado")
     return {"username": u["username"], "role": u["role"], "profile": profile, 'read_only':status == 'Suspendido', 'status':status,
@@ -152,7 +154,7 @@ def require_user(request: Request) -> dict:
 
 
 def require_internal(user: dict = Depends(require_account)):
-    if not user['internal']:
+    if not user['internal'] or profiles.profile_of(user) in profiles.INTERNAL_PROFILES:
         raise HTTPException(status_code=403,detail='Consola exclusiva del equipo interno de Neuramorphic.')
     return user
 
@@ -167,6 +169,7 @@ def permission(action):
 
 require_scan = permission("scan")
 require_review = permission("review")
+require_training = permission("train")
 require_report = permission("report")
 require_dashboard = permission("dashboard")
 require_resolve = permission("resolve")
@@ -201,6 +204,8 @@ import people_api
 app.include_router(people_api.router(require_admin))
 import client_console_api
 app.include_router(client_console_api.router(require_internal))
+import training_api
+app.include_router(training_api.router(require_training, require_internal))
 app.include_router(catalog_api.router(require_admin))
 
 
@@ -268,6 +273,8 @@ app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 @app.get("/uploads/{rel_path:path}")
 def uploaded_photo(rel_path: str, request: Request):
     """Authorize original photos, including direct URLs, before retrieving bytes."""
+    if rel_path.startswith('_training/'):
+        raise HTTPException(404, 'Fotografía no disponible.')
     reading_id = db.reading_for_photo(rel_path)
     if request.cookies.get(auth.SESSION_COOKIE):
         user = require_user(request)
@@ -490,7 +497,7 @@ def api_create_user(payload: UserCreatePayload, _admin: dict = Depends(require_a
         raise HTTPException(status_code=400, detail="El usuario debe tener al menos 3 caracteres")
     if len(payload.password) < 6:
         raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 6 caracteres")
-    if payload.role not in db.ROLES:
+    if payload.role not in profiles.PROFILES:
         raise HTTPException(status_code=400, detail="Selecciona Administrador, Analista, Reponedor o Superusuario")
     if db.user_exists(username):
         raise HTTPException(status_code=409, detail="Ese usuario ya existe")
@@ -510,7 +517,7 @@ def api_update_user(username: str, payload: UserUpdatePayload, admin: dict = Dep
         raise HTTPException(status_code=403,detail='Esta cuenta pertenece al equipo interno.')
     data = payload.model_dump(exclude_unset=True) if hasattr(payload, "model_dump") else payload.dict(exclude_unset=True)
     role = data.get("role")
-    if role is not None and role not in db.ROLES:
+    if role is not None and role not in profiles.PROFILES:
         raise HTTPException(status_code=400, detail="Selecciona Administrador, Analista, Reponedor o Superusuario")
     if username == admin["username"] and role is not None and role != "admin":
         raise HTTPException(status_code=400, detail="No puedes quitarte tu propio rol de administrador")
@@ -959,7 +966,7 @@ def api_reanalyze_all(user: dict = Depends(require_review)):
 # Revisión humana: recortes dudosos → confirmación → memoria visual (NeuraVision)
 # ---------------------------------------------------------------------------
 @app.get("/revision")
-def revision_page(user: dict = Depends(require_review)):
+def revision_page(user: dict = Depends(require_training)):
     return FileResponse(FRONTEND_DIR / "revision.html", media_type="text/html")
 
 
@@ -981,8 +988,8 @@ def api_delete_reading(reading_id: int, user: dict = Depends(require_admin)):
 
 
 @app.get("/api/review/pending")
-def api_review_pending(user: dict = Depends(require_review)):
-    return [core.review_items_for_reading(r, crop_prefix="/api") for r in db.readings_needing_review(store_id=store_scope(user))]
+def api_review_pending(user: dict = Depends(require_training)):
+    return training_api.pending()
 
 
 @functools.lru_cache(maxsize=1024)
@@ -1006,15 +1013,14 @@ def api_reading_crop(reading_id: int, image_index: int, item_index: int, user: d
 
 
 @app.post("/api/readings/{reading_id}/confirm")
-def api_reading_confirm(reading_id: int, payload: ConfirmPayload, user: dict = Depends(require_review)):
-    """Una persona confirma qué SKU es un recorte. Actualiza la lectura y alimenta la memoria visual."""
+def api_reading_confirm(reading_id: int, payload: ConfirmPayload, user: dict = Depends(require_training)):
+    """Guarda una etiqueta interna de entrenamiento sin modificar la medición del cliente."""
     authorize_reading(reading_id, user)
     r = db.get_reading(reading_id)
     if not r:
         raise HTTPException(status_code=404, detail="Lectura no encontrada")
     try:
-        return core.confirm_reading_item(r, payload.image_index, payload.item_index, payload.title, payload.facings,
-                                         source=f"usuario:{user['username']}")
+        return training_api.save_label(r, payload.image_index, payload.item_index, payload.title, payload.facings, user['username'])
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -1127,10 +1133,10 @@ def api_catalog(planogram_id: str, point_id: Optional[str] = None, user: dict = 
 
 
 @app.get("/api/readings/{reading_id}/review")
-def api_reading_review(reading_id: int, user: dict = Depends(require_review)):
+def api_reading_review(reading_id: int, user: dict = Depends(require_training)):
     """Ítems por revisar de una lectura (índices, recorte, candidatos), igual que /v1/readings/{id}/review."""
     authorize_reading(reading_id, user)
     r = db.get_reading(reading_id)
     if not r:
         raise HTTPException(status_code=404, detail="Lectura no encontrada")
-    return core.review_items_for_reading(r, crop_prefix="/api")
+    return training_api.review_payload(r)

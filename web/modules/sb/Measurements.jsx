@@ -6,8 +6,8 @@ import { useApi, Header, Card, Loading, Empty, ErrorBox, Pill } from "./ui";
 
 const INITIAL = { store: "", point: "", from: "", to: "", status: "" };
 
-export default function Measurements({ user, go }) {
-  const [filters, setFilters] = useState(INITIAL);
+export default function Measurements({ user, go, rest = [] }) {
+  const [filters, setFilters] = useState({...INITIAL, point:rest[0] || ''});
   const [offset, setOffset] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");

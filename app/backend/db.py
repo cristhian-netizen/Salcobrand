@@ -3,7 +3,7 @@ import os
 import re
 import sqlite3
 from management_schema import SCHEMA as MANAGEMENT_SCHEMA
-from profiles import PROFILES, LEGACY_PROFILES
+from profiles import PROFILES, LEGACY_PROFILES, INTERNAL_PROFILES
 from contextlib import contextmanager, nullcontext
 from datetime import datetime, timezone
 from pathlib import Path
@@ -227,7 +227,7 @@ def init_db(role: str = None):
     _seed_planograms_if_empty()
 
 
-ROLES = (*PROFILES, *LEGACY_PROFILES)
+ROLES = (*PROFILES, *LEGACY_PROFILES, *INTERNAL_PROFILES)
 
 
 def _backfill_authors():
@@ -338,10 +338,10 @@ def create_user(username: str, password_hash: str, salt: str, role: str = "admin
         from catalog_service import lock_catalog
         lock_catalog(conn)
         conn.execute(
-            "INSERT INTO users (username, password_hash, salt, created_at, role, store_id, store_name, store_ids_json, auth_version) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)",
+            "INSERT INTO users (username, password_hash, salt, created_at, role, store_id, store_name, store_ids_json, auth_version, is_internal) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
             (username, password_hash, salt, now_iso(), role, store_id or None, store_name or None,
-             json.dumps(store_ids) if store_ids is not None else None),
+             json.dumps(store_ids) if store_ids is not None else None, int(role in INTERNAL_PROFILES)),
         )
 
         conn.execute('UPDATE management_people SET version=version+1 WHERE LOWER(username)=LOWER(?)', (username,))

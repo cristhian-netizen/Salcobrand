@@ -409,9 +409,9 @@ export default function Scan({ user, rest, go, notify }) {
           <button
             className="action"
             type="button"
-            onClick={() => go("gondolas/" + encodeURIComponent(pointId))}
+            onClick={() => go("mediciones/" + encodeURIComponent(pointId))}
           >
-            Ver góndola
+            Ver historial
           </button>
         </Header>
         <ReadingView

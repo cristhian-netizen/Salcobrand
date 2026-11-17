@@ -5,30 +5,8 @@ import {ROLE_NAMES} from '../../lib/sb';
 import {profileOf, scopeLabel} from '../../lib/profiles.mjs';
 import {enabled} from '../identity/identity.mjs';
 
-// [id, label, icon, roles]
-export const MODULES = [
-  ['productos', 'Productos', 'products', ['admin']],
-  ['pdv', 'Puntos de venta', 'home', ['admin']],
-  ['infraestructura', 'Infraestructura', 'infrastructure', ['admin']],
-  ['inicio', 'Inicio', 'home', ['replenisher', 'analyst', 'viewer', 'admin']],
-  ['escanear', 'Escanear góndola', 'scan', ['replenisher', 'analyst']],
-  ['gondolas', 'Góndolas y lecturas', 'infrastructure', ['replenisher', 'analyst', 'viewer', 'admin']],
-  ['mediciones', 'Mediciones', 'reports', ['replenisher', 'analyst', 'viewer', 'admin']],
-  ['revision', 'Revisión', 'review', ['analyst']],
-  ['alertas', 'Alertas', 'alerts', ['replenisher', 'analyst', 'viewer', 'admin']],
-  ['planogramas', 'Planogramas', 'planograms', ['admin']],
-  ['reportes', 'Reportes', 'reports', ['analyst', 'viewer', 'admin']],
-  ['uso-analisis', 'Uso de análisis', 'dashboards', ['viewer']],
-  ['dashboards', 'Dashboards', 'dashboards', ['analyst', 'viewer', 'admin']],
-  ['enlaces', 'Enlaces de captura', 'link', ['admin']],
-  ['usuarios', 'Personas y roles', 'people', ['admin']],
-  ['cuenta', 'Mi cuenta', 'account', ['replenisher', 'analyst', 'viewer', 'admin']],
-  ['configuracion', 'Configuración', 'settings', ['admin']],
-  ['ayuda', 'Ayuda y soporte', 'help', ['analyst', 'viewer', 'admin']],
-];
-const GROUPS = [['General', ['inicio']], ['Operación', ['escanear', 'mediciones', 'gondolas', 'revision', 'alertas']], ['Análisis', ['dashboards', 'reportes', 'uso-analisis']], ['Administración', ['pdv', 'infraestructura', 'productos', 'planogramas', 'enlaces', 'usuarios', 'configuracion', 'cuenta', 'ayuda']]];
-export const labelOf = id => MODULES.find(m => m[0] === id)?.[1] || id;
-export const allowed = (id, role) => !!MODULES.find(m => m[0] === id)?.[3].includes(profileOf(role));
+import {MODULES, GROUPS, allowed} from './modules.mjs';
+export {allowed,labelOf} from './modules.mjs';
 
 export default function Sidebar({user, current, onSelect, onLogout, open = false, onClose}) {
   const scope = scopeLabel(user);
@@ -49,7 +27,7 @@ export default function Sidebar({user, current, onSelect, onLogout, open = false
       </div> : null;
     })}</nav>
     <div className="nv-sidebar-footer">
-      {user.internal && <button className="nv-logout" type="button" onClick={() => onSelect('consola')}><Icon name="settings"/>Consola interna</button>}
+      {user.internal && profileOf(user) !== 'local-neura' && <button className="nv-logout" type="button" onClick={() => onSelect('consola')}><Icon name="settings"/>Consola interna</button>}
       <div className="nv-user"><span className="nv-avatar" aria-hidden="true">{user.username.slice(0, 1).toUpperCase()}</span><div><strong>{user.username}</strong><small>{ROLE_NAMES[user.role] || user.role}</small></div></div>
       <button className="nv-logout" type="button" onClick={onLogout}><Icon name="logout"/>Cerrar sesión</button>
     </div>

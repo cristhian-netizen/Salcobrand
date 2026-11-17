@@ -717,25 +717,14 @@ def reading_crop(reading_id: int, image_index: int, item_index: int, request: Re
     return Response(content=data, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"})
 
 
-@app.get("/readings/{reading_id}/review", summary="Ítems por revisar de la lectura (índices, recorte, candidatos)")
+@app.get("/readings/{reading_id}/review", include_in_schema=False, summary="Ítems por revisar de la lectura (índices, recorte, candidatos)")
 def reading_review(reading_id: int, request: Request, ctx: dict = Depends(require_api_key)):
-    r = _own_reading(ctx["client"]["client_id"], reading_id)
-    _note_reading(request, r)
-    return core.review_items_for_reading(r, crop_prefix=_url_prefix(request))
+    raise HTTPException(403, 'La verificación de productos es interna. Utiliza el perfil local-neura del proveedor.')
 
 
-@app.post("/readings/{reading_id}/confirm", summary="Confirmación humana de un recorte (alimenta la memoria visual)")
+@app.post("/readings/{reading_id}/confirm", include_in_schema=False, summary="Confirmación humana de un recorte (alimenta la memoria visual)")
 def reading_confirm(reading_id: int, payload: ConfirmIn, request: Request, ctx: dict = Depends(require_api_key)):
-    cid = ctx["client"]["client_id"]
-    r = _own_reading(cid, reading_id)
-    try:
-        out = core.confirm_reading_item(r, payload.image_index, payload.item_index, payload.title, payload.facings,
-                                        source=f"api:{cid}")
-    except LookupError as exc:
-        raise ApiError(404, "not_found", str(exc))
-    _note_reading(request, out["reading"])
-    out["reading"] = _public_reading(out["reading"], prefix=_url_prefix(request))
-    return out
+    raise HTTPException(403, 'La verificación de productos es interna. Utiliza el perfil local-neura del proveedor.')
 
 
 # ---------------------------------------------------------------------------

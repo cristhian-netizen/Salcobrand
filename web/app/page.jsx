@@ -4,7 +4,7 @@ import Login from '../modules/auth/Login';
 import Sidebar, {allowed, labelOf} from '../modules/navigation/Sidebar';
 import Icon from '../modules/navigation/icons';
 import {auth, subscribeSession, hasPendingMutation, ROLE_NAMES} from '../lib/sb';
-import {scopeLabel} from '../lib/profiles.mjs';
+import {scopeLabel, can} from '../lib/profiles.mjs';
 import Home from '../modules/sb/Home';
 import Scan from '../modules/sb/Scan';
 import Gondolas from '../modules/sb/Gondolas';
@@ -56,7 +56,7 @@ export default function Page() {
   }, []);
   useEffect(() => { if (!notice) return; const t = setTimeout(() => setNotice(''), 7000); return () => clearTimeout(t); }, [notice]);
   useEffect(() => { if (!navOpen) return; const k = e => { if (e.key === 'Escape') setNavOpen(false); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [navOpen]);
-  useEffect(() => { document.title = user?.internal && (!user.portal_access || route.view === 'consola') ? 'Consola interna · NeuraVision' : user?.tenant?.name ? user.tenant.name + ' · NeuraVision' : 'NeuraVision'; }, [user, route.view]);
+  useEffect(() => { document.title = user?.internal && user.role !== 'local-neura' && (!user.portal_access || route.view === 'consola') ? 'Consola interna · NeuraVision' : user?.tenant?.name ? user.tenant.name + ' · NeuraVision' : 'NeuraVision'; }, [user, route.view]);
 
   const go = useCallback(path => { window.location.hash = '/' + String(path).replace(/^[#/]+/, ''); }, []);
   async function logout() {
@@ -68,9 +68,9 @@ export default function Page() {
 
   if (checking) return <div className="nv-splash" role="status"><span className="nv-spinner" aria-hidden="true"/>Cargando…</div>;
   if (!user) return <>{toast}<Login onLogin={async (u, p) => { await auth.login(u, p); setUser(await auth.me()); }}/></>;
-  if (user.internal && (!user.portal_access || route.view === 'consola')) return <ClientConsole user={user} onLogout={logout} onPortal={user.portal_access ? () => go('inicio') : undefined}/>;
+  if (user.internal && user.role !== 'local-neura' && (!user.portal_access || route.view === 'consola')) return <ClientConsole user={user} onLogout={logout} onPortal={user.portal_access ? () => go('inicio') : undefined}/>;
 
-  const view = allowed(route.view, user.role) && VIEWS[route.view] && (route.view !== 'planogramas' || enabled(user, 'planograms')) ? route.view : 'inicio';
+  const view = allowed(route.view, user.role) && VIEWS[route.view] && (route.view !== 'planogramas' || enabled(user, 'planograms')) ? route.view : user.role === 'local-neura' ? 'revision' : 'inicio';
   const View = VIEWS[view];
   return <>{toast}
     <div id="nv" className="shell" style={identityStyle(user.tenant)}>
@@ -80,7 +80,10 @@ export default function Page() {
         <header className="nv-topbar">
           <button className="nv-icon-button nv-menu" type="button" aria-label="Abrir menú" aria-expanded={navOpen} onClick={() => setNavOpen(true)}><Icon name="menu"/></button>
           <nav className="nv-breadcrumb" aria-label="Ubicación"><span>{user.tenant?.name || 'Salcobrand'}</span><Icon name="chevron" size={14}/><strong>{labelOf(view)}</strong></nav>
-          <div className="nv-topbar-user"><span className="nv-avatar" aria-hidden="true">{user.username.slice(0, 1).toUpperCase()}</span><span className="nv-topbar-user-text"><strong>{user.username}</strong><small>{ROLE_NAMES[user.role] || user.role} · {scopeLabel(user)}</small></span></div>
+          <details className="nv-user-menu">
+            <summary className="nv-topbar-user" aria-label="Menú de usuario"><span className="nv-avatar" aria-hidden="true">{user.username.slice(0,1).toUpperCase()}</span><span className="nv-topbar-user-text"><strong>{user.username}</strong><small>{ROLE_NAMES[user.role] || user.role} · {scopeLabel(user)}</small></span><Icon name="chevron" size={14}/></summary>
+            <div className="nv-user-menu-items"><button type="button" onClick={event => {event.currentTarget.closest('details').open=false;go('cuenta');}}>Mi cuenta</button><button type="button" onClick={logout}>Cerrar sesión</button></div>
+          </details>
         </header>
         <main>{user.read_only && <div className="sb-qa-banner" role="status">Tu cuenta está suspendida y permite solo consultas.</div>}{user.environment === 'profile-qa' && <div className="sb-qa-banner" role="status">QA local · datos ficticios · motor deshabilitado</div>}{user.environment === 'capture-dev' && <div className="sb-qa-banner" role="status">Desarrollo local · análisis real mediante Salcobrand dev</div>}<div className="nv-page" key={view + '/' + (route.rest[0] || '')}><View user={user} rest={view === route.view ? route.rest : []} go={go} notify={setNotice}/></div></main>
       </div>

@@ -70,6 +70,8 @@ class ProfileHTTPTests(ConsoleCases, UsageCases, PeopleCases, StoreExcelCases, A
         key_api.require_api_key = isolated_api_identity
         storage = types.ModuleType("storage")
         storage.get = Mock(return_value=b"synthetic-photo")
+        storage.put = Mock()
+        storage.delete_many = Mock()
         storage.content_type_for = lambda path: "image/jpeg"
         storage.delete_prefix = Mock()
         captures, vivo = types.ModuleType("captures"), types.ModuleType("vivo")
@@ -93,7 +95,7 @@ class ProfileHTTPTests(ConsoleCases, UsageCases, PeopleCases, StoreExcelCases, A
 
     def setUp(self):
         with self.db.get_conn() as conn:
-            for table in ("management_clients", "management_people", "management_reading_alerts", "management_reading_details", "management_settings", "management_reading_reviews", "management_capture_requests", "management_products", "management_planograms", "management_events", "management_instances", "management_assignments", "management_shelf_types", "management_stores", "users", "readings", "points", "api_jobs", "stock_actions", "supplier_stockouts", "planograms", "planogram_items"):
+            for table in ("management_training_labels", "management_clients", "management_people", "management_reading_alerts", "management_reading_details", "management_settings", "management_reading_reviews", "management_capture_requests", "management_products", "management_planograms", "management_events", "management_instances", "management_assignments", "management_shelf_types", "management_stores", "users", "readings", "points", "api_jobs", "stock_actions", "supplier_stockouts", "planograms", "planogram_items"):
                 conn.execute(f"DELETE FROM {table}")
         for name, role, stores in [("admin", "admin", []), ("analyst", "analyst", ["L128", "L129"]),
                                    ("replenisher", "replenisher", ["L128", "L129"]), ("viewer", "viewer", []),
@@ -114,6 +116,8 @@ class ProfileHTTPTests(ConsoleCases, UsageCases, PeopleCases, StoreExcelCases, A
         self.core.delete_uploads.reset_mock()
         self.core.read_image_uploads.return_value = [(b"synthetic", "image/jpeg")]
         self.storage.delete_prefix.reset_mock()
+        self.storage.put.reset_mock()
+        self.storage.delete_many.reset_mock()
 
     def client(self, username):
         client = TestClient(self.main.app)
@@ -138,9 +142,9 @@ class ProfileHTTPTests(ConsoleCases, UsageCases, PeopleCases, StoreExcelCases, A
             profile = self.main.profiles.profile_of(role.replace("legacy-", ""))
             self.assertEqual(client.get("/api/admin/users").status_code, 200 if profile == "admin" else 403, role)
             self.assertEqual(client.get("/api/export.csv").status_code, 403 if profile == "replenisher" else 200, role)
-            self.assertEqual(client.get("/api/review/pending").status_code, 200 if profile == "analyst" else 403, role)
+            self.assertEqual(client.get("/api/review/pending").status_code, 403, role)
             response = client.post(f'/api/readings/{self.other["id"]}/confirm', json={"image_index": 0, "item_index": 0})
-            self.assertEqual(response.status_code, 200 if profile == "analyst" else 403, role)
+            self.assertEqual(response.status_code, 403, role)
 
     def test_scanning_is_only_analyst_or_replenisher(self):
         for role in ("admin", "analyst", "replenisher", "viewer"):

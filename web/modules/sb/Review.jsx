@@ -1,6 +1,6 @@
 'use client';
 import {useState} from 'react';
-import {api, fmt} from '../../lib/sb';
+import {api, fmt, download} from '../../lib/sb';
 import {useApi, Header, Card, Loading, Empty, ErrorBox, StatusPill} from './ui';
 
 function CropCard({payload, item, onDone}) {
@@ -37,15 +37,16 @@ export default function Review({go, notify}) {
   const {data, error, loading, reload, setData} = useApi(() => api('/api/review/pending'), []);
   function done(payload, item) {
     setData((data || []).map(p => p === payload ? {...p, items: p.items.filter(i => i !== item)} : p).filter(p => p.items.length));
-    notify('Recorte confirmado. La corrección quedó guardada en esta medición.');
+    notify('Etiqueta de entrenamiento guardada.');
   }
   const total = (data || []).reduce((n, p) => n + p.items.length, 0);
   return <section>
-    <Header eyebrow="Operación" title="Revisión de lecturas" subtitle="Revisa la evidencia y confirma la identidad y las caras de cada producto dudoso.">
+    <Header eyebrow="Operación" title="Revisión para entrenamiento" subtitle="Verificación interna de productos para Neuramorphic. Las etiquetas se guardan separadas de las mediciones del cliente.">
       <button type="button" onClick={reload} disabled={loading}>Actualizar</button>
+      <button type="button" onClick={() => download('/api/internal/training/labels.jsonl','Neuravision_Etiquetas_Entrenamiento.jsonl').catch(error=>notify(error.message))}>Exportar etiquetas</button>
     </Header>
     <ErrorBox error={error} onRetry={reload}/>
-    {loading && !data ? <Loading text="Buscando recortes por revisar…"/> : !total ? <Card><Empty>No hay recortes pendientes en las últimas 20 lecturas.</Empty></Card>
+    {loading && !data ? <Loading text="Buscando recortes por revisar…"/> : !total ? <Card><Empty>No hay productos pendientes de verificación en las lecturas consultadas.</Empty></Card>
       : data.map(payload => <Card key={payload.reading_id} title={`${payload.point_id} · lectura #${payload.reading_id}`} subtitle={`${fmt.dateTime(payload.created_at)} · ${payload.items.length} por revisar`}
         actions={<button className="link" type="button" onClick={() => go(`gondolas/${encodeURIComponent(payload.point_id)}/lectura/${payload.reading_id}`)}>Ver lectura</button>}>
         <div className="sb-crops">{payload.items.map(item => <CropCard key={`${item.image_index}-${item.item_index}`} payload={payload} item={item} onDone={i => done(payload, i)}/>)}</div>

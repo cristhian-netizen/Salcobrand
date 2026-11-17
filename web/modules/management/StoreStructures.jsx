@@ -5,7 +5,7 @@ import {useApi, Card, Loading, Empty, ErrorBox, Modal, Pill} from '../sb/ui';
 import {SaveForm, sortByName, enc} from './shared';
 
 export default function StoreStructures({store, go, notify, onSaved}) {
-  const state = useApi(() => api('/api/admin/infrastructure?store_code=' + enc(store.code)), [store.code]);
+  const state = useApi(async () => {const [infrastructure,plans] = await Promise.all([api('/api/admin/infrastructure?store_code='+enc(store.code)),api('/api/planograms')]);return {...infrastructure,plans};},[store.code]);
   const [instance, setInstance] = useState(null);
   const [link, setLink] = useState(null);
   const data = state.data;
@@ -13,9 +13,9 @@ export default function StoreStructures({store, go, notify, onSaved}) {
   const saved = () => {setInstance(null);setLink(null);state.reload();onSaved();notify('Góndolas del PDV actualizadas.');};
   return <div><ErrorBox error={state.error} onRetry={state.reload}/>{state.loading ? <Loading/> : data && (
 <><Card title="Estructuras físicas" subtitle="Cada estructura mantiene su código y su historial de mediciones." body={false}>
-        {!data.instances.length ? <Empty>No hay estructuras asignadas.</Empty> : <div className="sb-table"><table><thead><tr><th>Góndola</th><th>Etiqueta</th><th>Estado</th><th>Lecturas</th><th>Acciones</th></tr></thead><tbody>{data.instances.map(i => <tr key={i.id}><td><b>{i.type_name || 'Tipo eliminado'} #{i.number}</b><small>{i.point_id}</small></td><td>{i.label || 'Sin etiqueta'}<small>{i.note}</small></td><td><Pill kind={i.active ? 'ok' : ''}>{i.active ? 'Activa' : 'Inactiva'}</Pill></td><td>{i.readings_count}</td><td><div className="sb-actions"><button onClick={() => setInstance(i)}>Editar etiqueta</button><button onClick={() => go('gondolas/' + enc(i.point_id))}>Ver lecturas</button></div></td></tr>)}</tbody></table></div>}
+        {!data.instances.length ? <Empty>No hay estructuras asignadas.</Empty> : <div className="sb-table"><table><thead><tr><th>Góndola</th><th>Etiqueta</th><th>Estado</th><th>Planograma</th><th>Lecturas</th><th>Acciones</th></tr></thead><tbody>{data.instances.map(i => <tr key={i.id}><td><b>{i.type_name || 'Tipo eliminado'} #{i.number}</b><small>{i.point_id}</small></td><td>{i.label || 'Sin etiqueta'}<small>{i.note}</small></td><td><Pill kind={i.active ? 'ok' : ''}>{i.active ? 'Activa' : 'Inactiva'}</Pill></td><td><PlanAssignment pointId={i.point_id} value={i.planogram_id} plans={data.plans} store={store.code} onSaved={saved}/></td><td>{i.readings_count}</td><td><div className="sb-actions"><button onClick={() => setInstance(i)}>Editar etiqueta</button><button onClick={() => go('gondolas/' + enc(i.point_id))}>Ver lecturas</button></div></td></tr>)}</tbody></table></div>}
       </Card><Card title="Góndolas existentes sin tipo" subtitle="Vincular suma una unidad activa al tipo elegido. Conserva el código, el planograma y todas las lecturas." body={false}>
-        {!data.unlinked_points.length ? <Empty>No quedan góndolas sin vincular en este PDV.</Empty> : <div className="sb-table"><table><thead><tr><th>Góndola</th><th>Lecturas</th><th>Acción</th></tr></thead><tbody>{data.unlinked_points.map(p => <tr key={p.id}><td><b>{p.name}</b><small>{p.id}</small></td><td>{p.readings_count}</td><td><button disabled={!data.types.some(t => t.status === 'Activo') || selected?.deleted || selected?.status !== 'Activo'} onClick={() => setLink(p)}>Vincular a tipo</button></td></tr>)}</tbody></table></div>}
+        {!data.unlinked_points.length ? <Empty>No quedan góndolas sin vincular en este PDV.</Empty> : <div className="sb-table"><table><thead><tr><th>Góndola</th><th>Planograma</th><th>Lecturas</th><th>Acción</th></tr></thead><tbody>{data.unlinked_points.map(p => <tr key={p.id}><td><b>{p.name}</b><small>{p.id}</small></td><td><PlanAssignment pointId={p.id} value={p.planogram_id} plans={data.plans} store={store.code} onSaved={saved}/></td><td>{p.readings_count}</td><td><button disabled={!data.types.some(t => t.status === 'Activo') || selected?.deleted || selected?.status !== 'Activo'} onClick={() => setLink(p)}>Vincular a tipo</button></td></tr>)}</tbody></table></div>}
       </Card></>
   )}
     {instance && <Modal title="Editar etiqueta de góndola" onClose={() => setInstance(null)}><InstanceForm instance={instance} onSaved={saved} onClose={() => setInstance(null)}/></Modal>}
@@ -34,4 +34,14 @@ function LinkForm({point,store,data,onSaved,onClose}) {
   return <SaveForm path="/api/admin/shelf-instances/link-existing" method="POST" payload={() => ({store_code:store,type_id:typeId,point_id:point.id,version:assignment?.version || 0})} onSaved={onSaved} onClose={onClose}>
     <p className="full">{point.name} ({point.id}). Se sumará una unidad activa; sus {point.readings_count} lecturas seguirán asociadas al mismo código.</p><label className="full">Tipo de góndola<select value={typeId} required onChange={e => setTypeId(e.target.value)}><option value="">Seleccionar tipo</option>{sortByName(data.types.filter(t => t.status==='Activo')).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
   </SaveForm>;
+}
+
+function PlanAssignment({pointId,value,plans,store,onSaved}) {
+  const [busy,setBusy]=useState(false);const [error,setError]=useState('');
+  const choices=plans.filter(plan=>plan.id===value || (plan.status!=='Inactivo' && (!plan.store_code || plan.store_code===store)));
+  return <><label className="sr-plan-assignment">Planograma<select aria-label={'Planograma de '+pointId} value={value || ''} disabled={busy} onChange={async event=>{
+    const next=event.target.value;setBusy(true);setError('');
+    try {await api('/api/points/'+enc(pointId)+'/planogram',{method:'PUT',body:{planogram_id:next || null}});onSaved();}
+    catch(error){setError(error.message);}finally{setBusy(false);}
+  }}><option value="">Sin planograma</option>{sortByName(choices).map(plan=><option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></label><ErrorBox error={error}/></>;
 }

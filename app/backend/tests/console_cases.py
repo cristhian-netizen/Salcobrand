@@ -7,6 +7,72 @@ import httpx
 
 
 class ConsoleCases:
+    def test_training_queue_skips_verified_recent_readings_to_reach_older_work(self):
+        import json
+        trainer=self.trainer()
+        products=[{'product':'Synthetic product','facings':1,'needs_review':True,'image_index':0,'item_index':0,'shelf_level':1}]
+        reading=self.db.add_reading('point-a',{**self.analysis,'products':products},[],captured_by='replenisher')
+        for index in range(21):
+            done=self.db.add_reading('point-a',{**self.analysis,'products':products},[],captured_by='replenisher')
+            with self.db.get_conn() as conn:
+                conn.execute('INSERT INTO management_training_labels(id,reading_id,image_index,item_index,data_json,crop_path,created_by,created_at) VALUES(?,?,0,0,?,?,?,?)',
+                             ('done-'+str(index),done['id'],json.dumps({'title':'Known','facings':1}),'_training/test-'+str(index),'local-neura',self.db.now_iso()))
+        with patch.object(self.core,'review_items_for_reading',side_effect=lambda r,**kw:{'reading_id':r['id'],'items':[{'image_index':0,'item_index':0}]}):
+            result=trainer.get('/api/review/pending')
+        self.assertEqual(result.status_code,200,result.text)
+        self.assertEqual([row['reading_id'] for row in result.json()],[reading['id']])
+
+    def trainer(self):
+        response=self.console_operator().post('/api/internal/training/accounts',json={'username':'local-neura','password':'Provider-training-test-2026!'})
+        self.assertEqual(response.status_code,200,response.text)
+        return self.client('local-neura')
+
+    def test_provider_training_role_is_internal_and_customer_admin_cannot_assign_it(self):
+        trainer=self.trainer();me=trainer.get('/api/auth/me').json()
+        self.assertEqual(me['profile'],'local-neura');self.assertTrue(me['internal'])
+        self.assertEqual(set(me['permissions']),{'read','train'})
+        admin=self.client('admin')
+        self.assertNotIn('local-neura',admin.get('/api/admin/users').text)
+        self.assertNotIn('local-neura',admin.get('/api/admin/people').text)
+        self.assertEqual(admin.post('/api/admin/users',json={'username':'forged','password':'Strong-password-2026!','role':'local-neura'}).status_code,400)
+        self.assertEqual(admin.patch('/api/admin/users/analyst',json={'role':'local-neura'}).status_code,400)
+        for path in ('/api/internal/clients','/api/admin/people','/api/admin/settings','/api/dashboard'):
+            self.assertEqual(trainer.get(path).status_code,403,path)
+        self.assertEqual(trainer.patch(f"/api/readings/{self.own['id']}/review",json={'status':'Aprobado','note':'','version':0}).status_code,403)
+        self.assertEqual(admin.delete('/api/admin/users/local-neura').status_code,403)
+        self.assertEqual(admin.post('/api/internal/training/accounts',json={'password':'Strong-password-2026!'}).status_code,403)
+        with self.db.get_conn() as conn:
+            conn.execute("UPDATE users SET is_internal=0 WHERE username='local-neura'")
+        self.assertEqual(trainer.get('/api/auth/me').status_code,403)
+
+    def test_training_labels_preserve_client_measurement_review_and_photos(self):
+        import copy,json,measurement_reports
+        trainer=self.trainer()
+        analysis={**self.analysis,'products':[{'product':'Synthetic product','facings':2,'needs_review':True,'image_index':0,'item_index':0,'shelf_level':1}]}
+        reading=self.db.add_reading('point-a',analysis,['point-a/training-example.jpg'],captured_by='replenisher')
+        measurement_reports.save_review(reading['id'],'Aprobado','',0,'analyst')
+        before=copy.deepcopy(self.db.get_reading(reading['id']))
+        body={'image_index':0,'item_index':0,'title':'Verified product','facings':3}
+        path=f"/api/readings/{reading['id']}/confirm"
+        for role in ('admin','analyst','replenisher','viewer'):
+            self.assertEqual(self.client(role).post(path,json=body).status_code,403)
+            self.assertEqual(self.client(role).get('/api/review/pending').status_code,403)
+            self.assertEqual(self.client(role).get('/api/internal/training/labels.jsonl').status_code,403)
+        response=trainer.post(path,json=body);self.assertEqual(response.status_code,200,response.text)
+        self.assertTrue(response.json()['training_only'])
+        self.assertEqual(trainer.post(path,json=body).json()['label_id'],response.json()['label_id'])
+        self.assertEqual(trainer.post(path,json={**body,'facings':4}).status_code,409)
+        self.assertEqual(self.db.get_reading(reading['id']),before)
+        self.core.confirm_reading_item.assert_not_called()
+        self.assertEqual(self.storage.put.call_count,1)
+        exported=trainer.get('/api/internal/training/labels.jsonl');self.assertEqual(exported.status_code,200)
+        label=json.loads(exported.text.strip());self.assertEqual(label['title'],'Verified product')
+        self.assertEqual(label['original_product']['product'],'Synthetic product')
+        self.assertEqual(self.client('admin').get('/uploads/_training/'+label['id']+'.jpg').status_code,404)
+        self.assertEqual(self.client('analyst').get(label['crop_url']).status_code,403)
+        self.db.delete_reading(reading['id'])
+        self.assertEqual(trainer.get(label['crop_url']).status_code,200)
+
     def console_operator(self):
         import client_identity
         client_identity.seed_local_operator()

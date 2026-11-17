@@ -5,6 +5,7 @@ import {can} from '../../lib/profiles.mjs';
 import Icon from '../navigation/icons';
 import {useApi, Header, Card, Loading, Empty, ErrorBox, ComplianceBar, Pill, StatusPill, Back, Modal} from './ui';
 import ReadingView from './ReadingView';
+import Measurements from './Measurements';
 
 export default function Gondolas(props) {
   const {rest} = props;
@@ -12,7 +13,7 @@ export default function Gondolas(props) {
     if (rest[1] === 'lectura' && rest[2]) return <ReadingPage {...props} pointId={rest[0]} readingId={rest[2]}/>;
     return <PointDetail {...props} pointId={rest[0]} tab={can(props.user, 'dashboard') ? rest[1] || 'lecturas' : 'lecturas'}/>;
   }
-  return <PointList {...props} initialStore={rest[0]?.slice(6) || ''}/>;
+  return <Measurements {...props} rest={[]}/>;
 }
 
 function PointList({user, go, initialStore}) {
@@ -88,26 +89,22 @@ function PointDetail({user, go, pointId, tab, notify}) {
   async function remove() {
     if (!window.confirm(`¿Eliminar la góndola vacía ${pointId}?`)) return;
     setBusy(true);
-    try { await api(`/api/points/${encodeURIComponent(pointId)}`, {method: 'DELETE'}); notify('Góndola eliminada.'); go('gondolas'); }
+    try { await api(`/api/points/${encodeURIComponent(pointId)}`, {method: 'DELETE'}); notify('Góndola eliminada.'); go(can(user,'train') ? 'revision' : 'mediciones'); }
     catch (e) { setActionError(e.message); setBusy(false); }
   }
   if (loading && !point) return <Loading text="Cargando góndola…"/>;
-  if (!point) return <><Back onClick={() => go('gondolas')}>Góndolas</Back><ErrorBox error={error} onRetry={reload}/></>;
+  if (!point) return <><Back onClick={() => go(can(user,'train') ? 'revision' : 'mediciones')}>Góndolas</Back><ErrorBox error={error} onRetry={reload}/></>;
   const readings = point.readings || [];
   return <section>
-    <Back onClick={() => go('gondolas')}>Góndolas</Back>
+    <Back onClick={() => go(can(user,'train') ? 'revision' : 'mediciones')}>Góndolas</Back>
     <Header eyebrow={point.store_id || 'Góndola'} title={point.name} subtitle={`${point.id} · ${readings.length} lecturas · creada ${fmt.date(point.created_at)}`}>
       {can(user, 'report') && <button type="button" onClick={() => download(`/api/reports/measurements.csv?point=${encodeURIComponent(point.id)}`, `salcobrand-${point.id}.csv`).catch(e => setActionError(e.message))}><Icon name="download" size={16}/>CSV</button>}
       {can(user, 'scan') && point.can_capture !== false && <button className="action" type="button" onClick={() => go(`escanear/${encodeURIComponent(point.id)}`)}><Icon name="scan" size={16}/>Nueva lectura</button>}
     </Header>
     <ErrorBox error={actionError || error}/>
     {point.can_capture === false && <p className="sb-error">Esta estructura está inactiva. Puedes consultar sus lecturas anteriores.</p>}
-    {can(user, 'manage') ? <div className="sb-toolbar">
-      <label>Planograma asignado<select value={point.planogram_id || ''} disabled={busy} onChange={e => assign(e.target.value)}>
-        <option value="">Sin planograma</option>{(plans.data || []).filter(p => p.id===point.planogram_id || (p.status!=='Inactivo' && (!p.store_code || p.store_code===point.store_id))).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-      </select></label>
-      <div className="sb-actions">{!point.infrastructure && !point.readings?.length ? <button className="remove" type="button" disabled={busy} onClick={remove}><Icon name="trash" size={15}/>Eliminar góndola</button> : <button type="button" onClick={() => go('pdv/' + encodeURIComponent(point.store_id || ''))}>Administrar góndolas del PDV</button>}</div>
-    </div> : <p className="sb-hint">Planograma: {point.planogram_name || 'Sin asignar'}</p>}
+    <p className="sb-hint">Planograma: {point.planogram_name || 'Sin asignar'}</p>
+    {can(user,'manage') && <button type="button" onClick={() => go('pdv/'+encodeURIComponent(point.store_id || ''))}>Administrar referencia en PDV</button>}
     <div className="sb-tabs" role="group" aria-label="Secciones de la góndola">
       {[['lecturas', 'Lecturas'], ...(can(user, 'dashboard') ? [['tendencias', 'Tendencias'], ['reposicion', 'Reposición y quiebres']] : [])].map(([id, label]) =>
         <button key={id} type="button" aria-pressed={tab === id} onClick={() => go(`gondolas/${encodeURIComponent(point.id)}/${id}`)}>{label}</button>)}

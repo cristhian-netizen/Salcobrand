@@ -111,8 +111,20 @@ class SupplierStockoutPayload(BaseModel):
     note: Optional[str] = None
 
 
+def _session_cookie_name(request: Request) -> str:
+    selector = request.headers.get('x-portal-session')
+    if selector is None:
+        selector = request.query_params.get('portal_session')
+    if selector is None:
+        return auth.SESSION_COOKIE  # Existing pilot/legacy clients.
+    if not re.fullmatch(r'[a-f0-9]{32}', selector):
+        raise HTTPException(400, 'Identificador de sesión de pestaña inválido.')
+    return auth.SESSION_COOKIE + '_' + selector
+
+
 def require_auth(request: Request) -> str:
-    token = request.cookies.get(auth.SESSION_COOKIE)
+    # An explicit tab selector must never fall back to another tab/legacy cookie.
+    token = request.cookies.get(_session_cookie_name(request))
     username = auth.verify_session_token(token) if token else None
     if not username:
         raise HTTPException(status_code=401, detail="Sesión inválida o expirada")
@@ -253,7 +265,7 @@ app.include_router(store_excel_api.router(require_admin))
 def _set_session_cookie(response: Response, username: str, request: Request) -> None:
     token = auth.create_session_token(username)
     response.set_cookie(
-        auth.SESSION_COOKIE,
+        _session_cookie_name(request),
         token,
         max_age=auth.SESSION_TTL_SECONDS,
         httponly=True,
@@ -276,7 +288,7 @@ def uploaded_photo(rel_path: str, request: Request):
     if rel_path.startswith('_training/'):
         raise HTTPException(404, 'Fotografía no disponible.')
     reading_id = db.reading_for_photo(rel_path)
-    if request.cookies.get(auth.SESSION_COOKIE):
+    if request.cookies.get(_session_cookie_name(request)):
         user = require_user(request)
         if reading_id is not None:
             authorize_reading(reading_id, user)
@@ -439,8 +451,8 @@ def api_change_password(payload: PasswordChangePayload, request: Request, respon
 
 
 @app.post("/api/auth/logout")
-def api_logout(response: Response):
-    response.delete_cookie(auth.SESSION_COOKIE)
+def api_logout(request: Request, response: Response):
+    response.delete_cookie(_session_cookie_name(request))
     return {"ok": True}
 
 

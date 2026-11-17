@@ -1,4 +1,5 @@
 'use client';
+import {sessionUrl} from '../../lib/tab-session.mjs';
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/sb';
 import { ErrorBox } from '../sb/ui';
@@ -95,7 +96,7 @@ export default function ReferenceField({
       <ErrorBox error={error} />
       {busy && <p role="status">Procesando archivo…</p>}
       {value.photo && (
-        <img src={value.photo} alt="Vista previa de referencia" />
+        <img src={sessionUrl(value.photo)} alt="Vista previa de referencia" />
       )}
       {url && (
         <>

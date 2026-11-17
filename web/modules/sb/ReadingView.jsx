@@ -1,4 +1,5 @@
 'use client';
+import {sessionUrl} from '../../lib/tab-session.mjs';
 import {useState} from 'react';
 import {api, fmt, download} from '../../lib/sb';
 import {can} from '../../lib/profiles.mjs';
@@ -13,7 +14,7 @@ function Photo({url, index, engineImage, products}) {
   const size = engineImage?.size;
   const statusByItem = new Map(products.filter(p => p.image_index === index && p.item_index != null).map(p => [p.item_index, p.planogram_status || p.match_status]));
   return <figure className="sb-photo">
-    <img src={url} alt={`Foto ${index + 1} de la góndola`} loading="lazy"/>
+    <img src={sessionUrl(url)} alt={`Foto ${index + 1} de la góndola`} loading="lazy"/>
     {size && engineImage.items?.length > 0 && <svg viewBox={`0 0 ${size[0]} ${size[1]}`} preserveAspectRatio="none" aria-hidden="true">
       {engineImage.items.map(item => { const [x1, y1, x2, y2] = item.box; const color = BOX[statusByItem.get(item.index) || item.status] || '#98a2b3';
         return <rect key={item.index} x={x1} y={y1} width={x2 - x1} height={y2 - y1} fill="none" stroke={color} strokeWidth={Math.max(3, size[0] / 400)} rx="4"/>; })}

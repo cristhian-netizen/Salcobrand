@@ -1,4 +1,6 @@
-// Client for the Salcobrand backend. Same origin (served behind the same domain), session cookie.
+// Same-origin client with an independent HttpOnly session cookie per tab.
+import {createTabSession, setTabSession, sessionHeaders, SESSION_HEADER} from './tab-session.mjs';
+export {sessionUrl} from './tab-session.mjs';
 import {normalizeUser} from './profiles.mjs';
 export {ROLE_NAMES} from './profiles.mjs';
 const listeners = new Set();
@@ -27,7 +29,7 @@ export async function api(path, { method = 'GET', body, form, timeout = 30000, r
   const mutating = method !== 'GET';
   if (mutating) pending++;
   try {
-    const headers = { Accept: 'application/json', ...extraHeaders };
+    const headers = { Accept: 'application/json', ...sessionHeaders(), ...extraHeaders };
     let payload;
     if (form) payload = form;
     else if (body !== undefined) { headers['Content-Type'] = 'application/json'; payload = JSON.stringify(body); }
@@ -53,7 +55,12 @@ export async function api(path, { method = 'GET', body, form, timeout = 30000, r
 }
 
 export const auth = {
-  login: (username, password) => api('/api/auth/login', { method: 'POST', body: { username, password }, silent401: true }),
+  login: async (username, password) => {
+    const id = createTabSession();
+    const result = await api('/api/auth/login', { method: 'POST', body: { username, password }, silent401: true, headers: {[SESSION_HEADER]: id} });
+    setTabSession(id);
+    return result;
+  },
   me: async () => normalizeUser(await api('/api/auth/me', { silent401: true })),
   logout: () => api('/api/auth/logout', { method: 'POST', silent401: true }),
   changePassword: (current_password, new_password) => api('/api/auth/change-password', { method: 'POST', body: { current_password, new_password } }),

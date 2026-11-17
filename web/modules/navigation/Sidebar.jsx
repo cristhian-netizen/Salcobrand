@@ -1,4 +1,5 @@
 'use client';
+import {sessionUrl} from '../../lib/tab-session.mjs';
 
 import Icon from './icons';
 import {ROLE_NAMES} from '../../lib/sb';
@@ -16,7 +17,7 @@ export default function Sidebar({user, current, onSelect, onLogout, open = false
       <button className="nv-icon-button nv-sidebar-close" type="button" onClick={onClose} aria-label="Cerrar menú"><Icon name="close"/></button>
     </div>
     <div className="nv-tenant">
-      {user.tenant?.logo ? <img src={user.tenant.logo} alt="Logo del cliente"/> : <span className="nv-tenant-initial" aria-hidden="true">{(user.tenant?.name || 'Salcobrand').slice(0,1)}</span>}
+      {user.tenant?.logo ? <img src={sessionUrl(user.tenant.logo)} alt="Logo del cliente"/> : <span className="nv-tenant-initial" aria-hidden="true">{(user.tenant?.name || 'Salcobrand').slice(0,1)}</span>}
       <div className="nv-tenant-info"><strong>{user.tenant?.name || 'Salcobrand'}</strong><small>{scope}</small></div>
     </div>
     <nav aria-label="Principal">{GROUPS.map(([group, ids]) => {

@@ -1,4 +1,5 @@
 'use client';
+import {sessionUrl} from '../../lib/tab-session.mjs';
 import {useState} from 'react';
 import {api, fmt, download} from '../../lib/sb';
 import {useApi, Header, Card, Loading, Empty, ErrorBox, StatusPill} from './ui';
@@ -17,7 +18,7 @@ function CropCard({payload, item, onDone}) {
     } catch (e) { setError(e.message); setBusy(false); }
   }
   return <article className="sb-crop">
-    <img src={item.crop_url} alt={`Recorte nivel ${item.level}, posición ${item.position}`} loading="lazy"/>
+    <img src={sessionUrl(item.crop_url)} alt={`Recorte nivel ${item.level}, posición ${item.position}`} loading="lazy"/>
     <div><b>{item.product}</b> <StatusPill status={item.status}/></div>
     {item.ocr && <div className="ocr">Texto leído: {item.ocr}</div>}
     {suggestions.length > 0 && <div className="suggest">{suggestions.map(s => <button key={s} type="button" disabled={busy} onClick={() => confirm(s)} title="Confirmar como este producto">{s}</button>)}</div>}

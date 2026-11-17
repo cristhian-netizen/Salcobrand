@@ -1,4 +1,5 @@
 'use client';
+import {sessionUrl} from '../../lib/tab-session.mjs';
 import {useState} from 'react';
 import {api, fmt} from '../../lib/sb';
 import Icon from '../navigation/icons';
@@ -62,7 +63,7 @@ function Captures({link, onClose}) {
   return <Modal title={`Fotos · ${link.label || link.store_id}`} onClose={onClose}>
     <ErrorBox error={error}/>
     {loading ? <Loading/> : data?.length ? <div className="sb-previews">{data.map(c => <figure key={c.id}>
-      <a href={c.url} target="_blank" rel="noreferrer"><img src={c.url} alt={`Foto ${c.id}`} loading="lazy"/></a>
+      <a href={sessionUrl(c.url)} target="_blank" rel="noreferrer"><img src={sessionUrl(c.url)} alt={`Foto ${c.id}`} loading="lazy"/></a>
       <figcaption><span>{fmt.dateTime(c.created_at)}</span><span>{c.tipo}</span></figcaption></figure>)}</div> : <Empty>Este enlace aún no tiene fotos.</Empty>}
   </Modal>;
 }

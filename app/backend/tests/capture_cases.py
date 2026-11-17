@@ -14,6 +14,32 @@ from starlette.datastructures import UploadFile
 
 
 class CaptureCases:
+    def test_subcategory_planogram_preview_is_scoped_and_reads_pdf_without_edit_access(self):
+        import base64
+        from pypdf import PdfWriter
+        product=self.create_product();classification=self.multi_classification();admin=self.client('admin')
+        admin.get('/api/admin/stores')
+        pdf=io.BytesIO();writer=PdfWriter();writer.add_blank_page(width=300,height=400);writer.add_blank_page(width=300,height=400);writer.write(pdf)
+        body={**self.plan_fields(product),**classification,'photo':'','document':'data:application/pdf;base64,'+base64.b64encode(pdf.getvalue()).decode(),'document_name':'referencia.pdf'}
+        saved=admin.post('/api/admin/catalog/planograms',json=body);self.assertEqual(saved.status_code,201,saved.text);plan=saved.json()
+        client=self.client('replenisher');path='/api/capture/planograms'
+        query=[('store','L128'),('category',classification['category']),('subcategories','Desodorantes'),('subcategories','Higiene')]
+        response=client.get(path,params=query);self.assertEqual(response.status_code,200,response.text)
+        self.assertEqual([p['id'] for p in response.json()],[plan['id']])
+        self.assertNotIn('document',response.json()[0]);self.assertEqual(response.headers['cache-control'],'no-store')
+        detail=client.get(path+'/'+plan['id'],params={'store':'L128'})
+        self.assertEqual(detail.status_code,200,detail.text);self.assertEqual(detail.json()['document_pages'],2)
+        self.assertTrue(detail.json()['document'].startswith('data:application/pdf;base64,'))
+        self.assertEqual(self.client('analyst').get(path,params=query).status_code,200)
+        self.assertEqual(self.client('viewer').get(path,params=query).status_code,403)
+        self.assertEqual(self.client(None).get(path,params=query).status_code,401)
+        self.assertEqual(client.get(path+'/'+plan['id'],params={'store':'L130'}).status_code,403)
+        self.assertEqual(client.get(path+'/'+plan['id'],params={'store':'L129'}).status_code,404)
+        self.assertEqual(client.get(path,params={'store':'L128','category':classification['category']}).json(),[])
+        retired=admin.patch('/api/admin/catalog/planograms/'+plan['id'],json={**body,'status':'Inactivo','version':1});self.assertEqual(retired.status_code,200,retired.text)
+        self.assertEqual(client.get(path,params=query).json(),[])
+        self.assertEqual(client.get(path+'/'+plan['id'],params={'store':'L128'}).status_code,404)
+
     def test_manual_type_override_keeps_planogram_reference_and_dimensions(self):
         product=self.create_product();plan=self.save_plan(product);shelf=self.create_type();admin=self.client('admin')
         admin.put('/api/admin/stores/L128/shelf-assignments/'+shelf['id'],json={'quantity':1,'version':0}).raise_for_status()

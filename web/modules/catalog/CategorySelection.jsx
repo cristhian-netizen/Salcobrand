@@ -18,7 +18,7 @@ export default function CategorySelection({categories = {}, value, onChange, dis
       <legend>Subcategorías de producto</legend>
       <p id={id} className="sb-hint">{!value.category ? 'Selecciona primero una categoría.' : options.length ? 'Marca una o varias subcategorías presentes en la góndola.' : 'Esta categoría no tiene subcategorías configuradas.'}</p>
       {!!options.length && <>
-        <div className="sb-actions">
+        <div className="sb-actions ct-subcategory-actions">
           <button type="button" disabled={disabled || selected.length === options.length} onClick={() => onChange({...value,subcategories:options})}>Seleccionar todas</button>
           <button type="button" disabled={disabled || !selected.length} onClick={() => onChange({...value,subcategories:[]})}>Limpiar selección</button>
           <span className="sb-hint" role="status">{selected.length} seleccionada{selected.length === 1 ? '' : 's'}</span>

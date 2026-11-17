@@ -6,6 +6,7 @@ import ShelfPhoto from "../management/ShelfPhoto";
 import {orderRegions} from "../../lib/locations.mjs";
 import { useApi, Header, Card, ErrorBox, Loading } from "./ui";
 import ReadingView from "./ReadingView";
+import CapturePlanograms from "./CapturePlanograms";
 import CategorySelection from "../catalog/CategorySelection";
 import {enabled} from '../identity/identity.mjs';
 import {byLocationName, captureStores, filterCaptureStores, pointStoreCode, regionFor, capturePointForType} from './scan-locations.mjs';
@@ -131,9 +132,9 @@ export default function Scan({ user, rest, go, notify }) {
   const referencePoint = selected || (manualOverride ? resolution.point : null);
   const planClassification = enabled(user, 'planograms') ? referencePoint?.planogram_classification : null;
   const captureClassification = planClassification?.category ? planClassification : classification;
-  const subcategories = categories[captureClassification.category] || [];
-  const classificationReady = (!Object.keys(categories).length || captureClassification.category)
-    && (!subcategories.length || captureClassification.subcategories.length);
+  const subcategories = categories[classification.category] || [];
+  const classificationReady = (!Object.keys(categories).length || classification.category)
+    && (!subcategories.length || classification.subcategories.length);
   const displayedMeters = manualMode ? meters : selectedShelf ? String(selectedShelf.width_cm / 100) : '';
   const manualReady = manualDepths.length > 0 && manualDepths.every(value => value !== '' && Number(value) > 0 && Number(value) <= 1000);
   const captureReady = classificationReady && (manualMode ? selectedStore && manualReady : selected && selectedShelf);
@@ -513,12 +514,15 @@ export default function Scan({ user, rest, go, notify }) {
             <p id="scan-pdv-note" className="sb-hint full" role="status">
               {visibleStores.length ? `${visibleStores.length} PDV ${visibleStores.length === 1 ? 'activo disponible' : 'activos disponibles'} para tu cuenta con estos filtros.` : stores.length ? 'No hay PDV activos que coincidan. Limpia región, comuna o búsqueda para ampliar los resultados.' : 'Tu cuenta no tiene PDV activos disponibles. Revisa su asignación en Personas y roles.'}
             </p>
-            <CategorySelection categories={categories} value={captureClassification} disabled={busy || !!planClassification?.category} onChange={value => {
+            <CategorySelection categories={categories} value={classification} disabled={busy} onChange={value => {
               setClassification(value); requestId.current = null;
             }}/>
-            {planClassification?.category && <p className="sb-hint full">Se utiliza la categoría y todas las subcategorías del planograma asociado.</p>}
+            {enabled(user,'planograms') && <CapturePlanograms store={selectedStore} classification={classification} preferredPlan={referencePoint?.planogram_id}/>}
+            {planClassification?.category && <p className="sb-hint full">La comparación del tipo seleccionado utiliza el planograma completo.</p>}
             <div className="full scan-type-picker">
               <label>Tipo de góndola<select value={selectedType} disabled={busy || !selectedStore || manualMode || !types.length} onChange={event => {
+                const next = capturePointForType(storePoints,event.target.value,classification,enabled(user,'planograms')).point;
+                if (!classification.category && next?.planogram_classification?.category) setClassification(next.planogram_classification);
                 setShelfType(event.target.value); setPointId(''); setMeters(''); requestId.current = null;
               }}>
                 <option value="">{hasAssigned ? 'Selecciona un tipo de góndola' : 'Sin tipos asociados a este PDV'}</option>

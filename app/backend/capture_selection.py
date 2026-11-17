@@ -89,3 +89,38 @@ def manual_point(code, user, values, allow_assigned=False):
         validate_selection(values, conn)
         db.create_point(point_id, store['name'] + ' · Captura con ancho manual', store_id=code, gondola_id='Captura manual', conn=conn)
     return point_id
+
+
+def reference_plans(user, store, category='', subcategories=(), plan_id=None):
+    scope = profiles.store_scope(user)
+    if scope is not None and store not in scope:
+        raise ManagementError('El PDV está fuera de tu ámbito.', 403)
+    with db.get_conn() as conn:
+        manual_store(conn, store, allow_assigned=True)
+        if not plan_id:
+            if not category or not subcategories:
+                return []
+            validate_selection(selection(category, subcategories=list(subcategories)), conn)
+        rows = conn.execute('SELECT p.id,p.name,m.data_json FROM planograms p JOIN management_planograms m ON m.id=p.id').fetchall()
+        result = []
+        for row in rows:
+            meta = json.loads(row['data_json'])
+            if meta.get('status','Activo') != 'Activo':
+                continue
+            allowed = meta.get('store_code') == store
+            if not allowed and meta.get('legacy_point_ids'):
+                points = conn.execute('SELECT id FROM points WHERE store_id=? AND planogram_id=?',(store,row['id'])).fetchall()
+                allowed = any(p['id'] in meta['legacy_point_ids'] for p in points)
+            if not allowed:
+                continue
+            if plan_id:
+                if row['id'] == plan_id:
+                    return {key:meta.get(key, '') for key in ('photo','document','document_name')} | {
+                        'id':row['id'],'name':row['name'],'document_pages':meta.get('document_pages',0),
+                        'category':meta.get('category',''),'subcategories':meta.get('subcategories',[])}
+            elif meta.get('category') == category and set(subcategories).intersection(meta.get('subcategories',[])):
+                result.append({'id':row['id'],'name':row['name'],'subcategories':meta.get('subcategories',[]),
+                               'has_reference':bool(meta.get('photo') or meta.get('document'))})
+        if plan_id:
+            raise ManagementError('El planograma no está disponible en este PDV.',404)
+        return sorted(result,key=lambda item:item['name'].casefold())

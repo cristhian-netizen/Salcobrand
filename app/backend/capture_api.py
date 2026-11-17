@@ -6,8 +6,9 @@ import math
 import re
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, Query
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import JSONResponse
 import api_jobs
 import catalog_service
 import core
@@ -141,6 +142,14 @@ def submit(point_id, images, meters, user, request_id, selection=None, manual_st
 
 def router(require_user, require_scan, authorize_point):
     api = APIRouter(prefix="/api", tags=["Captura y mediciones"])
+
+    @api.get('/capture/planograms')
+    def planograms(store: str, category: str = '', subcategories: Optional[List[str]] = Query(None), user=Depends(require_scan)):
+        return JSONResponse(capture_selection.reference_plans(user, store, category, subcategories or []), headers={'Cache-Control':'no-store'})
+
+    @api.get('/capture/planograms/{plan_id}')
+    def planogram_reference(plan_id: str, store: str, user=Depends(require_scan)):
+        return JSONResponse(capture_selection.reference_plans(user, store, plan_id=plan_id), headers={'Cache-Control':'no-store'})
 
     @api.get('/capture/options')
     def options(user=Depends(require_scan)):

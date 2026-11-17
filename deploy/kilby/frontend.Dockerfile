@@ -11,4 +11,6 @@ ENV PORT=8080 BACKEND_URL=http://salcobrand-api:8080 \
     NGINX_ENVSUBST_FILTER="^(PORT|BACKEND_URL)$"
 COPY deploy/kilby/nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /build/web/out /usr/share/nginx/html
+# Source assets may retain restrictive modes from the remote archive extraction.
+RUN chmod -R a+rX /usr/share/nginx/html
 EXPOSE 8080

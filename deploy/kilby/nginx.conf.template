@@ -16,6 +16,20 @@ server {
         try_files $uri =404;
     }
 
+    # ES modules and workers require a JavaScript MIME type in the browser.
+    location ^~ /vendor/pdfjs/ {
+        types {
+            application/javascript js mjs;
+            application/wasm wasm;
+            font/ttf ttf;
+            font/otf otf;
+        }
+        default_type application/octet-stream;
+        add_header Cache-Control "no-cache";
+        add_header X-Content-Type-Options "nosniff";
+        try_files $uri =404;
+    }
+
     # Keep cookies and authenticated downloads on the portal's HTTPS origin.
     location ~ ^/(api|v1|uploads|catalog-images|static)(/|$) {
         proxy_pass ${BACKEND_URL};

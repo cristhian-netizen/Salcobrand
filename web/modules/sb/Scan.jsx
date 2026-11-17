@@ -122,8 +122,8 @@ export default function Scan({ user, rest, go, notify }) {
     const nextStore = visibleStores.find(store => store.code === preferredStore)?.code || visibleStores[0]?.code || '';
     if (nextStore !== storeCode) setStoreCode(nextStore);
     const storePoints = list.filter(point => pointStoreCode(point) === nextStore);
-    if (!storePoints.some(point => point.id === pointId)) {
-      setPointId(storePoints[0]?.id || '');
+    if (pointId && !storePoints.some(point => point.id === pointId)) {
+      setPointId('');
       requestId.current = null;
     }
   }, [points.data, busy, result, job?.status, visibleStores, list, storeCode, pointId, currentPoint]);
@@ -472,7 +472,7 @@ export default function Scan({ user, rest, go, notify }) {
               </select>
             </label>
             <p id="scan-pdv-note" className="sb-hint full" role="status">
-              {visibleStores.length ? `${visibleStores.length} PDV activos disponibles para tu cuenta con estos filtros.` : stores.length ? 'No hay PDV activos que coincidan. Limpia región, comuna o búsqueda para ampliar los resultados.' : 'Tu cuenta no tiene PDV activos disponibles. Revisa su asignación en Personas y roles.'}
+              {visibleStores.length ? `${visibleStores.length} PDV ${visibleStores.length === 1 ? 'activo disponible' : 'activos disponibles'} para tu cuenta con estos filtros.` : stores.length ? 'No hay PDV activos que coincidan. Limpia región, comuna o búsqueda para ampliar los resultados.' : 'Tu cuenta no tiene PDV activos disponibles. Revisa su asignación en Personas y roles.'}
             </p>
             <label className="full">
               Góndola

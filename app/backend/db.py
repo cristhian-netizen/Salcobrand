@@ -493,8 +493,8 @@ def next_point_id() -> str:
 
 
 def create_point(point_id: str, name: str, planogram_id: str = None, owner_client: str = None,
-                 store_id: str = None, gondola_id: str = None) -> None:
-    with get_conn() as conn:
+                 store_id: str = None, gondola_id: str = None, conn=None) -> None:
+    with (nullcontext(conn) if conn is not None else get_conn()) as conn:
         conn.execute(
             "INSERT INTO points (id, name, created_at, planogram_id, owner_client, store_id, gondola_id) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",

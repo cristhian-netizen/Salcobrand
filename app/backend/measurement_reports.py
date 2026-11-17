@@ -5,7 +5,7 @@ import io
 import json
 from zoneinfo import ZoneInfo
 
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
@@ -87,7 +87,7 @@ def history(scope, store="", point="", start="", end="", status="", captured_by=
         detail_join = ' LEFT JOIN management_reading_details d ON d.reading_id = r.id LEFT JOIN management_instances i ON i.point_id = p.id ' if include_details else ''
         plan_ids = {row['id'] for row in conn.execute('SELECT id FROM planograms').fetchall()} if include_details else set()
         readings = conn.execute(
-            "SELECT r.*, p.store_id, v.status AS review_status, v.note AS review_note, v.updated_by AS reviewed_by " + detail_fields + " "
+            "SELECT r.*, p.store_id, v.status AS review_status, v.note AS review_note, v.updated_by AS reviewed_by, v.updated_at AS reviewed_at " + detail_fields + " "
             "FROM readings r JOIN points p ON p.id = r.point_id "
             f"LEFT JOIN management_reading_reviews v ON v.reading_id = r.id {detail_join} WHERE {where} ORDER BY r.created_at DESC, r.id DESC",
             params,
@@ -110,13 +110,17 @@ def history(scope, store="", point="", start="", end="", status="", captured_by=
                      "region": master.get("region", ""), "commune": master.get("commune", ""),
                      "date": day, "time": local.strftime("%H:%M hrs."), "score": score.get("overall_score"), "score_band": score.get('score_band'),
                      "status": state, "note": reading["review_note"] or "", "performance": "Sí" if state == "Aprobado" else "No",
+                     "reviewed_at": reading['reviewed_at'],
+                     "reviewed_by": reading['reviewed_by'] or '',
                      "captured_by": reading["captured_by"] or "Sin autor registrado", "manager": master.get("manager", "")})
         if include_alerts:
             rows[-1].update(reviewed_by=reading['reviewed_by'] or 'Sin dato', _alert_source={
                 'empty_space_pct': reading['empty_space_pct'], 'products': json.loads(reading['products_json'] or '[]'),
                 'context': json.loads(reading['capture_context_json']) if reading['capture_context_json'] else {}})
         if include_details:
+            context = json.loads(reading['capture_context_json']) if reading['capture_context_json'] else {}
             rows[-1].update(_manual=json.loads(reading['manual_details']) if reading['manual_details'] else None,
+                            _capture_context=context,
                             _products=json.loads(reading['products_json'] or '[]'), _created_at=reading['created_at'],
                             _instance_id=reading['instance_id'],
                             _brand_share=(json.loads(reading['capture_context_json']) if reading['capture_context_json'] else {}).get('brandShare'),
@@ -176,6 +180,53 @@ def xlsx_bytes(rows):
     sheet.freeze_panes = "A2"
     sheet.auto_filter.ref = sheet.dimensions
     sheet.sheet_view.showGridLines = False
+    output = io.BytesIO()
+    book.save(output)
+    return output.getvalue()
+
+
+def reading_xlsx_bytes(reading, row):
+    book = load_workbook(io.BytesIO(xlsx_bytes([row])))
+    context = reading.get('infrastructure') or {}
+    comparison = reading.get('compliance') or {}
+    summary = book.active
+    summary.title = 'Medición'
+    capture = book.create_sheet('Captura')
+    capture.append(['Campo', 'Valor'])
+    for label, value in [('Categoría de captura', context.get('category', '')),
+                         ('Subcategoría de captura', context.get('subcategory', '')),
+                         ('Ancho metro-góndola (m)', reading.get('linear_meters')),
+                         ('Planograma', comparison.get('planogram_name', 'Sin planograma')),
+                         ('Coincidencia (%)', comparison.get('compliance_pct'))]:
+        capture.append([label, value])
+    products = book.create_sheet('Productos detectados')
+    products.append(['Producto', 'Marca', 'Categoría detectada', 'Nivel', 'Posición', 'Caras', 'Estado', 'Confianza (%)'])
+    for product in reading.get('products', []):
+        confidence = product.get('confidence')
+        products.append([product.get('product'), product.get('brand'), product.get('category'), product.get('shelf_level'),
+                         product.get('position_index'), product.get('facings'), product.get('planogram_status') or product.get('match_status'),
+                         round(confidence * 100, 2) if isinstance(confidence, (float, int)) else None])
+    if comparison:
+        plan = book.create_sheet('Comparación planograma')
+        plan.append(['Producto esperado', 'Nivel', 'Posición', 'Caras esperadas', 'Caras detectadas', 'Estado'])
+        for item in comparison.get('items', []):
+            plan.append([item.get('title'), item.get('band'), item.get('position_in_section'), item.get('expected_facings'),
+                         item.get('detected_facings'), item.get('status')])
+    for sheet in book:
+        for cells in sheet:
+            for cell in cells:
+                cell.alignment = Alignment(wrap_text=True, vertical='top')
+                if isinstance(cell.value, str):
+                    cell.data_type = 's'
+        if sheet is summary:
+            continue
+        for cell in sheet[1]:
+            cell.font = Font(bold=True, color='FFFFFF')
+            cell.fill = PatternFill('solid', fgColor='143445')
+        for index in range(1, sheet.max_column + 1):
+            sheet.column_dimensions[get_column_letter(index)].width = 52 if index == 1 or sheet is capture else 23
+        sheet.freeze_panes = 'A2'
+        sheet.auto_filter.ref = sheet.dimensions
     output = io.BytesIO()
     book.save(output)
     return output.getvalue()

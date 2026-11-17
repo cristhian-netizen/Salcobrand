@@ -98,7 +98,7 @@ def save(reading_id, payload, actor):
             if not product:
                 raise ManagementError('Selecciona un producto del catálogo.')
             rows.append({**value, 'name': product['name'], 'sku': product.get('sku', ''),
-                         'category': product.get('category', ''), 'source': 'manual'})
+                         'category': product.get('category', ''), 'subcategory': product.get('subcategory', ''), 'source': 'manual'})
         flags = {key: payload[key] for key in FLAGS}
         snapshot = json.loads(reading['plan_snapshot_json']) if reading['plan_snapshot_json'] else db.get_planogram(reading['planogram_id'])
         validate(rows, flags, bool(snapshot))

@@ -14,5 +14,5 @@ export const normalizeUser = user => user ? {...user, profile: profileOf(user), 
 export function scopeLabel(user) {
   const stores = user.store_ids || (user.store_id ? [user.store_id] : []);
   return stores.length ? (stores.length === 1 ? user.store_name || stores[0] : `${stores.length} PDV asignados`)
-    : profileOf(user) === 'replenisher' ? 'Sin PDV asignados' : 'Todos los locales';
+    : ['replenisher', 'analyst'].includes(profileOf(user)) ? 'Sin PDV asignados' : 'Todos los locales';
 }

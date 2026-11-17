@@ -36,7 +36,7 @@ def list_people(conn=None):
         username = user['username'] if user else row['username']
         result.append({**data, 'id':row['id'] if row else 'account:' + username, 'username':username,
                        'name':data.get('name') or username, 'role':role, 'storeCodes':codes,
-                       'allStores':role == 'analyst' and not codes if user else data.get('allStores', False),
+                       'allStores':False if user else data.get('allStores', False),
                        'status':data.get('status', 'Vigente'), 'access_enabled':bool(user),
                        'version':row['version'] if row else user['auth_version'] + 1,
                        'needs_completion':not all(data.get(key) for key in ('names','paternal','email','position','startDate'))})
@@ -128,6 +128,9 @@ def save(values, actor, person_id=None, version=None, enable_access=False, passw
         data['storeCodes'], data['allStores'] = before['storeCodes'], before['allStores']
     else:
         known = {row['code'].casefold():row['code'] for row in conn.execute('SELECT code FROM management_stores WHERE deleted=0').fetchall()}
+        if data['allStores']:
+            data['storeCodes'] = list(known.values())
+            data['allStores'] = False
         if any(code.casefold() not in known for code in data['storeCodes']):
             raise ManagementError('Selecciona PDV registrados en el catálogo.')
         data['storeCodes'] = [known[code.casefold()] for code in data['storeCodes']]

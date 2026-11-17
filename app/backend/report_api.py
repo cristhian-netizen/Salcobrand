@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
 import measurement_reports as service
 import profiles
+import db
 
 
 class ReviewPayload(BaseModel):
@@ -69,5 +70,13 @@ def router(require_report, require_review, authorize_reading, store_scope, requi
     def review(reading_id: int, payload: ReviewPayload, user=Depends(require_review)):
         authorize_reading(reading_id, user)
         return service.save_review(reading_id, payload.status, payload.note, payload.version, user["username"])
+
+    @api.get('/readings/{reading_id}/report.xlsx')
+    def reading_excel(reading_id: int, user=Depends(require_user)):
+        authorize_reading(reading_id, user)
+        reading = db.get_reading(reading_id)
+        history = service.history(store_scope(user), point=reading['point_id'])
+        row = next(item for item in history['rows'] if item['id'] == reading_id)
+        return catalog_response(service.reading_xlsx_bytes(reading, row), f'Neuravision_Medicion_{reading_id}.xlsx')
 
     return api

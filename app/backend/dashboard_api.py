@@ -5,6 +5,9 @@ from fastapi.responses import Response
 from infrastructure import ManagementError
 import dashboard_service as service
 import measurement_reports
+import measurement_scope
+import catalog_service
+import db
 
 
 def csv_bytes(headers, rows):
@@ -19,10 +22,10 @@ def csv_bytes(headers, rows):
 def router(require_dashboard, require_report, store_scope):
     api = APIRouter(prefix='/api/dashboard', tags=['Dashboards'])
 
-    def load(region: str = '', commune: str = '', store: str = '', pdv_type: str = '',
+    def load(region: str = '', commune: str = '', store: str = '', pdv_type: str = '', category: str = '', subcategory: str = '',
              start: str = Query(default='', alias='from'), end: str = Query(default='', alias='to'),
              user=Depends(require_dashboard)):
-        return service.summary(store_scope(user), region, commune, store, pdv_type, start, end)
+        return service.summary(store_scope(user), region, commune, store, pdv_type, start, end, category, subcategory)
 
     @api.get('')
     def dashboard(result=Depends(load)):
@@ -43,8 +46,11 @@ def router(require_dashboard, require_report, store_scope):
             # Full filtered history, including more than the recent activity preview.
             filters = result['filters']
             selected = {item['code'] for item in result['locations']}
-            history = measurement_reports.history(tuple(selected), start=filters['from'], end=filters['to'])
-            content = measurement_reports.csv_bytes([row for row in history['rows'] if row['date'] <= result['cutoff']])
+            history = measurement_reports.history(tuple(selected), start=filters['from'], end=filters['to'], include_details=True)
+            with db.get_conn() as conn:
+                products = catalog_service.products(conn)
+            rows = measurement_scope.filter_rows(history['rows'], filters['category'], filters['subcategory'], products)
+            content = measurement_reports.csv_bytes([row for row in rows if row['date'] <= result['cutoff']])
             return response(kind, content)
         else:
             raise ManagementError('Tipo de exportación no válido.', 404)

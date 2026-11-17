@@ -14,6 +14,53 @@ from starlette.datastructures import UploadFile
 
 
 class CaptureCases:
+    def test_manual_capture_is_scoped_idempotent_and_preserves_shelf_masters(self):
+        self.client('admin').get('/api/admin/stores')
+        product = self.create_product()
+        client = self.client('replenisher')
+        options = client.get('/api/capture/options').json()
+        self.assertEqual(set(options['manual_stores']), {'L128', 'L129'})
+        self.assertIn(product['subcategory'], options['categories'][product['category']])
+        fields = {'linear_meters': '1.2', 'category': product['category'], 'subcategory': product['subcategory']}
+        def send(store='L128', key='manual-capture-request-001', data=None):
+            return client.post('/api/stores/'+store+'/analysis-jobs', headers={'Idempotency-Key':key},
+                               data=fields if data is None else data, files={'images':('photo.jpg', b'synthetic','image/jpeg')})
+        first = send()
+        self.assertEqual(first.status_code, 202, first.text)
+        job = self.db.get_job(first.json()['job_id'])
+        self.assertEqual(job['payload']['infrastructure'], {'category': product['category'], 'subcategory': product['subcategory'],
+                                                          'captureMode': 'manual', 'manualWidthCm': 120})
+        self.assertEqual(job['payload']['linear_meters'], 1.2)
+        self.assertIsNone(job['payload']['planogram_id'])
+        self.assertEqual(send().json()['job_id'], job['job_id'])
+        self.assertEqual(self.jobs._dispatch.call_count, 1)
+        self.assertEqual(send('L130').status_code, 403)
+        self.assertEqual(send(key='bad-width-request-001', data={**fields, 'linear_meters':0}).status_code, 400)
+        self.assertEqual(send(key='bad-class-request-001', data={**fields, 'subcategory':'Incorrecta'}).status_code, 400)
+        self.assertEqual(self.capture(client, point=job['point_id']).status_code, 400)
+        with self.db.get_conn() as conn:
+            for table in ('management_shelf_types', 'management_instances', 'management_assignments'):
+                self.assertEqual(conn.execute('SELECT COUNT(*) FROM '+table).fetchone()[0], 0)
+        shelf = self.create_type()
+        response = self.client('admin').put('/api/admin/stores/L129/shelf-assignments/'+shelf['id'], json={'quantity':1,'version':0})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(send('L129', 'assigned-manual-request-001').status_code, 409)
+        self.assertNotIn('L129', client.get('/api/capture/options').json()['manual_stores'])
+
+    def test_capture_category_snapshot_and_changed_idempotency_payload(self):
+        product = self.create_product()
+        client = self.client('analyst')
+        data = {'category': product['category'], 'subcategory': product['subcategory']}
+        def send(values):
+            return client.post('/api/points/point-a/analysis-jobs',headers={'Idempotency-Key':'classified-capture-001'},
+                               data=values,files={'images':('photo.jpg',b'synthetic','image/jpeg')})
+        first = send(data)
+        self.assertEqual(first.status_code, 202, first.text)
+        job = self.db.get_job(first.json()['job_id'])
+        self.assertEqual(job['payload']['infrastructure']['subcategory'], product['subcategory'])
+        self.assertEqual(send(data).json()['job_id'], job['job_id'])
+        self.assertEqual(send({**data, 'subcategory':'Otra'}).status_code, 409)
+
     def test_capture_location_catalog_keeps_all_communes_and_store_scope(self):
         self.assertEqual(self.client(None).get('/api/location-catalog').status_code, 401)
         for username in ('admin', 'analyst', 'replenisher', 'viewer', 'legacy-tienda'):

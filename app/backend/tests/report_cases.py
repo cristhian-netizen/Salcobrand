@@ -6,6 +6,19 @@ from openpyxl import load_workbook
 
 
 class ReportCases:
+    def test_individual_excel_includes_detected_products_and_author_scope(self):
+        path = f"/api/readings/{self.own['id']}/report.xlsx"
+        for role in ('replenisher', 'analyst', 'viewer', 'admin'):
+            response = self.client(role).get(path)
+            self.assertEqual(response.status_code, 200, response.text)
+            workbook = load_workbook(io.BytesIO(response.content))
+            self.assertIn('Productos detectados', workbook.sheetnames)
+            self.assertEqual(workbook['Productos detectados']['A2'].value, 'Synthetic product')
+            self.assertEqual(workbook['Medición']['G2'].number_format, 'hh:mm "hrs."')
+        self.assertEqual(self.client('replenisher').get(f"/api/readings/{self.other['id']}/report.xlsx").status_code, 403)
+        self.assertEqual(self.client('analyst').get(f"/api/readings/{self.foreign['id']}/report.xlsx").status_code, 403)
+        self.assertEqual(self.client(None).get(path).status_code, 401)
+
     def test_registered_empty_stores_are_filterable_without_expanding_scope(self):
         import infrastructure
         for code in ('L129', 'L131'):

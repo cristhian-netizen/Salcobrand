@@ -74,15 +74,17 @@ function remember(key, jobId) {
 
 export default function Scan({ user, rest, go, notify }) {
   const points = useApi(async () => {
-    const [summary, stores, locations] = await Promise.all([
-      api('/api/summary?days=30'), api('/api/stores'), api('/api/location-catalog'),
+    const [summary, stores, locations, captureOptions] = await Promise.all([
+      api('/api/summary?days=30'), api('/api/stores'), api('/api/location-catalog'), api('/api/capture/options'),
     ]);
-    return {...summary, captureStores: stores, regions: locations.regions};
+    return {...summary, captureStores: stores, regions: locations.regions, captureOptions};
   }, []);
   const availability = useApi(() => api("/api/capture/status"), []);
   const [pointId, setPointId] = useState(rest[0] || "");
   const [location, setLocation] = useState({region: '', commune: '', query: ''});
   const [storeCode, setStoreCode] = useState('');
+  const [classification, setClassification] = useState({category: '', subcategory: ''});
+  const [shelfType, setShelfType] = useState('');
   const [photos, setPhotos] = useState([]);
   const [meters, setMeters] = useState("");
   const [preparing, setPreparing] = useState(false);
@@ -109,18 +111,31 @@ export default function Scan({ user, rest, go, notify }) {
   const regions = points.data?.regions || [];
   const stores = useMemo(() => captureStores(points.data?.captureStores || [], list), [points.data, list]);
   const visibleStores = useMemo(() => filterCaptureStores(stores, regions, location), [stores, regions, location]);
-  const currentPoint = list.find(point => point.id === pointId);
+  const currentPoint = points.data?.points.find(point => point.id === pointId);
   const selectedStore = busy && currentPoint ? pointStoreCode(currentPoint) : storeCode;
-  const visiblePoints = visibleStores.some(store => store.code === selectedStore)
+  const storePoints = visibleStores.some(store => store.code === selectedStore)
     ? list.filter(point => pointStoreCode(point) === selectedStore) : [];
+  const types = [...new Map(storePoints.map(point => [point.infrastructure?.type_id || 'legacy', {
+    id: point.infrastructure?.type_id || 'legacy', name: point.infrastructure?.type_name || 'Góndola registrada',
+  }])).values()].sort(byLocationName);
+  const manualAllowed = points.data?.captureOptions.manual_stores.includes(selectedStore);
+  const manualMode = manualAllowed && (!shelfType || shelfType === 'manual');
+  const selectedType = manualMode ? 'manual' : shelfType || currentPoint?.infrastructure?.type_id || '';
+  const visiblePoints = storePoints.filter(point => (point.infrastructure?.type_id || 'legacy') === selectedType);
   const selected = visiblePoints.find(point => point.id === pointId);
+  const categories = points.data?.captureOptions.categories || {};
+  const subcategories = categories[classification.category] || [];
+  const classificationReady = (!Object.keys(categories).length || classification.category)
+    && (!subcategories.length || classification.subcategory);
+  const displayedMeters = meters || (selected?.infrastructure?.width_cm ? String(selected.infrastructure.width_cm / 100) : '');
+  const captureReady = classificationReady && (manualMode ? selectedStore && Number(displayedMeters) > 0 : selected);
   const communes = [...(regionFor(regions, location.region)?.communes || [])].sort(byLocationName);
 
   useEffect(() => {
     if (!points.data || busy || result || job?.status === 'done') return;
     const preferredStore = storeCode || (currentPoint && pointStoreCode(currentPoint));
     const nextStore = visibleStores.find(store => store.code === preferredStore)?.code || visibleStores[0]?.code || '';
-    if (nextStore !== storeCode) setStoreCode(nextStore);
+    if (nextStore !== storeCode) { setStoreCode(nextStore); setShelfType(''); setMeters(''); }
     const storePoints = list.filter(point => pointStoreCode(point) === nextStore);
     if (pointId && !storePoints.some(point => point.id === pointId)) {
       setPointId('');
@@ -284,8 +299,8 @@ export default function Scan({ user, rest, go, notify }) {
   }
 
   async function analyze() {
-    if (uploading || active || preparing || !selected || !photos.length) return;
-    const width = meters === "" ? null : Number(meters);
+    if (uploading || active || preparing || !captureReady || !photos.length) return;
+    const width = displayedMeters === "" ? null : Number(displayedMeters);
     if (
       width !== null &&
       (!Number.isFinite(width) || width <= 0 || width > 30)
@@ -301,9 +316,12 @@ export default function Scan({ user, rest, go, notify }) {
     const form = new FormData();
     photos.forEach((p) => form.append("images", p.file, p.file.name));
     if (width !== null) form.append("linear_meters", String(width));
+    if (classification.category) form.append('category', classification.category);
+    if (classification.subcategory) form.append('subcategory', classification.subcategory);
     try {
       const current = await api(
-        "/api/points/" + encodeURIComponent(pointId) + "/analysis-jobs",
+        manualMode ? '/api/stores/' + encodeURIComponent(selectedStore) + '/analysis-jobs'
+          : "/api/points/" + encodeURIComponent(pointId) + "/analysis-jobs",
         {
           method: "POST",
           form,
@@ -313,6 +331,7 @@ export default function Scan({ user, rest, go, notify }) {
       );
       remember(storageKey, current.job_id);
       setJob(current);
+      setPointId(current.point_id);
       setJobId(current.job_id);
       notify(
         "Captura recibida. Puedes recuperar esta solicitud al volver a Escanear.",
@@ -437,7 +456,7 @@ export default function Scan({ user, rest, go, notify }) {
               Región
               <select value={location.region} disabled={busy} onChange={event => {
                 setLocation({...location, region: event.target.value, commune: ''});
-                setStoreCode(''); setPointId(''); requestId.current = null;
+                setStoreCode(''); setShelfType(''); setMeters(''); setPointId(''); requestId.current = null;
               }}>
                 <option value="">Todas las regiones</option>
                 {[...regions].sort(byLocationName).map(region => <option key={region.code} value={region.name}>{region.name}</option>)}
@@ -447,7 +466,7 @@ export default function Scan({ user, rest, go, notify }) {
               Comuna
               <select value={location.commune} disabled={busy || !location.region} aria-describedby="scan-commune-note" onChange={event => {
                 setLocation({...location, commune: event.target.value});
-                setStoreCode(''); setPointId(''); requestId.current = null;
+                setStoreCode(''); setShelfType(''); setMeters(''); setPointId(''); requestId.current = null;
               }}>
                 <option value="">{location.region ? 'Todas las comunas' : 'Selecciona primero una región'}</option>
                 {communes.map(commune => <option key={commune.code} value={commune.name}>{commune.name}</option>)}
@@ -465,7 +484,7 @@ export default function Scan({ user, rest, go, notify }) {
             <label>
               Punto de venta
               <select value={selectedStore} disabled={busy || !visibleStores.length} aria-describedby="scan-pdv-note" onChange={event => {
-                setStoreCode(event.target.value); setPointId(''); requestId.current = null;
+                setStoreCode(event.target.value); setShelfType(''); setMeters(''); setPointId(''); requestId.current = null;
               }}>
                 {!visibleStores.length && <option value="">Sin PDV con esos filtros</option>}
                 {visibleStores.map(store => <option key={store.code} value={store.code}>{store.name} ({store.code}) · {store.commune || 'Comuna sin dato'}</option>)}
@@ -474,13 +493,25 @@ export default function Scan({ user, rest, go, notify }) {
             <p id="scan-pdv-note" className="sb-hint full" role="status">
               {visibleStores.length ? `${visibleStores.length} PDV ${visibleStores.length === 1 ? 'activo disponible' : 'activos disponibles'} para tu cuenta con estos filtros.` : stores.length ? 'No hay PDV activos que coincidan. Limpia región, comuna o búsqueda para ampliar los resultados.' : 'Tu cuenta no tiene PDV activos disponibles. Revisa su asignación en Personas y roles.'}
             </p>
-            <label className="full">
+            <label>Categoría<select value={classification.category} disabled={busy || !Object.keys(categories).length} onChange={event => {
+              setClassification({category: event.target.value, subcategory: ''}); requestId.current = null;
+            }}><option value="">{Object.keys(categories).length ? 'Selecciona una categoría' : 'Sin categorías configuradas'}</option>{Object.keys(categories).sort((a,b) => a.localeCompare(b,'es')).map(category => <option key={category}>{category}</option>)}</select></label>
+            <label>Subcategoría<select value={classification.subcategory} disabled={busy || !classification.category || !subcategories.length} onChange={event => {
+              setClassification({...classification, subcategory: event.target.value}); requestId.current = null;
+            }}><option value="">Selecciona una subcategoría</option>{[...subcategories].sort((a,b) => a.localeCompare(b,'es')).map(subcategory => <option key={subcategory}>{subcategory}</option>)}</select></label>
+            <label className="full">Tipo de góndola<select value={selectedType} disabled={busy || !selectedStore} onChange={event => {
+              setShelfType(event.target.value); setPointId(''); setMeters(''); requestId.current = null;
+            }}>
+              {manualAllowed ? <option value="manual">Ancho manual · PDV sin góndolas asignadas</option> : <><option value="">Selecciona un tipo de góndola</option>{types.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}</>}
+            </select></label>
+            {!manualMode && <label className="full">
               Góndola
               <select
                 value={pointId}
                 disabled={busy || !visiblePoints.length}
                 onChange={(e) => {
                   setPointId(e.target.value);
+                  setMeters('');
                   requestId.current = null;
                 }}
               >
@@ -492,15 +523,16 @@ export default function Scan({ user, rest, go, notify }) {
                   </option>
                 ))}
               </select>
-            </label>
+            </label>}
             <label>
-              Ancho de la góndola en metros (opcional)
+              {manualMode ? 'Ancho del metro-góndola en metros' : 'Ancho de la góndola en metros (opcional)'}
               <input
                 type="number"
                 min="0.1"
                 max="30"
                 step="0.1"
-                value={meters}
+                value={displayedMeters}
+                required={manualMode}
                 disabled={busy}
                 onChange={(e) => {
                   setMeters(e.target.value);
@@ -510,7 +542,7 @@ export default function Scan({ user, rest, go, notify }) {
               />
             </label>
             <p className="sb-hint">
-              {enabled(user, 'planograms') && selected?.planogram_name
+              {manualMode ? 'Este PDV permite capturar indicando el ancho manualmente.' : enabled(user, 'planograms') && selected?.planogram_name
                 ? `Se compara con ${selected.planogram_name}.`
                 : "Sin planograma asignado se identifican productos y caras."}
             </p>
@@ -586,7 +618,7 @@ export default function Scan({ user, rest, go, notify }) {
             busy ||
             preparing ||
             !photos.length ||
-            !selected ||
+            !captureReady ||
             availability.data?.available === false
           }
         >

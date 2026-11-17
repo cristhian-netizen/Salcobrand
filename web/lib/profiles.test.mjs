@@ -26,8 +26,8 @@ test('the capability matrix never grants management or review by fallback', () =
   assert.equal(can({role: 'admin'}, 'unknown-action'), false);
 });
 
-test('scope labels distinguish unrestricted analysts from unassigned replenishers', () => {
-  assert.equal(scopeLabel({role: 'analyst'}), 'Todos los locales');
+test('scope labels distinguish assigned and unassigned field profiles', () => {
+  assert.equal(scopeLabel({role: 'analyst'}), 'Sin PDV asignados');
   assert.equal(scopeLabel({role: 'replenisher'}), 'Sin PDV asignados');
   assert.equal(scopeLabel({role: 'replenisher', store_ids: ['L128', 'L129']}), '2 PDV asignados');
 });

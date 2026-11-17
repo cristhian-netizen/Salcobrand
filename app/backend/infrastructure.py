@@ -379,7 +379,7 @@ def infrastructure_state(store_code=None):
     with db.get_conn() as conn:
         assignments = [dict(r) for r in conn.execute("SELECT * FROM management_assignments ORDER BY store_code, type_id").fetchall()]
         instances = [dict(r) for r in conn.execute("SELECT i.*, t.name AS type_name, p.name AS point_name, p.planogram_id, (SELECT COUNT(*) FROM readings r WHERE r.point_id = i.point_id) AS readings_count FROM management_instances i JOIN points p ON p.id = i.point_id LEFT JOIN management_shelf_types t ON t.id=i.type_id ORDER BY i.store_code, i.type_id, i.number").fetchall()]
-        unlinked = [dict(r) for r in conn.execute("SELECT p.id, p.name, p.store_id, p.planogram_id, (SELECT COUNT(*) FROM readings r WHERE r.point_id = p.id) AS readings_count FROM points p LEFT JOIN management_instances i ON p.id = i.point_id WHERE i.id IS NULL AND p.store_id IS NOT NULL ORDER BY p.store_id, p.id").fetchall()]
+        unlinked = [dict(r) for r in conn.execute("SELECT p.id, p.name, p.store_id, p.planogram_id, (SELECT COUNT(*) FROM readings r WHERE r.point_id = p.id) AS readings_count FROM points p LEFT JOIN management_instances i ON p.id = i.point_id WHERE i.id IS NULL AND p.store_id IS NOT NULL AND p.id NOT LIKE 'SB-MANUAL-%' ORDER BY p.store_id, p.id").fetchall()]
     if store_code:
         assignments = [r for r in assignments if r["store_code"] == store_code]
         instances = [r for r in instances if r["store_code"] == store_code]
@@ -403,6 +403,8 @@ def annotate_points(points):
         point = dict(point)
         store, instance = stores.get(point.get("store_id")), instances.get(point["id"])
         available = not store or (not store["deleted"] and store["status"] == "Activo")
+        if point['id'].startswith('SB-MANUAL-'):
+            available = False
         plan = plans.get(point.get("planogram_id"))
         if plan:
             available = available and plan["status"] == "Activo" and (plan["store_code"] == point.get("store_id") or point["id"] in plan.get("legacy_point_ids", []))

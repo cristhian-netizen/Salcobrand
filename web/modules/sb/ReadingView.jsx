@@ -1,6 +1,6 @@
 'use client';
 import {useState} from 'react';
-import {api, fmt} from '../../lib/sb';
+import {api, fmt, download} from '../../lib/sb';
 import {can} from '../../lib/profiles.mjs';
 import {Card, Metric, StatusPill, Pill, Empty} from './ui';
 import MeasurementReview from './MeasurementReview';
@@ -37,6 +37,12 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo}) {
   }
   return <>
     {error && <div className="sb-error" role="alert">{error}</div>}
+    {can(user, 'read') && <div className="sb-actions"><button type="button" disabled={busy} onClick={async () => {
+      setBusy(true); setError('');
+      try { await download(`/api/readings/${reading.id}/report.xlsx`, `Neuravision_Medicion_${reading.id}.xlsx`); }
+      catch (exception) { setError(exception.message); } finally { setBusy(false); }
+    }}>Descargar Excel de esta medición</button></div>}
+    {reading.infrastructure?.category && <p className="sb-hint">{reading.infrastructure.category} · {reading.infrastructure.subcategory || 'Todas las subcategorías'}{reading.infrastructure.captureMode === 'manual' ? ` · Ancho manual ${reading.linear_meters} m` : ''}</p>}
     <MeasurementReview key={reading.id} reading={{...reading, review}} user={user} onSaved={setReview}/>
     <ManualDetails reading={reading} user={user} reviewVersion={review?.version || 0} onReviewChanged={setReview}/>
     <Card title="Capacidad máxima por dimensiones" subtitle={`Margen adicional de profundidad ${reading.capacity?.dimensionMarginPct ?? '—'} %. La capacidad teórica no confirma existencias ni unidades ocultas.`}>

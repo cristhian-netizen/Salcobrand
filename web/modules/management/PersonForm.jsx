@@ -57,8 +57,6 @@ export default function PersonForm({current, self, onClose, onSaved}) {
       {form.status === 'De baja' && <label>Fecha baja<input {...change('endDate')} type="date" min={form.startDate} required/></label>}
       {scoped && <fieldset className="full people-store-scope" disabled={preserve}>
         <legend>PDV asignados</legend>
-        {form.role === 'analyst' && <label className="people-check"><input type="checkbox" checked={form.allStores} onChange={event => setForm({...form,allStores:event.target.checked,storeCodes:event.target.checked ? [] : form.storeCodes})}/>Todos los PDV</label>}
-        {!form.allStores && <>
           <div className="people-scope-filters"><label>Región<select value={region} onChange={event => {setRegion(event.target.value);setCommune('');}}><option value="">Todas las regiones</option>{sortByName(catalog.data?.locations.regions || []).map(item => <option key={item.code}>{item.name}</option>)}</select></label>
           <label>Comuna<select value={commune} disabled={!region} onChange={event => setCommune(event.target.value)}><option value="">Todas las comunas</option>{sortByName(catalog.data?.locations.regions.find(item => item.name === region)?.communes || []).map(item => <option key={item.code}>{item.name}</option>)}</select></label></div>
           <label className="people-check"><input type="checkbox" checked={allVisible} disabled={!visible.length} ref={input => {if (input) input.indeterminate = !allVisible && visible.some(store => selected.has(store.code));}} onChange={event => {
@@ -68,7 +66,6 @@ export default function PersonForm({current, self, onClose, onSaved}) {
             const next = new Set(selected);event.target.checked ? next.add(store.code) : next.delete(store.code);setForm({...form,storeCodes:[...next]});
           }}/>{store.name} · {store.code}</label>) : <p>No hay PDV con estos filtros.</p>}</div>
           <p className="sb-hint">{selected.size} PDV seleccionados</p>
-        </>}
         {preserve && <p className="sb-hint">La cuenta conservará sus PDV mientras esté suspendida o de baja.</p>}
       </fieldset>}
       <section className="full people-access"><h3>Acceso a la plataforma</h3><p>{CAPABILITIES[form.role]}</p>

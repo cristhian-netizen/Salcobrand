@@ -7,6 +7,9 @@ from infrastructure import ManagementError
 import measurement_reports
 from dashboard_vision import summarize as vision_summary, brand_share, public_reading
 import settings_service
+import catalog_service
+import measurement_scope
+import db
 
 
 def average(rows):
@@ -23,12 +26,17 @@ def months_between(start, end):
     return [f'{(year * 12 + month - 1 + offset) // 12:04d}-{(month - 1 + offset) % 12 + 1:02d}' for offset in range(max(0, count))]
 
 
-def summary(scope, region='', commune='', store='', pdv_type='', start='', end=''):
+def summary(scope, region='', commune='', store='', pdv_type='', start='', end='', category='', subcategory=''):
     # Reuse date validation, Chilean local time and the authorized measurement history.
     history = measurement_reports.history(scope, start=start, end=end, include_details=True)
     cutoff = end or datetime.now(timezone.utc).astimezone(measurement_reports.CHILE).date().isoformat()
     if commune and not region:
         raise ManagementError('Selecciona una región antes de filtrar por comuna.')
+    if subcategory and not category:
+        raise ManagementError('Selecciona una categoría antes de filtrar por subcategoría.')
+    with db.get_conn() as conn:
+        products = catalog_service.products(conn)
+    history['rows'] = measurement_scope.filter_rows(history['rows'], category, subcategory, products)
     stores = [item for item in infrastructure.list_stores(include_deleted=True) if scope is None or item['code'] in scope]
     if store and store not in {item['code'] for item in stores}:
         raise ManagementError('El PDV está fuera de tu ámbito.', 403)
@@ -62,7 +70,7 @@ def summary(scope, region='', commune='', store='', pdv_type='', start='', end='
     author_rows = [{'name': name, **counts, 'rejectionRate': round(100 * counts['rejected'] / counts['count'], 1)}
                    for name, counts in authors.items()]
     author_rows.sort(key=lambda item: (-item['rejected'], item['name'].casefold()))
-    operation = coverage(selected, approved, history['rows'], cutoff, start, kpis)
+    operation = coverage(selected, approved, history['rows'], cutoff, start, kpis, category, subcategory, products)
     monthly_rows = defaultdict(list)
     for row in rows:
         monthly_rows[row['date'][:7]].append(row)
@@ -91,7 +99,9 @@ def summary(scope, region='', commune='', store='', pdv_type='', start='', end='
         calendar_rows.append({'month': month, 'days': days})
     score = average(approved)
     return {'cutoff': cutoff, 'geography': infrastructure.REGIONS, 'pdvTypes': state['pdvTypes'],
-            'filters': {'region': region, 'commune': commune, 'store': store, 'pdv_type': pdv_type, 'from': start, 'to': end},
+            'categories': state['catalog']['categories'],
+            'filters': {'region': region, 'commune': commune, 'store': store, 'pdv_type': pdv_type, 'from': start, 'to': end,
+                        'category': category, 'subcategory': subcategory},
             'options': [{'code': item['code'], 'name': item['name'], 'region': item['region'], 'commune': item['commune'],
                          'pdv_type': item['store_type']} for item in stores],
             'totals': {'measurements': len(rows), 'approved': len(approved), 'in_review': sum(row['status'] == 'En revisión' for row in rows),
@@ -102,7 +112,7 @@ def summary(scope, region='', commune='', store='', pdv_type='', start='', end='
             'recent': [public_reading(row) for row in rows[:20]], 'rejected': [public_reading(row) for row in rejected]}
 
 
-def coverage(stores, approved, history, cutoff, start, parameters):
+def coverage(stores, approved, history, cutoff, start, parameters, category='', subcategory='', products=()):
     active = [store for store in stores if store['status'] == 'Activo' and not store['deleted']]
     periods, historical = defaultdict(list), defaultdict(list)
     for row in approved:
@@ -112,7 +122,8 @@ def coverage(stores, approved, history, cutoff, start, parameters):
             historical[row['store_id']].append(row)
     # The period query already applies Desde. Earlier approved history is needed for last-at-cutoff.
     if start:
-        earlier = measurement_reports.history(tuple(store['code'] for store in active), end=cutoff, status='Aprobado')['rows']
+        earlier = measurement_reports.history(tuple(store['code'] for store in active), end=cutoff, status='Aprobado', include_details=True)['rows']
+        earlier = measurement_scope.filter_rows(earlier, category, subcategory, products)
         historical = defaultdict(list)
         for row in earlier:
             historical[row['store_id']].append(row)

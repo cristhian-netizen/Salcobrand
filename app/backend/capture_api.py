@@ -14,6 +14,7 @@ import core
 import db
 import infrastructure
 import profiles
+import capture_selection
 
 logger = logging.getLogger(__name__)
 
@@ -50,16 +51,22 @@ def existing_request(key, fingerprint):
     return job
 
 
-def submit(point_id, images, meters, user, request_id):
+def submit(point_id, images, meters, user, request_id, selection=None, manual_store=None):
     if not re.fullmatch(r"[A-Za-z0-9_-]{16,100}", request_id or ""):
         raise HTTPException(400, "La captura necesita un identificador de solicitud válido.")
     key = hashlib.sha256((user["username"] + ":" + request_id).encode()).hexdigest()
-    fingerprint = hashlib.sha256(json.dumps({"point": point_id, "meters": meters,
-        "images": [(mime, hashlib.sha256(content).hexdigest()) for content, mime in images]}, sort_keys=True).encode()).hexdigest()
+    values = {"point": point_id, "meters": meters,
+              "images": [(mime, hashlib.sha256(content).hexdigest()) for content, mime in images]}
+    if selection:
+        values['selection'] = selection
+    fingerprint = hashlib.sha256(json.dumps(values, sort_keys=True).encode()).hexdigest()
     prior = existing_request(key, fingerprint)
     if prior:
         return public_job(prior)
-    context = infrastructure.capture_context(point_id)
+    context = {} if manual_store else (infrastructure.capture_context(point_id) or {})
+    context.update(selection or {})
+    if manual_store:
+        context.update(captureMode='manual', manualWidthCm=meters * 100)
     paths = []
     created = False
     try:
@@ -73,6 +80,9 @@ def submit(point_id, images, meters, user, request_id):
                     raise HTTPException(409, "El identificador de captura ya se utilizó con otras fotos.")
                 job_id = duplicate["job_id"]
             else:
+                capture_selection.validate_selection(selection or {}, conn)
+                if manual_store:
+                    capture_selection.manual_store(conn, manual_store)
                 if core.remote_enabled():
                     pending = conn.execute("SELECT status, payload_json FROM api_jobs WHERE point_id = ? AND status IN ('queued', 'running', 'failed')", (point_id,)).fetchall()
                     for row in pending:
@@ -107,6 +117,29 @@ def submit(point_id, images, meters, user, request_id):
 def router(require_user, require_scan, authorize_point):
     api = APIRouter(prefix="/api", tags=["Captura y mediciones"])
 
+    @api.get('/capture/options')
+    def options(user=Depends(require_scan)):
+        return capture_selection.options(user)
+
+    @api.post('/stores/{store_code}/analysis-jobs', status_code=202)
+    async def manual(store_code: str, images: List[UploadFile] = File(...), linear_meters: float = Form(...),
+                     category: str = Form(''), subcategory: str = Form(''),
+                     request_id: str = Header(alias='Idempotency-Key'), user=Depends(require_scan)):
+        scope = profiles.store_scope(user)
+        if scope is not None and store_code not in scope:
+            raise HTTPException(403, 'El PDV está fuera de tu ámbito.')
+        if not re.fullmatch(r'[A-Za-z0-9_-]{16,100}', request_id or ''):
+            raise HTTPException(400, 'La captura necesita un identificador de solicitud válido.')
+        if not math.isfinite(linear_meters) or not 0 < linear_meters <= 30:
+            raise HTTPException(400, 'El ancho debe ser mayor a cero y hasta 30 metros.')
+        values = capture_selection.selection(category, subcategory)
+        try:
+            loaded = await core.read_image_uploads(images, max_bytes_each=25*1024*1024, max_bytes_total=100*1024*1024)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        point_id = await run_in_threadpool(capture_selection.manual_point, store_code, user, values)
+        return await run_in_threadpool(submit, point_id, loaded, linear_meters, user, request_id, values, store_code)
+
     @api.get("/capture/status")
     def status(user=Depends(require_user)):
         health = core.engine_health()
@@ -115,15 +148,18 @@ def router(require_user, require_scan, authorize_point):
 
     @api.post("/points/{point_id}/analysis-jobs", status_code=202)
     async def create(point_id: str, images: List[UploadFile] = File(...), linear_meters: Optional[float] = Form(None),
+                     category: str = Form(''), subcategory: str = Form(''),
                      request_id: str = Header(alias="Idempotency-Key"), user=Depends(require_scan)):
         authorize_point(point_id, user)
+        if point_id.startswith(capture_selection.MANUAL_PREFIX):
+            raise HTTPException(400, 'Usa la captura con ancho manual desde el PDV.')
         if linear_meters is not None and (not math.isfinite(linear_meters) or not 0 < linear_meters <= 30):
             raise HTTPException(400, "El ancho debe ser mayor a cero y hasta 30 metros.")
         try:
             loaded = await core.read_image_uploads(images, max_bytes_each=25*1024*1024, max_bytes_total=100*1024*1024)
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
-        return await run_in_threadpool(submit, point_id, loaded, linear_meters, user, request_id)
+        return await run_in_threadpool(submit, point_id, loaded, linear_meters, user, request_id, capture_selection.selection(category, subcategory))
 
     @api.get("/analysis-jobs")
     def active(user=Depends(require_user)):

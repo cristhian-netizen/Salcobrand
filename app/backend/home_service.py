@@ -37,6 +37,8 @@ def summary(user):
     own = [row for row in rows if row["captured_by"] == user["username"]]
     rejected = [row for row in own if row["status"] == "Rechazado"]
     pending = [row for row in rows if row["status"] == "En revisión"]
+    notifications = sorted([row for row in own if row['status'] in ('Aprobado', 'Rechazado') and row.get('reviewed_at')],
+                           key=lambda row: (row['reviewed_at'], row['id']), reverse=True)
     return {"profile": role, "totals": {"own": len(own), "rejected": len(rejected), "pending": len(pending)},
             "pending": pending[:8] if role == "analyst" else [],
-            "rejected": rejected, "recent": own[:8]}
+            "rejected": rejected, "recent": own[:8], "notifications": notifications[:20] if role == 'replenisher' else []}

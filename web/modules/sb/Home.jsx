@@ -1,5 +1,5 @@
 ﻿'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { profileOf, scopeLabel } from '../../lib/profiles.mjs';
 import { api } from '../../lib/sb';
 import { useApi, Header, Loading, ErrorBox } from './ui';
@@ -17,9 +17,16 @@ function OperationalHome({ user, go }) {
   const [selected, setSelected] = useState(null);
   const { data, error, loading, reload } = useApi(() => api('/api/home'), []);
   const role = profileOf(user);
+  useEffect(() => {
+    if (role !== 'replenisher') return;
+    const refresh = () => { if (document.visibilityState === 'visible') reload(); };
+    const timer = setInterval(refresh, 15000);
+    window.addEventListener('focus', refresh);
+    return () => { clearInterval(timer); window.removeEventListener('focus', refresh); };
+  }, [role, reload]);
   const descriptions = {
     analyst: 'Tu trabajo de análisis y las revisiones pendientes de tus PDV.',
-    replenisher: 'Tus mediciones y los rechazos que debes revisar.',
+    replenisher: 'Tus mediciones y las decisiones de revisión del analista.',
     viewer: 'Prioridades para la toma de decisiones.',
   };
   return <section>

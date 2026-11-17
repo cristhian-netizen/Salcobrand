@@ -203,6 +203,8 @@
 #nv .sb-ok { padding: 10px 14px; border: 1px solid var(--nv-success-border); border-radius: var(--nv-radius); background: var(--nv-success-soft); color: var(--nv-success); font-size: 13.5px; margin-bottom: 14px; }
 
 /* Scan */
+#nv .home-review-notification { padding: 14px 0; border-bottom: 1px solid var(--nv-border); }
+#nv .home-review-notification p { overflow-wrap: anywhere; }
 #nv .scan-location-form label { min-width: 0; }
 #nv main .scan-location-form :is(input, select) { width: 100%; min-width: 0; }
 #nv .sb-dropzone { display: grid; place-items: center; gap: 8px; padding: 26px; border: 2px dashed var(--nv-border-strong); border-radius: 14px; background: var(--nv-surface-2); text-align: center; }

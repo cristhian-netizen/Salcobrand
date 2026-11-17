@@ -97,7 +97,7 @@ class ProfileHTTPTests(ConsoleCases, UsageCases, PeopleCases, StoreExcelCases, A
                 conn.execute(f"DELETE FROM {table}")
         for name, role, stores in [("admin", "admin", []), ("analyst", "analyst", ["L128", "L129"]),
                                    ("replenisher", "replenisher", ["L128", "L129"]), ("viewer", "viewer", []),
-                                   ("legacy-supervisor", "supervisor", []), ("legacy-tienda", "tienda", ["L128"])]:
+                                   ("legacy-supervisor", "supervisor", ["L128", "L129"]), ("legacy-tienda", "tienda", ["L128"])]:
             hashed, salt = self.auth.hash_password("Isolated-local-password-2026!")
             self.db.create_user(name, hashed, salt, role=role, store_id=stores[0] if len(stores) == 1 else None,
                                 store_ids=None if role == "tienda" else stores)
@@ -217,7 +217,7 @@ class ProfileHTTPTests(ConsoleCases, UsageCases, PeopleCases, StoreExcelCases, A
         self.assertEqual(admin.post("/api/admin/users", json={"username": "no-store", "password": "Isolated-new-account-2026!", "role": "replenisher"}).status_code, 400)
         self.assertEqual(admin.patch("/api/admin/users/admin", json={"role": "viewer"}).status_code, 400)
         self.assertEqual(admin.patch("/api/admin/users/analyst", json={"store_ids": []}).status_code, 200)
-        self.assertEqual(self.client("analyst").get("/api/points/point-c").status_code, 200)
+        self.assertEqual(self.client("analyst").get("/api/points/point-c").status_code, 403)
 
     def test_invalid_profiles_fail_closed_and_empty_replenisher_sees_nothing(self):
         with self.db.get_conn() as conn:

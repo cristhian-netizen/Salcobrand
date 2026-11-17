@@ -3,6 +3,23 @@ from unittest.mock import patch
 
 
 class HomeCases:
+    def test_review_notifications_include_approval_and_rejection_for_the_author_only(self):
+        reviewer = self.client('analyst')
+        url = f"/api/readings/{self.own['id']}/review"
+        self.assertEqual(reviewer.patch(url, json={'status':'Aprobado','note':'Correcta','version':0}).status_code, 200)
+        notification = self.client('replenisher').get('/api/home').json()['notifications']
+        self.assertEqual([(row['id'], row['status'], row['note'], row['reviewed_by']) for row in notification],
+                         [(self.own['id'], 'Aprobado', 'Correcta', 'analyst')])
+        self.assertTrue(notification[0]['reviewed_at'])
+        self.assertEqual(reviewer.patch(url, json={'status':'Rechazado','note':'Repetir foto','version':1}).status_code, 200)
+        self.assertEqual(self.client('replenisher').get('/api/home').json()['notifications'][0]['status'], 'Rechazado')
+        self.assertEqual(self.client('analyst').get('/api/home').json()['notifications'], [])
+        with self.db.get_conn() as conn:
+            conn.execute("UPDATE users SET store_ids_json='[]',store_id=NULL WHERE username='analyst'")
+        self.assertEqual(reviewer.patch(url, json={'status':'Aprobado','note':'','version':2}).status_code, 403)
+        self.assertEqual(reviewer.get('/api/dashboard').json()['options'], [])
+        self.assertEqual(reviewer.get('/api/measurements').json()['count'], 0)
+
     def test_home_requires_session_and_admin_has_management_home(self):
         self.assertEqual(self.client(None).get('/api/home').status_code, 401)
         self.assertEqual(self.client('admin').get('/api/home').json(), {'profile': 'admin'})

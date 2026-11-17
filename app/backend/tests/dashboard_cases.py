@@ -5,6 +5,28 @@ import json
 
 
 class DashboardCases:
+    def test_dashboard_category_scope_applies_to_indicators_history_and_csv(self):
+        import measurement_reports
+        self.client('admin').get('/api/admin/stores')
+        selected = {'category':'Salud sexual','subcategory':'Preservativos'}
+        with self.db.get_conn() as conn:
+            conn.execute('UPDATE readings SET capture_context_json=? WHERE id=?', (json.dumps(selected), self.own['id']))
+            conn.execute('UPDATE readings SET capture_context_json=? WHERE id=?',
+                         (json.dumps({'category':'Cuidado personal','subcategory':'Desodorantes'}), self.other['id']))
+        measurement_reports.save_review(self.own['id'], 'Aprobado', '', 0, 'analyst')
+        measurement_reports.save_review(self.other['id'], 'Aprobado', '', 0, 'analyst')
+        viewer = self.client('viewer')
+        result = viewer.get('/api/dashboard?category=Salud%20sexual&subcategory=Preservativos').json()
+        self.assertEqual(result['totals']['measurements'], 1)
+        self.assertEqual(result['totals']['approved'], 1)
+        self.assertEqual([row['id'] for row in result['recent']], [self.own['id']])
+        exported = viewer.get('/api/dashboard/export/measurements.csv?category=Salud%20sexual&subcategory=Preservativos')
+        self.assertEqual(exported.status_code, 200)
+        self.assertEqual(len(list(csv.reader(io.StringIO(exported.content.decode('utf-8-sig')), delimiter=';'))), 2)
+        self.assertEqual(viewer.get('/api/dashboard?subcategory=Preservativos').status_code, 400)
+        self.assertEqual(self.client('replenisher').get('/api/dashboard?category=Salud%20sexual').status_code, 403)
+        self.assertEqual(self.client('analyst').get('/api/dashboard?store=L130').status_code, 403)
+
     def dashboard_fixture(self):
         payload, first, second = self.detail_fixture()
         payload['details'].append({**payload['details'][0], 'productId': second['id'], 'position': '2',

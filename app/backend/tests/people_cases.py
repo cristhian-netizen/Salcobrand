@@ -7,6 +7,19 @@ from openpyxl import Workbook, load_workbook
 
 
 class PeopleCases:
+    def test_assigning_all_current_stores_keeps_an_explicit_analyst_scope(self):
+        self.client('admin').get('/api/admin/stores')
+        person = {**self.person_payload('current-stores-analyst'), 'allStores': True, 'storeCodes': []}
+        response = self.client('admin').post('/api/admin/people', json={
+            'person': person, 'enable_access': True, 'password': 'Assigned-current-stores-2026!'})
+        self.assertEqual(response.status_code, 201, response.text)
+        result = response.json()
+        self.assertFalse(result['allStores'])
+        self.assertEqual(set(result['storeCodes']), {'L128','L129','L130'})
+        created = self.client('admin').post('/api/admin/stores', json=self.store_payload('L131'))
+        self.assertEqual(created.status_code, 201, created.text)
+        self.assertNotIn('L131', {store['code'] for store in self.client('current-stores-analyst').get('/api/stores').json()})
+
     def person_payload(self, username='qa-person', role='analyst'):
         return dict(names='María', paternal='Prueba', maternal='QA', email=username+'@example.test', username=username,
                     position='Analista de prueba', startDate='2026-01-02', endDate='', status='Vigente', role=role,

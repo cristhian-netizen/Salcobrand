@@ -55,7 +55,7 @@ export default function Dashboard({ user, go, notify }) {
       <button type="button" disabled={busy || !current || loading} onClick={() => exportFile('operation')}>Exportar KPI operativos</button>
       <button type="button" disabled={busy || !current || loading} onClick={() => exportFile('measurements')}>Descargar CSV</button>
     </Header>
-    <Filters value={filters} options={data?.options || []} geography={data?.geography} types={data?.pdvTypes} onChange={setFilters} />
+    <Filters value={filters} options={data?.options || []} geography={data?.geography} types={data?.pdvTypes} categories={data?.categories} onChange={setFilters} />
     <ErrorBox error={invalid ? 'La fecha Desde debe ser anterior o igual a Hasta.' : exportError || error} onRetry={invalid ? undefined : reload} />
     {loading && !current && <Loading text="Cargando dashboard…" />}
     {current && <>

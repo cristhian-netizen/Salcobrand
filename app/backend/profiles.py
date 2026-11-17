@@ -27,7 +27,7 @@ def can(user, action):
 def store_scope(user):
     profile = profile_of(user)
     stores = user.get("store_ids") or ([user["store_id"]] if user.get("store_id") else [])
-    if profile == "replenisher" or (profile == "analyst" and stores):
+    if profile in ("replenisher", "analyst"):
         return tuple(stores)
     return None if profile in PROFILES else ()
 

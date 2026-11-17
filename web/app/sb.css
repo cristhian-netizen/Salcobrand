@@ -203,6 +203,8 @@
 #nv .sb-ok { padding: 10px 14px; border: 1px solid var(--nv-success-border); border-radius: var(--nv-radius); background: var(--nv-success-soft); color: var(--nv-success); font-size: 13.5px; margin-bottom: 14px; }
 
 /* Scan */
+#nv .scan-location-form label { min-width: 0; }
+#nv main .scan-location-form :is(input, select) { width: 100%; min-width: 0; }
 #nv .sb-dropzone { display: grid; place-items: center; gap: 8px; padding: 26px; border: 2px dashed var(--nv-border-strong); border-radius: 14px; background: var(--nv-surface-2); text-align: center; }
 #nv .sb-previews { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 12px; }
 #nv .sb-previews figure { position: relative; margin: 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--nv-border); background: var(--nv-surface-3); }

@@ -1,10 +1,11 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../lib/sb";
 import Icon from "../navigation/icons";
 import { useApi, Header, Card, ErrorBox, Loading } from "./ui";
 import ReadingView from "./ReadingView";
 import {enabled} from '../identity/identity.mjs';
+import {byLocationName, captureStores, filterCaptureStores, pointStoreCode, regionFor} from './scan-locations.mjs';
 
 const MAX_PHOTOS = 6;
 const TYPES = [
@@ -72,9 +73,16 @@ function remember(key, jobId) {
 }
 
 export default function Scan({ user, rest, go, notify }) {
-  const points = useApi(() => api("/api/summary?days=30"), []);
+  const points = useApi(async () => {
+    const [summary, stores, locations] = await Promise.all([
+      api('/api/summary?days=30'), api('/api/stores'), api('/api/location-catalog'),
+    ]);
+    return {...summary, captureStores: stores, regions: locations.regions};
+  }, []);
   const availability = useApi(() => api("/api/capture/status"), []);
   const [pointId, setPointId] = useState(rest[0] || "");
+  const [location, setLocation] = useState({region: '', commune: '', query: ''});
+  const [storeCode, setStoreCode] = useState('');
   const [photos, setPhotos] = useState([]);
   const [meters, setMeters] = useState("");
   const [preparing, setPreparing] = useState(false);
@@ -95,10 +103,30 @@ export default function Scan({ user, rest, go, notify }) {
   const storageKey = "nv-capture-job:" + user.username;
   const active = job && ["queued", "running"].includes(job.status);
   const busy = uploading || active || restoring;
-  const list = (points.data?.points || []).filter(
+  const list = useMemo(() => (points.data?.points || []).filter(
     (p) => p.can_capture !== false,
-  );
-  const selected = list.find((p) => p.id === pointId);
+  ), [points.data]);
+  const regions = points.data?.regions || [];
+  const stores = useMemo(() => captureStores(points.data?.captureStores || [], list), [points.data, list]);
+  const visibleStores = useMemo(() => filterCaptureStores(stores, regions, location), [stores, regions, location]);
+  const currentPoint = list.find(point => point.id === pointId);
+  const selectedStore = busy && currentPoint ? pointStoreCode(currentPoint) : storeCode;
+  const visiblePoints = visibleStores.some(store => store.code === selectedStore)
+    ? list.filter(point => pointStoreCode(point) === selectedStore) : [];
+  const selected = visiblePoints.find(point => point.id === pointId);
+  const communes = [...(regionFor(regions, location.region)?.communes || [])].sort(byLocationName);
+
+  useEffect(() => {
+    if (!points.data || busy || result || job?.status === 'done') return;
+    const preferredStore = storeCode || (currentPoint && pointStoreCode(currentPoint));
+    const nextStore = visibleStores.find(store => store.code === preferredStore)?.code || visibleStores[0]?.code || '';
+    if (nextStore !== storeCode) setStoreCode(nextStore);
+    const storePoints = list.filter(point => pointStoreCode(point) === nextStore);
+    if (!storePoints.some(point => point.id === pointId)) {
+      setPointId(storePoints[0]?.id || '');
+      requestId.current = null;
+    }
+  }, [points.data, busy, result, job?.status, visibleStores, list, storeCode, pointId, currentPoint]);
 
   useEffect(() => {
     mounted.current = true;
@@ -126,6 +154,8 @@ export default function Scan({ user, rest, go, notify }) {
               )
             : (await api("/api/analysis-jobs"))[0];
         if (!disposed && prior) {
+          setLocation({region: '', commune: '', query: ''});
+          setStoreCode('');
           setJob(prior);
           setJobId(prior.job_id);
           setPointId(prior.point_id);
@@ -303,6 +333,9 @@ export default function Scan({ user, rest, go, notify }) {
         { method: "POST" },
       );
       setJob(current);
+      setPointId(current.point_id);
+      setLocation({region: '', commune: '', query: ''});
+      setStoreCode('');
       setPollVersion((version) => version + 1);
     } catch (exception) {
       setError(exception.message);
@@ -357,7 +390,7 @@ export default function Scan({ user, rest, go, notify }) {
         title="Escanear góndola"
         subtitle="Carga las fotos de izquierda a derecha, con la góndola completa y nítida."
       />
-      <ErrorBox error={error || points.error || availability.error} />
+      <ErrorBox error={error || points.error || availability.error} onRetry={() => {points.reload(); availability.reload();}} />
       {availability.data && !availability.data.available && (
         <ErrorBox
           error={
@@ -399,19 +432,60 @@ export default function Scan({ user, rest, go, notify }) {
         {points.loading && !points.data ? (
           <Loading />
         ) : (
-          <div className="sb-form">
+          <div className="sb-form scan-location-form">
+            <label>
+              Región
+              <select value={location.region} disabled={busy} onChange={event => {
+                setLocation({...location, region: event.target.value, commune: ''});
+                setStoreCode(''); setPointId(''); requestId.current = null;
+              }}>
+                <option value="">Todas las regiones</option>
+                {[...regions].sort(byLocationName).map(region => <option key={region.code} value={region.name}>{region.name}</option>)}
+              </select>
+            </label>
+            <label>
+              Comuna
+              <select value={location.commune} disabled={busy || !location.region} aria-describedby="scan-commune-note" onChange={event => {
+                setLocation({...location, commune: event.target.value});
+                setStoreCode(''); setPointId(''); requestId.current = null;
+              }}>
+                <option value="">{location.region ? 'Todas las comunas' : 'Selecciona primero una región'}</option>
+                {communes.map(commune => <option key={commune.code} value={commune.name}>{commune.name}</option>)}
+              </select>
+            </label>
+            <p id="scan-commune-note" className="sb-hint full">
+              {location.region ? `${communes.length} comunas de la región. Se muestran todas, aunque no tengan PDV asignados.` : 'Selecciona una región para ver sus comunas.'}
+            </p>
+            <label>
+              Buscar PDV
+              <input type="search" value={location.query} placeholder="Nombre o código" disabled={busy} onChange={event => {
+                setLocation({...location, query: event.target.value});
+              }}/>
+            </label>
+            <label>
+              Punto de venta
+              <select value={selectedStore} disabled={busy || !visibleStores.length} aria-describedby="scan-pdv-note" onChange={event => {
+                setStoreCode(event.target.value); setPointId(''); requestId.current = null;
+              }}>
+                {!visibleStores.length && <option value="">Sin PDV con esos filtros</option>}
+                {visibleStores.map(store => <option key={store.code} value={store.code}>{store.name} ({store.code}) · {store.commune || 'Comuna sin dato'}</option>)}
+              </select>
+            </label>
+            <p id="scan-pdv-note" className="sb-hint full" role="status">
+              {visibleStores.length ? `${visibleStores.length} PDV activos disponibles para tu cuenta con estos filtros.` : stores.length ? 'No hay PDV activos que coincidan. Limpia región, comuna o búsqueda para ampliar los resultados.' : 'Tu cuenta no tiene PDV activos disponibles. Revisa su asignación en Personas y roles.'}
+            </p>
             <label className="full">
               Góndola
               <select
                 value={pointId}
-                disabled={busy}
+                disabled={busy || !visiblePoints.length}
                 onChange={(e) => {
                   setPointId(e.target.value);
                   requestId.current = null;
                 }}
               >
-                <option value="">Selecciona una góndola</option>
-                {list.map((p) => (
+                <option value="">{selectedStore && !visiblePoints.length ? 'Este PDV no tiene góndolas disponibles para escanear' : 'Selecciona una góndola'}</option>
+                {visiblePoints.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name} ({p.id})
                     {enabled(user, 'planograms') && p.planogram_name ? " · " + p.planogram_name : ""}

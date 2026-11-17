@@ -86,6 +86,10 @@ def router(require_user, require_admin):
         from settings_service import read
         return {"regions": service.REGIONS, "store_types": read()['state']['pdvTypes']}
 
+    @api.get("/location-catalog")
+    def locations(user=Depends(require_user)):
+        return {"regions": service.REGIONS}
+
     @api.get("/admin/stores")
     def all_stores(include_deleted: bool = False, user=Depends(require_admin)):
         return service.list_stores(include_deleted)

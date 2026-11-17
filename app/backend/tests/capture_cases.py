@@ -14,6 +14,23 @@ from starlette.datastructures import UploadFile
 
 
 class CaptureCases:
+    def test_capture_location_catalog_keeps_all_communes_and_store_scope(self):
+        self.assertEqual(self.client(None).get('/api/location-catalog').status_code, 401)
+        for username in ('admin', 'analyst', 'replenisher', 'viewer', 'legacy-tienda'):
+            response = self.client(username).get('/api/location-catalog')
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(set(response.json()), {'regions'})
+            regions = response.json()['regions']
+            self.assertEqual(len(regions), 16)
+            self.assertEqual(sum(len(region['communes']) for region in regions), 346)
+            metropolitan = next(region for region in regions if region['code'] == '13')
+            self.assertEqual(len(metropolitan['communes']), 52)
+        self.assertEqual({store['code'] for store in self.client('replenisher').get('/api/stores').json()}, {'L128', 'L129'})
+        self.assertEqual({store['code'] for store in self.client('legacy-tienda').get('/api/stores').json()}, {'L128'})
+        self.db.create_user('unassigned-scan', *self.auth.hash_password('test-password'), role='replenisher', store_ids=[])
+        self.assertEqual(self.client('unassigned-scan').get('/api/stores').json(), [])
+        self.assertEqual(self.client('replenisher').get('/api/points/point-c').status_code, 403)
+
     def capture(self, client, key="capture-request-001", point="point-a"):
         return client.post('/api/points/'+point+'/analysis-jobs', headers={'Idempotency-Key':key},
                            files={'images':('photo.jpg',b'synthetic','image/jpeg')})

@@ -397,7 +397,7 @@ def annotate_points(points):
             if row:
                 meta = json.loads(row["data_json"])
                 plans[plan_id] = {"status": meta.get("status", "Activo"), "store_code": meta.get("store_code"),
-                                  "legacy_point_ids": meta.get("legacy_point_ids") or []}
+                                  "legacy_point_ids": meta.get("legacy_point_ids") or [], "category": meta.get("category", ""), "subcategories": meta.get("subcategories", [])}
     result = []
     for point in points:
         point = dict(point)
@@ -414,6 +414,8 @@ def annotate_points(points):
             context = {key: instance[key] for key in ("id", "type_id", "type_name", "number", "label", "note", "width_cm")}
             context["depths"] = json.loads(instance["depths_json"])
         point.update({"can_capture": bool(available), "infrastructure": context})
+        if plan:
+            point['planogram_classification'] = {key: plan.get(key, '' if key == 'category' else []) for key in ('category', 'subcategories')}
         if store:
             point["store_name"] = store["name"]
         result.append(point)

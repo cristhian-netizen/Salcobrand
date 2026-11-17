@@ -154,8 +154,8 @@ def plan_public(plan):
     with db.get_conn() as conn:
         row = conn.execute("SELECT * FROM management_planograms WHERE id = ?", (plan["id"],)).fetchone()
     if row:
-        return {**plan, "position_mode": "faces", **json.loads(row["data_json"]), "version": row["version"], "managed": True}
-    return {**plan, "version": 0, "managed": False, "position_mode": "products", "store_code": "", "status": "Activo", "description": "", "photo": "", "document": "", "document_name": "", "document_page": 1,
+        return {**plan, "category": "", "subcategories": [], "position_mode": "faces", **json.loads(row["data_json"]), "version": row["version"], "managed": True}
+    return {**plan, "category": "", "subcategories": [], "version": 0, "managed": False, "position_mode": "products", "store_code": "", "status": "Activo", "description": "", "photo": "", "document": "", "document_name": "", "document_page": 1,
             "positionRows": [{"level": i["band"] or 1, "position": i["position_in_section"] or index + 1,
                               "faces": i["expected_facings"] or 1, "productId": "", "legacy_item_id": i["id"],
                               "sku": i["internal_code"] or "", "barcode": i["barcode"] or "", "legacy_title": i["title"]}
@@ -345,6 +345,14 @@ def save_plan(values, actor, plan_id=None):
         else:
             # Imported Salcobrand references may already be shared by several stores.
             legacy_points = [p["id"] for p in assignments if p["store_id"] != store["code"]]
+        from product_classification import selection, validate
+        previous = json.loads(metadata['data_json']) if metadata else {}
+        category = values.get('category')
+        category = previous.get('category', '') if category is None else category
+        subcategories = values.get('subcategories')
+        subcategories = previous.get('subcategories', []) if subcategories is None else subcategories
+        classification = selection(category, subcategories=subcategories)
+        validate(classification, conn)
         status = _status(values.get("status", "Activo"))
         description = _text(values.get("description", ""), "Descripción", 2000)
         photo = image_reference(values.get("photo", ""))
@@ -366,7 +374,7 @@ def save_plan(values, actor, plan_id=None):
             raise ManagementError("La numeración de posiciones no es válida.")
         rows, items = position_items(values.get("positionRows", []), {p["id"]: p for p in products(conn)}, old_items, position_mode)
         plan_id = plan_id or "catalog-" + uuid.uuid4().hex
-        meta = {"store_code": store["code"], "status": status, "description": description, "photo": photo,
+        meta = {"category": category, "subcategories": classification.get("subcategories", []), "store_code": store["code"], "status": status, "description": description, "photo": photo,
                 "document": document, "document_name": document_name, "document_page": page, "document_pages": reference["pages"], "positionRows": rows,
                 "legacy_point_ids": legacy_points, "position_mode": position_mode}
         if old_plan:

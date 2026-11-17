@@ -277,3 +277,11 @@
 @media (max-width: 800px) { #nv .sb-toolbar.usage-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } #nv .usage-filters .sb-actions { grid-column: 1 / -1; justify-content: flex-end; } }
 @media (max-width: 600px) { #nv .sb-toolbar.usage-filters, #nv .usage-metrics { grid-template-columns: 1fr; } }
 #nv .usage-costs th:last-of-type, #nv .usage-costs td:last-of-type { text-align: right; font-variant-numeric: tabular-nums; }
+
+#nv .ct-subcategories { min-width: 0; margin: 0; padding: 16px; border: 1px solid #dbe3ec; border-radius: 12px; }
+#nv .ct-subcategories legend { padding: 0 6px; font-weight: 600; }
+#nv .ct-subcategory-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 10px; margin-top: 14px; }
+#nv .ct-subcategory-options label { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #dbe3ec; border-radius: 8px; cursor: pointer; }
+#nv .ct-subcategory-options input[type=checkbox] { flex: 0 0 18px; width: 18px; height: 18px; min-height: 0; margin: 0; accent-color: #197f86; }
+#nv .ct-subcategory-options label:has(input:checked) { border-color: #197f86; background: #eef9f8; }
+#nv .ct-subcategories:disabled .ct-subcategory-options label { cursor: default; }

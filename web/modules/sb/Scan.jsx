@@ -4,6 +4,7 @@ import { api } from "../../lib/sb";
 import Icon from "../navigation/icons";
 import { useApi, Header, Card, ErrorBox, Loading } from "./ui";
 import ReadingView from "./ReadingView";
+import CategorySelection from "../catalog/CategorySelection";
 import {enabled} from '../identity/identity.mjs';
 import {byLocationName, captureStores, filterCaptureStores, pointStoreCode, regionFor} from './scan-locations.mjs';
 
@@ -83,7 +84,7 @@ export default function Scan({ user, rest, go, notify }) {
   const [pointId, setPointId] = useState(rest[0] || "");
   const [location, setLocation] = useState({region: '', commune: '', query: ''});
   const [storeCode, setStoreCode] = useState('');
-  const [classification, setClassification] = useState({category: '', subcategory: ''});
+  const [classification, setClassification] = useState({category: '', subcategories: []});
   const [shelfType, setShelfType] = useState('');
   const [photos, setPhotos] = useState([]);
   const [meters, setMeters] = useState("");
@@ -124,9 +125,11 @@ export default function Scan({ user, rest, go, notify }) {
   const visiblePoints = storePoints.filter(point => (point.infrastructure?.type_id || 'legacy') === selectedType);
   const selected = visiblePoints.find(point => point.id === pointId);
   const categories = points.data?.captureOptions.categories || {};
-  const subcategories = categories[classification.category] || [];
-  const classificationReady = (!Object.keys(categories).length || classification.category)
-    && (!subcategories.length || classification.subcategory);
+  const planClassification = enabled(user, 'planograms') ? selected?.planogram_classification : null;
+  const captureClassification = planClassification?.category ? planClassification : classification;
+  const subcategories = categories[captureClassification.category] || [];
+  const classificationReady = (!Object.keys(categories).length || captureClassification.category)
+    && (!subcategories.length || captureClassification.subcategories.length);
   const displayedMeters = meters || (selected?.infrastructure?.width_cm ? String(selected.infrastructure.width_cm / 100) : '');
   const captureReady = classificationReady && (manualMode ? selectedStore && Number(displayedMeters) > 0 : selected);
   const communes = [...(regionFor(regions, location.region)?.communes || [])].sort(byLocationName);
@@ -316,8 +319,8 @@ export default function Scan({ user, rest, go, notify }) {
     const form = new FormData();
     photos.forEach((p) => form.append("images", p.file, p.file.name));
     if (width !== null) form.append("linear_meters", String(width));
-    if (classification.category) form.append('category', classification.category);
-    if (classification.subcategory) form.append('subcategory', classification.subcategory);
+    if (captureClassification.category) form.append('category', captureClassification.category);
+    for (const subcategory of captureClassification.subcategories) form.append('subcategories', subcategory);
     try {
       const current = await api(
         manualMode ? '/api/stores/' + encodeURIComponent(selectedStore) + '/analysis-jobs'
@@ -493,12 +496,10 @@ export default function Scan({ user, rest, go, notify }) {
             <p id="scan-pdv-note" className="sb-hint full" role="status">
               {visibleStores.length ? `${visibleStores.length} PDV ${visibleStores.length === 1 ? 'activo disponible' : 'activos disponibles'} para tu cuenta con estos filtros.` : stores.length ? 'No hay PDV activos que coincidan. Limpia región, comuna o búsqueda para ampliar los resultados.' : 'Tu cuenta no tiene PDV activos disponibles. Revisa su asignación en Personas y roles.'}
             </p>
-            <label>Categoría<select value={classification.category} disabled={busy || !Object.keys(categories).length} onChange={event => {
-              setClassification({category: event.target.value, subcategory: ''}); requestId.current = null;
-            }}><option value="">{Object.keys(categories).length ? 'Selecciona una categoría' : 'Sin categorías configuradas'}</option>{Object.keys(categories).sort((a,b) => a.localeCompare(b,'es')).map(category => <option key={category}>{category}</option>)}</select></label>
-            <label>Subcategoría<select value={classification.subcategory} disabled={busy || !classification.category || !subcategories.length} onChange={event => {
-              setClassification({...classification, subcategory: event.target.value}); requestId.current = null;
-            }}><option value="">Selecciona una subcategoría</option>{[...subcategories].sort((a,b) => a.localeCompare(b,'es')).map(subcategory => <option key={subcategory}>{subcategory}</option>)}</select></label>
+            <CategorySelection categories={categories} value={captureClassification} disabled={busy || !!planClassification?.category} onChange={value => {
+              setClassification(value); requestId.current = null;
+            }}/>
+            {planClassification?.category && <p className="sb-hint full">Se utiliza la categoría y todas las subcategorías del planograma asociado.</p>}
             <label className="full">Tipo de góndola<select value={selectedType} disabled={busy || !selectedStore} onChange={event => {
               setShelfType(event.target.value); setPointId(''); setMeters(''); requestId.current = null;
             }}>

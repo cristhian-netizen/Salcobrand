@@ -52,6 +52,8 @@ class Position(Payload):
 
 
 class PlanFields(Payload):
+    category: str | None = None
+    subcategories: List[str] | None = Field(default=None, max_length=1000)
     name: str
     store_code: str
     status: str = "Activo"

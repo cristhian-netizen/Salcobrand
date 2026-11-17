@@ -14,6 +14,25 @@ from starlette.datastructures import UploadFile
 
 
 class CaptureCases:
+    def test_capture_uses_all_planogram_subcategories_and_freezes_reference(self):
+        product=self.create_product();classification=self.multi_classification()
+        admin=self.client('admin');admin.get('/api/admin/stores')
+        plan=admin.post('/api/admin/catalog/planograms',json={**self.plan_fields(product),**classification}).json()
+        self.db.set_point_planogram('point-a',plan['id'])
+        point=next(p for p in self.client('analyst').get('/api/summary').json()['points'] if p['id']=='point-a')
+        self.assertEqual(point['planogram_classification'],classification)
+        client=self.client('replenisher')
+        response=client.post('/api/points/point-a/analysis-jobs',headers={'Idempotency-Key':'multi-subcategory-plan-001'},
+                             data={'category':'Cuidado personal','subcategories':['Desodorantes']},files={'images':('photo.jpg',b'synthetic','image/jpeg')})
+        self.assertEqual(response.status_code,202,response.text)
+        payload=self.db.get_job(response.json()['job_id'])['payload']
+        self.assertEqual(payload['infrastructure']['subcategories'],classification['subcategories'])
+        self.assertEqual(payload['plan_snapshot']['subcategories'],classification['subcategories'])
+        manual=client.post('/api/stores/L129/analysis-jobs',headers={'Idempotency-Key':'multi-manual-capture-001'},
+                           data={**classification,'linear_meters':'1.2'},files={'images':('photo.jpg',b'synthetic','image/jpeg')})
+        self.assertEqual(manual.status_code,202,manual.text)
+        self.assertEqual(self.db.get_job(manual.json()['job_id'])['payload']['infrastructure']['subcategories'],classification['subcategories'])
+
     def test_manual_capture_is_scoped_idempotent_and_preserves_shelf_masters(self):
         self.client('admin').get('/api/admin/stores')
         product = self.create_product()

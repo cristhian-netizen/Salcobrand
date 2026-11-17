@@ -1247,7 +1247,11 @@ def get_planogram(planogram_id: str):
             "SELECT * FROM planogram_items WHERE planogram_id = ? ORDER BY order_seq",
             (planogram_id,),
         ).fetchall()
+        metadata = conn.execute('SELECT data_json FROM management_planograms WHERE id=?', (planogram_id,)).fetchone()
+        classification = json.loads(metadata['data_json']) if metadata else {}
     return {
+        "category": classification.get('category', ''),
+        "subcategories": classification.get('subcategories', []),
         "id": pg["id"],
         "name": pg["name"],
         "module_cm": pg["module_cm"],

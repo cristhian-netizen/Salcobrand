@@ -7,6 +7,35 @@ from pypdf import PdfWriter
 
 
 class CatalogCases:
+    def multi_classification(self):
+        import settings_service
+        current = settings_service.read()
+        catalog = current['state']['catalog']
+        categories = {**catalog['categories'], 'Cuidado personal':['Desodorantes','Higiene'], 'Salud sexual':['Preservativos']}
+        settings_service.save('catalog', {**catalog,'categories':categories,'ownBrands':current['state']['productParameters']['ownBrands']}, current['version'], 'admin')
+        return {'category':'Cuidado personal','subcategories':['Desodorantes','Higiene']}
+
+    def test_planogram_multiple_subcategories_validation_roundtrip_and_history(self):
+        product = self.create_product();classification = self.multi_classification()
+        admin = self.client('admin');admin.get('/api/admin/stores')
+        body = {**self.plan_fields(product), **classification}
+        response = admin.post('/api/admin/catalog/planograms',json=body)
+        self.assertEqual(response.status_code,201,response.text)
+        plan = response.json();path='/api/admin/catalog/planograms/'+plan['id']
+        self.assertEqual(admin.get(path).json()['subcategories'],classification['subcategories'])
+        self.db.set_point_planogram('point-a',plan['id'])
+        reading = self.db.add_reading('point-a',self.analysis,[],planogram_id=plan['id'])
+        for bad in (['Preservativos'],['Higiene','Higiene'],[]):
+            self.assertEqual(admin.patch(path,json={**body,'version':1,'subcategories':bad}).status_code,400)
+        updated = admin.patch(path,json={**body,'version':1,'subcategories':['Higiene']})
+        self.assertEqual(updated.status_code,200,updated.text)
+        self.assertEqual(self.db.reading_planogram_snapshot(reading['id'])['subcategories'],classification['subcategories'])
+        # An older client omitting classification must preserve the saved selection.
+        old_client = {**self.plan_fields(product),'version':2}
+        self.assertEqual(admin.patch(path,json=old_client).json()['subcategories'],['Higiene'])
+        self.assertEqual(admin.patch(path,json={**body,'version':1}).status_code,409)
+        self.assertEqual(self.client('replenisher').post('/api/admin/catalog/planograms',json=body).status_code,403)
+
     def test_imported_planogram_keeps_product_numbering_multiple_faces_and_prices(self):
         admin = self.client('admin')
         first = self.create_product(sku='PILOT-1')

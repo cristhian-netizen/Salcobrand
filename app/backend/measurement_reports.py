@@ -194,7 +194,7 @@ def reading_xlsx_bytes(reading, row):
     capture = book.create_sheet('Captura')
     capture.append(['Campo', 'Valor'])
     for label, value in [('Categoría de captura', context.get('category', '')),
-                         ('Subcategoría de captura', context.get('subcategory', '')),
+                         ('Subcategorías de captura', ', '.join(context.get('subcategories', [])) or context.get('subcategory', '')),
                          ('Ancho metro-góndola (m)', reading.get('linear_meters')),
                          ('Planograma', comparison.get('planogram_name', 'Sin planograma')),
                          ('Coincidencia (%)', comparison.get('compliance_pct'))]:

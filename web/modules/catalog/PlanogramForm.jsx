@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { SaveForm, StatusField, enc, sortByName } from '../management/shared';
 import ReferenceField from './ReferenceField';
+import CategorySelection from './CategorySelection';
 import { api } from '../../lib/sb';
 import { useApi, Loading, ErrorBox } from '../sb/ui';
 
@@ -27,6 +28,8 @@ function PlanogramForm({ plan, catalog, onSaved, onClose }) {
   const [commune, setCommune] = useState(local?.commune || '');
   const [processing, setProcessing] = useState(false);
   const [form, setForm] = useState({
+    category: '',
+    subcategories: [],
     name: '',
     store_code: '',
     status: 'Activo',
@@ -79,8 +82,12 @@ function PlanogramForm({ plan, catalog, onSaved, onClose }) {
   }
   function payload() {
     if (processing) throw Error('Espera a que termine de cargar el archivo.');
+    if (Object.keys(catalog.classification.categories).length && !form.category) throw Error('Selecciona una categoría.');
+    if (catalog.classification.categories[form.category]?.length && !form.subcategories.length) throw Error('Selecciona al menos una subcategoría.');
     const result = Object.fromEntries(
       [
+        'category',
+        'subcategories',
         'name',
         'store_code',
         'status',
@@ -164,6 +171,7 @@ function PlanogramForm({ plan, catalog, onSaved, onClose }) {
         value={form.status}
         onChange={(status) => setForm({ ...form, status })}
       />
+      <CategorySelection categories={catalog.classification.categories} value={form} required onChange={value => setForm(current => ({...current, category:value.category, subcategories:value.subcategories}))}/>
       {form.legacy_point_ids?.length > 0 && (
         <p className="full sb-hint">
           Se conservan {form.legacy_point_ids.length} asignaciones anteriores de

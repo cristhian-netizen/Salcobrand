@@ -193,6 +193,7 @@ export default function Planograms({ rest, go, notify }) {
                     <td>
                       <b>{p.name}</b>
                       <small>{p.id}</small>
+                      {p.category && <small>{p.category} · {p.subcategories?.join(', ')}</small>}
                     </td>
                     <td>
                       {stores.find((s) => s.code === p.store_code)?.name ||

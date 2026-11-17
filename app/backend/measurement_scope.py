@@ -6,7 +6,7 @@ from product_matching import norm
 def classification(row, products):
     context = row.get('_capture_context') or {}
     if context.get('category'):
-        return context['category'], context.get('subcategory', '')
+        return context['category'], context.get('subcategories', [context['subcategory']] if context.get('subcategory') else [])
     by_id = {product['id']: product for product in products}
     by_name = defaultdict(list)
     for product in products:
@@ -22,7 +22,8 @@ def classification(row, products):
             found.add((product['category'], product.get('subcategory', '')))
         elif observation.get('category') and observation.get('subcategory'):
             found.add((observation['category'], observation['subcategory']))
-    return next(iter(found)) if len(found) == 1 else ('', '')
+    categories = {category for category, _ in found}
+    return (next(iter(categories)), sorted({sub for _, sub in found})) if len(categories) == 1 else ('', [])
 
 
 def filter_rows(rows, category='', subcategory='', products=()):
@@ -31,6 +32,6 @@ def filter_rows(rows, category='', subcategory='', products=()):
     result = []
     for row in rows:
         actual_category, actual_subcategory = classification(row, products)
-        if actual_category == category and (not subcategory or actual_subcategory == subcategory):
+        if actual_category == category and (not subcategory or subcategory in actual_subcategory):
             result.append(row)
     return result

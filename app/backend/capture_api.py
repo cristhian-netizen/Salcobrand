@@ -93,8 +93,12 @@ def submit(point_id, images, meters, user, request_id, selection=None, manual_st
                 point = db.get_point(point_id)
                 import client_identity
                 plan_id = point.get('planogram_id') if client_identity.public_identity(conn)['tenant']['modules']['planograms'] else None
+                plan_snapshot = db.get_planogram(plan_id) if plan_id else None
+                if plan_snapshot and plan_snapshot.get('category'):
+                    context.pop('subcategory', None)
+                    context.update(category=plan_snapshot['category'], subcategories=plan_snapshot.get('subcategories', []))
                 payload = {"image_paths": paths, "linear_meters": meters, "planogram_id": plan_id,
-                           "plan_snapshot": db.get_planogram(plan_id) if plan_id else None,
+                           "plan_snapshot": plan_snapshot,
                            "infrastructure": context, "user": user["username"], "via": "app"}
                 job_id = api_jobs.new_job_id()
                 db.insert_job(conn, job_id, api_jobs.APP_CLIENT, point_id, payload)
@@ -123,7 +127,7 @@ def router(require_user, require_scan, authorize_point):
 
     @api.post('/stores/{store_code}/analysis-jobs', status_code=202)
     async def manual(store_code: str, images: List[UploadFile] = File(...), linear_meters: float = Form(...),
-                     category: str = Form(''), subcategory: str = Form(''),
+                     category: str = Form(''), subcategory: str = Form(''), subcategories: Optional[List[str]] = Form(None),
                      request_id: str = Header(alias='Idempotency-Key'), user=Depends(require_scan)):
         scope = profiles.store_scope(user)
         if scope is not None and store_code not in scope:
@@ -132,7 +136,7 @@ def router(require_user, require_scan, authorize_point):
             raise HTTPException(400, 'La captura necesita un identificador de solicitud válido.')
         if not math.isfinite(linear_meters) or not 0 < linear_meters <= 30:
             raise HTTPException(400, 'El ancho debe ser mayor a cero y hasta 30 metros.')
-        values = capture_selection.selection(category, subcategory)
+        values = capture_selection.selection(category, subcategory, subcategories)
         try:
             loaded = await core.read_image_uploads(images, max_bytes_each=25*1024*1024, max_bytes_total=100*1024*1024)
         except ValueError as exc:
@@ -148,7 +152,7 @@ def router(require_user, require_scan, authorize_point):
 
     @api.post("/points/{point_id}/analysis-jobs", status_code=202)
     async def create(point_id: str, images: List[UploadFile] = File(...), linear_meters: Optional[float] = Form(None),
-                     category: str = Form(''), subcategory: str = Form(''),
+                     category: str = Form(''), subcategory: str = Form(''), subcategories: Optional[List[str]] = Form(None),
                      request_id: str = Header(alias="Idempotency-Key"), user=Depends(require_scan)):
         authorize_point(point_id, user)
         if point_id.startswith(capture_selection.MANUAL_PREFIX):
@@ -159,7 +163,7 @@ def router(require_user, require_scan, authorize_point):
             loaded = await core.read_image_uploads(images, max_bytes_each=25*1024*1024, max_bytes_total=100*1024*1024)
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
-        return await run_in_threadpool(submit, point_id, loaded, linear_meters, user, request_id, capture_selection.selection(category, subcategory))
+        return await run_in_threadpool(submit, point_id, loaded, linear_meters, user, request_id, capture_selection.selection(category, subcategory, subcategories))
 
     @api.get("/analysis-jobs")
     def active(user=Depends(require_user)):

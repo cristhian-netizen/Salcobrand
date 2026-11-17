@@ -5,24 +5,19 @@ import db
 import catalog_service
 import profiles
 import settings_service
-from infrastructure import ManagementError, _row, _text
+from infrastructure import ManagementError, _row
 
 MANUAL_PREFIX = 'SB-MANUAL-'
 
 
-def selection(category='', subcategory=''):
-    category = _text(category, 'Categoría', 150)
-    subcategory = _text(subcategory, 'Subcategoría', 150)
-    if subcategory and not category:
-        raise ManagementError('Selecciona primero una categoría.')
-    return {'category': category, 'subcategory': subcategory} if category or subcategory else {}
+def selection(category='', subcategory='', subcategories=None):
+    from product_classification import selection as classify
+    return classify(category, subcategory, subcategories)
 
 
 def validate_selection(values, conn=None):
-    categories = settings_service.read(conn)['state']['catalog']['categories']
-    category, subcategory = values.get('category', ''), values.get('subcategory', '')
-    if category and (category not in categories or (subcategory and subcategory not in categories[category])):
-        raise ManagementError('Selecciona una categoría y subcategoría configuradas por el administrador.')
+    from product_classification import validate
+    validate(values, conn)
 
 
 def has_shelves(conn, code):
@@ -32,9 +27,9 @@ def has_shelves(conn, code):
 def manual_store(conn, code):
     store = _row(conn, 'management_stores', 'code', code)
     if store['deleted'] or store['status'] != 'Activo':
-        raise ManagementError('El PDV está inactivo.', 409)
+        raise ManagementError('El PDV estÃ¡ inactivo.', 409)
     if has_shelves(conn, code):
-        raise ManagementError('Este PDV tiene góndolas asignadas. Selecciona su tipo y góndola.', 409)
+        raise ManagementError('Este PDV tiene gÃ³ndolas asignadas. Selecciona su tipo y gÃ³ndola.', 409)
     return store
 
 
@@ -58,5 +53,5 @@ def manual_point(code, user, values):
             return point_id
         store = manual_store(conn, code)
         validate_selection(values, conn)
-        db.create_point(point_id, store['name'] + ' · Captura con ancho manual', store_id=code, gondola_id='Captura manual', conn=conn)
+        db.create_point(point_id, store['name'] + ' Â· Captura con ancho manual', store_id=code, gondola_id='Captura manual', conn=conn)
     return point_id

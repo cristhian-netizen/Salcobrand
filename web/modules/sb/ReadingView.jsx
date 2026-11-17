@@ -42,7 +42,7 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo}) {
       try { await download(`/api/readings/${reading.id}/report.xlsx`, `Neuravision_Medicion_${reading.id}.xlsx`); }
       catch (exception) { setError(exception.message); } finally { setBusy(false); }
     }}>Descargar Excel de esta medición</button></div>}
-    {reading.infrastructure?.category && <p className="sb-hint">{reading.infrastructure.category} · {reading.infrastructure.subcategory || 'Todas las subcategorías'}{reading.infrastructure.captureMode === 'manual' ? ` · Ancho manual ${reading.linear_meters} m` : ''}</p>}
+    {reading.infrastructure?.category && <p className="sb-hint">{reading.infrastructure.category} · {reading.infrastructure.subcategories?.join(', ') || reading.infrastructure.subcategory || 'Todas las subcategorías'}{reading.infrastructure.captureMode === 'manual' ? ` · Ancho manual ${reading.linear_meters} m` : ''}</p>}
     <MeasurementReview key={reading.id} reading={{...reading, review}} user={user} onSaved={setReview}/>
     <ManualDetails reading={reading} user={user} reviewVersion={review?.version || 0} onReviewChanged={setReview}/>
     <Card title="Capacidad máxima por dimensiones" subtitle={`Margen adicional de profundidad ${reading.capacity?.dimensionMarginPct ?? '—'} %. La capacidad teórica no confirma existencias ni unidades ocultas.`}>

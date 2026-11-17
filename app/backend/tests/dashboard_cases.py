@@ -5,6 +5,20 @@ import json
 
 
 class DashboardCases:
+    def test_dashboard_multi_subcategory_membership_does_not_duplicate_measurements(self):
+        import measurement_reports
+        self.client('admin').get('/api/admin/stores')
+        classification={'category':'Cuidado personal','subcategories':['Desodorantes','Higiene']}
+        with self.db.get_conn() as conn:
+            conn.execute('UPDATE readings SET capture_context_json=? WHERE id=?',(json.dumps(classification),self.own['id']))
+        measurement_reports.save_review(self.own['id'],'Aprobado','',0,'analyst')
+        viewer=self.client('viewer')
+        for subcategory in ('','Desodorantes','Higiene'):
+            result=viewer.get('/api/dashboard',params={'category':'Cuidado personal','subcategory':subcategory}).json()
+            self.assertEqual(result['totals']['measurements'],1)
+            self.assertEqual(result['totals']['approved'],1)
+        self.assertEqual(viewer.get('/api/dashboard',params={'category':'Cuidado personal','subcategory':'Otra'}).json()['totals']['measurements'],0)
+
     def test_dashboard_category_scope_applies_to_indicators_history_and_csv(self):
         import measurement_reports
         self.client('admin').get('/api/admin/stores')

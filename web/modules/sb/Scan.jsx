@@ -339,7 +339,7 @@ export default function Scan({ user, rest, go, notify }) {
     try {
       const current = await api(
         manualMode ? '/api/stores/' + encodeURIComponent(selectedStore) + '/analysis-jobs'
-          : "/api/points/" + encodeURIComponent(pointId) + "/analysis-jobs",
+          : "/api/points/" + encodeURIComponent(selected.id) + "/analysis-jobs",
         {
           method: "POST",
           form,

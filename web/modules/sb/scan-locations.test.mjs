@@ -53,3 +53,17 @@ test('inactive stores and archived points stay excluded, with support for histor
   assert.equal(pointStoreCode(points[3]), 'Legacy store');
   assert.equal(pointStoreCode({id: 'unassigned-historical'}), 'unassigned-historical');
 });
+
+
+test('official north-south order and compatible type references', async () => {
+  const {orderRegions,orderRegionNames} = await import('../../lib/locations.mjs');
+  const {capturePointForType} = await import('./scan-locations.mjs');
+  assert.deepEqual(orderRegions(regions).map(r=>r.code),['15','01','02','03','04','05','13','06','07','16','08','09','14','10','11','12']);
+  assert.deepEqual(orderRegionNames(['Maule','Arica y Parinacota','Metropolitana de Santiago'],regions),['Arica y Parinacota','Metropolitana de Santiago','Maule']);
+  const make=(id,plan,cat,number=1)=>({id,planogram_id:plan,infrastructure:{type_id:'G1',number},planogram_classification:{category:cat,subcategories:['A']}});
+  const points=[make('p2','planB','Salud'),make('p1','planA','Cuidado')];
+  assert.equal(capturePointForType(points,'G1',{category:'',subcategories:[]}).ambiguous,true);
+  assert.equal(capturePointForType(points,'G1',{category:'Cuidado',subcategories:['A']}).point.id,'p1');
+  assert.equal(capturePointForType([make('p2','planA','Cuidado',2),make('p1','planA','Cuidado')],'G1',{category:'Cuidado',subcategories:['A']}).point.id,'p1');
+  assert.equal(capturePointForType(points,'Other',{category:'',subcategories:[]}).point,null);
+});

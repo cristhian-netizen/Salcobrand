@@ -1,4 +1,5 @@
 'use client';
+import {orderRegions} from '../../lib/locations.mjs';
 import { useState } from 'react';
 import { SaveForm, StatusField, enc, sortByName } from '../management/shared';
 import ReferenceField from './ReferenceField';
@@ -134,7 +135,7 @@ function PlanogramForm({ plan, catalog, onSaved, onClose }) {
           }}
         >
           <option value="">Seleccionar región</option>
-          {sortByName(catalog.locations.regions).map((r) => (
+          {orderRegions(catalog.locations.regions).map((r) => (
             <option key={r.code}>{r.name}</option>
           ))}
         </select>

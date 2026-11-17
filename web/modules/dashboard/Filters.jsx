@@ -1,3 +1,5 @@
+import {orderRegionNames} from '../../lib/locations.mjs';
+
 export const INITIAL = { region: '', commune: '', pdv_type: '', store: '', from: '', to: '', category: '', subcategory: '' };
 
 const sorted = values => [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
@@ -12,7 +14,7 @@ export default function Filters({ value, options, geography = [], types = [], ca
   const communes = geography.find(region => region.name === value.region)?.communes || [];
   return <div className="sb-toolbar dashboard-filters" aria-label="Filtros del dashboard">
     <label>Región<select value={value.region} onChange={event => change('region', event.target.value)}>
-      <option value="">Todas las regiones</option>{sorted([...geography.map(region => region.name), ...options.map(store => store.region)]).map(region => <option key={region}>{region}</option>)}
+      <option value="">Todas las regiones</option>{orderRegionNames([...geography.map(region => region.name), ...options.map(store => store.region)], geography).map(region => <option key={region}>{region}</option>)}
     </select></label>
     <label>Comuna<select disabled={!value.region} value={value.commune} onChange={event => change('commune', event.target.value)}>
       <option value="">{value.region ? 'Todas las comunas' : 'Selecciona primero una región'}</option>

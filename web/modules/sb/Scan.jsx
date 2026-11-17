@@ -2,11 +2,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../lib/sb";
 import Icon from "../navigation/icons";
+import ShelfPhoto from "../management/ShelfPhoto";
+import {orderRegions} from "../../lib/locations.mjs";
 import { useApi, Header, Card, ErrorBox, Loading } from "./ui";
 import ReadingView from "./ReadingView";
 import CategorySelection from "../catalog/CategorySelection";
 import {enabled} from '../identity/identity.mjs';
-import {byLocationName, captureStores, filterCaptureStores, pointStoreCode, regionFor} from './scan-locations.mjs';
+import {byLocationName, captureStores, filterCaptureStores, pointStoreCode, regionFor, capturePointForType} from './scan-locations.mjs';
 
 const MAX_PHOTOS = 6;
 const TYPES = [
@@ -86,6 +88,8 @@ export default function Scan({ user, rest, go, notify }) {
   const [storeCode, setStoreCode] = useState('');
   const [classification, setClassification] = useState({category: '', subcategories: []});
   const [shelfType, setShelfType] = useState('');
+  const [manualOverride, setManualOverride] = useState(false);
+  const [manualDepths, setManualDepths] = useState(['']);
   const [photos, setPhotos] = useState([]);
   const [meters, setMeters] = useState("");
   const [preparing, setPreparing] = useState(false);
@@ -116,35 +120,41 @@ export default function Scan({ user, rest, go, notify }) {
   const selectedStore = busy && currentPoint ? pointStoreCode(currentPoint) : storeCode;
   const storePoints = visibleStores.some(store => store.code === selectedStore)
     ? list.filter(point => pointStoreCode(point) === selectedStore) : [];
-  const types = [...new Map(storePoints.map(point => [point.infrastructure?.type_id || 'legacy', {
-    id: point.infrastructure?.type_id || 'legacy', name: point.infrastructure?.type_name || 'Góndola registrada',
-  }])).values()].sort(byLocationName);
-  const manualAllowed = points.data?.captureOptions.manual_stores.includes(selectedStore);
-  const manualMode = manualAllowed && (!shelfType || shelfType === 'manual');
-  const selectedType = manualMode ? 'manual' : shelfType || currentPoint?.infrastructure?.type_id || '';
-  const visiblePoints = storePoints.filter(point => (point.infrastructure?.type_id || 'legacy') === selectedType);
-  const selected = visiblePoints.find(point => point.id === pointId);
+  const types = (points.data?.captureOptions.types || []).filter(type => type.store_code === selectedStore).sort(byLocationName);
+  const hasAssigned = !points.data?.captureOptions.manual_stores.includes(selectedStore);
+  const manualMode = !hasAssigned || manualOverride;
+  const selectedType = shelfType;
+  const selectedShelf = types.find(type => type.id === selectedType);
+  const resolution = capturePointForType(storePoints, selectedType, classification, enabled(user, 'planograms'));
+  const selected = manualMode ? null : resolution.point;
   const categories = points.data?.captureOptions.categories || {};
   const planClassification = enabled(user, 'planograms') ? selected?.planogram_classification : null;
   const captureClassification = planClassification?.category ? planClassification : classification;
   const subcategories = categories[captureClassification.category] || [];
   const classificationReady = (!Object.keys(categories).length || captureClassification.category)
     && (!subcategories.length || captureClassification.subcategories.length);
-  const displayedMeters = meters || (selected?.infrastructure?.width_cm ? String(selected.infrastructure.width_cm / 100) : '');
-  const captureReady = classificationReady && (manualMode ? selectedStore && Number(displayedMeters) > 0 : selected);
+  const displayedMeters = manualMode ? meters : selectedShelf ? String(selectedShelf.width_cm / 100) : '';
+  const manualReady = manualDepths.length > 0 && manualDepths.every(value => value !== '' && Number(value) > 0 && Number(value) <= 1000);
+  const captureReady = classificationReady && (manualMode ? selectedStore && manualReady : selected && selectedShelf);
   const communes = [...(regionFor(regions, location.region)?.communes || [])].sort(byLocationName);
 
   useEffect(() => {
     if (!points.data || busy || result || job?.status === 'done') return;
     const preferredStore = storeCode || (currentPoint && pointStoreCode(currentPoint));
     const nextStore = visibleStores.find(store => store.code === preferredStore)?.code || visibleStores[0]?.code || '';
-    if (nextStore !== storeCode) { setStoreCode(nextStore); setShelfType(''); setMeters(''); }
+    if (nextStore !== storeCode) { setStoreCode(nextStore); setShelfType(''); setMeters(''); setManualOverride(false); setManualDepths(['']); }
     const storePoints = list.filter(point => pointStoreCode(point) === nextStore);
     if (pointId && !storePoints.some(point => point.id === pointId)) {
       setPointId('');
       requestId.current = null;
     }
   }, [points.data, busy, result, job?.status, visibleStores, list, storeCode, pointId, currentPoint]);
+
+  useEffect(() => {
+    if (busy || result) return;
+    const nextPoint = selected?.id || '';
+    if (nextPoint !== pointId) {setPointId(nextPoint);requestId.current = null;}
+  }, [selected?.id, busy, result, pointId]);
 
   useEffect(() => {
     mounted.current = true;
@@ -319,6 +329,11 @@ export default function Scan({ user, rest, go, notify }) {
     const form = new FormData();
     photos.forEach((p) => form.append("images", p.file, p.file.name));
     if (width !== null) form.append("linear_meters", String(width));
+    if (manualMode) {
+      form.append('manual_override', String(manualOverride));
+      form.append('levels', String(manualDepths.length));
+      manualDepths.forEach(depth => form.append('depths', String(Number(depth))));
+    } else form.append('by_type', 'true');
     if (captureClassification.category) form.append('category', captureClassification.category);
     for (const subcategory of captureClassification.subcategories) form.append('subcategories', subcategory);
     try {
@@ -459,24 +474,24 @@ export default function Scan({ user, rest, go, notify }) {
               Región
               <select value={location.region} disabled={busy} onChange={event => {
                 setLocation({...location, region: event.target.value, commune: ''});
-                setStoreCode(''); setShelfType(''); setMeters(''); setPointId(''); requestId.current = null;
+                setStoreCode(''); setShelfType(''); setMeters(''); setManualOverride(false); setManualDepths(['']); setPointId(''); requestId.current = null;
               }}>
                 <option value="">Todas las regiones</option>
-                {[...regions].sort(byLocationName).map(region => <option key={region.code} value={region.name}>{region.name}</option>)}
+                {orderRegions(regions).map(region => <option key={region.code} value={region.name}>{region.name}</option>)}
               </select>
             </label>
             <label>
               Comuna
               <select value={location.commune} disabled={busy || !location.region} aria-describedby="scan-commune-note" onChange={event => {
                 setLocation({...location, commune: event.target.value});
-                setStoreCode(''); setShelfType(''); setMeters(''); setPointId(''); requestId.current = null;
+                setStoreCode(''); setShelfType(''); setMeters(''); setManualOverride(false); setManualDepths(['']); setPointId(''); requestId.current = null;
               }}>
                 <option value="">{location.region ? 'Todas las comunas' : 'Selecciona primero una región'}</option>
                 {communes.map(commune => <option key={commune.code} value={commune.name}>{commune.name}</option>)}
               </select>
             </label>
             <p id="scan-commune-note" className="sb-hint full">
-              {location.region ? `${communes.length} comunas de la región. Se muestran todas, aunque no tengan PDV asignados.` : 'Selecciona una región para ver sus comunas.'}
+              {location.region ? `${communes.length} comunas disponibles en la región para tu cuenta.` : 'Selecciona una región para ver sus comunas.'}
             </p>
             <label>
               Buscar PDV
@@ -487,7 +502,7 @@ export default function Scan({ user, rest, go, notify }) {
             <label>
               Punto de venta
               <select value={selectedStore} disabled={busy || !visibleStores.length} aria-describedby="scan-pdv-note" onChange={event => {
-                setStoreCode(event.target.value); setShelfType(''); setMeters(''); setPointId(''); requestId.current = null;
+                setStoreCode(event.target.value); setShelfType(''); setMeters(''); setManualOverride(false); setManualDepths(['']); setPointId(''); requestId.current = null;
               }}>
                 {!visibleStores.length && <option value="">Sin PDV con esos filtros</option>}
                 {visibleStores.map(store => <option key={store.code} value={store.code}>{store.name} ({store.code}) · {store.commune || 'Comuna sin dato'}</option>)}
@@ -500,53 +515,36 @@ export default function Scan({ user, rest, go, notify }) {
               setClassification(value); requestId.current = null;
             }}/>
             {planClassification?.category && <p className="sb-hint full">Se utiliza la categoría y todas las subcategorías del planograma asociado.</p>}
-            <label className="full">Tipo de góndola<select value={selectedType} disabled={busy || !selectedStore} onChange={event => {
-              setShelfType(event.target.value); setPointId(''); setMeters(''); requestId.current = null;
-            }}>
-              {manualAllowed ? <option value="manual">Ancho manual · PDV sin góndolas asignadas</option> : <><option value="">Selecciona un tipo de góndola</option>{types.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}</>}
-            </select></label>
-            {!manualMode && <label className="full">
-              Góndola
-              <select
-                value={pointId}
-                disabled={busy || !visiblePoints.length}
-                onChange={(e) => {
-                  setPointId(e.target.value);
-                  setMeters('');
-                  requestId.current = null;
-                }}
-              >
-                <option value="">{selectedStore && !visiblePoints.length ? 'Este PDV no tiene góndolas disponibles para escanear' : 'Selecciona una góndola'}</option>
-                {visiblePoints.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.id})
-                    {enabled(user, 'planograms') && p.planogram_name ? " · " + p.planogram_name : ""}
-                  </option>
-                ))}
-              </select>
-            </label>}
-            <label>
-              {manualMode ? 'Ancho del metro-góndola en metros' : 'Ancho de la góndola en metros (opcional)'}
-              <input
-                type="number"
-                min="0.1"
-                max="30"
-                step="0.1"
-                value={displayedMeters}
-                required={manualMode}
-                disabled={busy}
-                onChange={(e) => {
-                  setMeters(e.target.value);
-                  requestId.current = null;
-                }}
-                placeholder="Ej.: 1.2"
-              />
-            </label>
-            <p className="sb-hint">
-              {manualMode ? 'Este PDV permite capturar indicando el ancho manualmente.' : enabled(user, 'planograms') && selected?.planogram_name
-                ? `Se compara con ${selected.planogram_name}.`
-                : "Sin planograma asignado se identifican productos y caras."}
-            </p>
+            <div className="full scan-type-picker">
+              <label>Tipo de góndola<select value={selectedType} disabled={busy || !selectedStore || manualMode || !types.length} onChange={event => {
+                setShelfType(event.target.value); setPointId(''); setMeters(''); requestId.current = null;
+              }}>
+                <option value="">{hasAssigned ? 'Selecciona un tipo de góndola' : 'Sin tipos asociados a este PDV'}</option>
+                {types.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}
+              </select></label>
+              <button type="button" disabled={busy || !selectedStore || !hasAssigned} aria-pressed={manualOverride} onClick={() => {
+                setManualOverride(value => !value); setMeters(''); setManualDepths(['']); setPointId(''); requestId.current = null;
+              }}>{manualOverride ? 'Usar tipo precargado' : 'Ingresar medidas manualmente'}</button>
+            </div>
+            {!manualMode && selectedShelf && <div className="full scan-shelf-details">
+              <ShelfPhoto photo={selectedShelf.photo} name={selectedShelf.name}/>
+              <div><strong>{selectedShelf.name}</strong><p>Ancho {selectedShelf.width_cm} cm · Alto {selectedShelf.height_cm ?? 'sin especificar'}{selectedShelf.height_cm ? ' cm' : ''} · {selectedShelf.levels} {selectedShelf.levels === 1 ? 'nivel' : 'niveles'}</p>
+                <ul>{selectedShelf.depths.map((depth,index) => <li key={index}>Nivel {index + 1} · Profundidad {depth} cm</li>)}</ul>
+              </div>
+            </div>}
+            {!manualMode && resolution.ambiguous && <p className="message full" role="alert">Hay varios planogramas para este tipo. Selecciona la categoría y subcategorías correspondientes. Si la ambigüedad continúa, el Administrador debe revisar las referencias asignadas.</p>}
+            {!manualMode && selectedShelf && !selected && !resolution.ambiguous && <p className="sb-hint full">No hay una referencia disponible para esta categoría en el tipo elegido. Revisa las asignaciones o utiliza las medidas manuales.</p>}
+            <label>Ancho de la góndola en metros (opcional)<input type="number" min="0.1" max="30" step="any" value={displayedMeters} disabled={busy || !manualMode} onChange={event => {setMeters(event.target.value);requestId.current = null;}} placeholder="Ej.: 1.2"/></label>
+            {manualMode && <>
+              <label>Cantidad de niveles<input type="number" min="1" max="100" step="1" required value={manualDepths.length} disabled={busy} onChange={event => {
+                const count = Number(event.target.value);
+                if (Number.isInteger(count) && count >= 1 && count <= 100) {setManualDepths(values => Array.from({length:count},(_,index) => values[index] ?? ''));requestId.current = null;}
+              }}/></label>
+              {manualDepths.map((depth,index) => <label key={index}>Profundidad nivel {index+1} (cm)<input type="number" min="0.1" max="1000" step="any" required value={depth} disabled={busy} onChange={event => {setManualDepths(values => values.map((value,i) => i === index ? event.target.value : value));requestId.current = null;}}/></label>)}
+              <p className="sb-hint full">Estas medidas se guardan con la captura. {hasAssigned ? 'Puedes volver al tipo precargado con el botón superior.' : 'Este PDV permite capturar con medidas manuales.'}</p>
+            </>}
+            {!manualMode && <p className="sb-hint full">{enabled(user, 'planograms') && selected?.planogram_name ? `Se compara con ${selected.planogram_name}.` : 'Se identifican productos y caras. La comparación se aplica cuando hay un planograma asociado.'}</p>}
+
           </div>
         )}
       </Card>

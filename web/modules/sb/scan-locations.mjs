@@ -1,16 +1,5 @@
-const collator = new Intl.Collator('es', {sensitivity: 'base', numeric: true});
-export const byLocationName = (left, right) => collator.compare(left.name, right.name);
-
-const normalize = value => String(value || '').normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '').toLowerCase()
-  .replace(/^region\s+(?:de\s+|del\s+)?/, '').replace(/[^a-z0-9]/g, '');
-const aliases = {'13': ['Metropolitana'], '06': ["O'Higgins"], '11': ['Aysén'], '12': ['Magallanes']};
-
-export function regionFor(regions, value) {
-  if (!value) return null;
-  return regions.find(region => [region.name, region.code, region.abbreviation, ...(aliases[region.code] || [])]
-    .some(label => normalize(label) === normalize(value))) || null;
-}
+import {normalize, regionFor, byLocationName} from '../../lib/locations.mjs';
+export {regionFor, byLocationName} from '../../lib/locations.mjs';
 
 export function captureStores(stores, points) {
   const known = new Map(stores.map(store => [store.code, store]));
@@ -38,3 +27,24 @@ export function filterCaptureStores(stores, regions, filters) {
 }
 
 export const pointStoreCode = point => point.store_id || point.store_key || point.id;
+
+// A type can have several physical records. Choose a compatible reference,
+// preserving a single planogram rather than silently choosing between different plans.
+export function capturePointForType(points, typeId, classification, plansEnabled = true) {
+  const candidates = points.filter(point => point.infrastructure?.type_id === typeId && point.can_capture !== false);
+  if (!plansEnabled) {
+    candidates.sort((a,b) => (a.infrastructure.number - b.infrastructure.number) || a.id.localeCompare(b.id));
+    return {point:candidates[0] || null,ambiguous:false};
+  }
+  const subs = classification.subcategories || [];
+  const ranked = candidates.map(point => {
+    const plan = point.planogram_classification;
+    const match = plan?.category && (!classification.category || (plan.category === classification.category && subs.every(sub => plan.subcategories.includes(sub))));
+    return {point,rank:match ? 0 : !plan?.category && point.planogram_id ? 1 : !point.planogram_id ? 2 : 3};
+  }).filter(item => item.rank < 3);
+  const rank = Math.min(...ranked.map(item => item.rank));
+  const eligible = ranked.filter(item => item.rank === rank).map(item => item.point);
+  if (new Set(eligible.map(point => point.planogram_id || '')).size > 1) return {point:null,ambiguous:true};
+  eligible.sort((a,b) => (a.infrastructure.number - b.infrastructure.number) || a.id.localeCompare(b.id));
+  return {point:eligible[0] || null,ambiguous:false};
+}

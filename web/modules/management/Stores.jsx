@@ -1,4 +1,5 @@
 'use client';
+import {orderRegions} from '../../lib/locations.mjs';
 import {useState} from 'react';
 import {api, download, fmt} from '../../lib/sb';
 import {useApi, Header, Card, Loading, Empty, ErrorBox, Modal, Pill} from '../sb/ui';
@@ -42,7 +43,7 @@ export default function Stores({rest = [], go, notify}) {
   return <section><Header eyebrow="Administración" title="Puntos de venta" subtitle="Datos del local, ubicación, encargado y cantidades de góndolas por tipo."><button type="button" disabled={busy} onClick={() => setImporting(true)}>Carga masiva</button><button type="button" disabled={busy} onClick={() => exportFile(true)}>Exportar Excel</button><button className="action" disabled={!catalog.data} onClick={() => setEdit({})}>Crear PDV</button></Header>
     <ErrorBox error={stores.error || catalog.error || error} onRetry={() => {stores.reload(); catalog.reload();}}/>
     <div className="sb-toolbar store-filters"><label>Buscar<input value={q} onChange={e => setQ(e.target.value)} placeholder="Código, nombre o dirección"/></label>
-      <label>Región<select value={region} onChange={e => {setRegion(e.target.value);setCommune('');}}><option value="">Todas las regiones</option>{sortByName(catalog.data?.regions || []).map(r => <option key={r.code}>{r.name}</option>)}</select></label>
+      <label>Región<select value={region} onChange={e => {setRegion(e.target.value);setCommune('');}}><option value="">Todas las regiones</option>{orderRegions(catalog.data?.regions || []).map(r => <option key={r.code}>{r.name}</option>)}</select></label>
       <label>Comuna<select value={commune} disabled={!region} onChange={e => setCommune(e.target.value)}><option value="">{region ? 'Todas las comunas' : 'Selecciona primero una región'}</option>{sortByName(catalog.data?.regions.find(r => r.name === region)?.communes || []).map(c => <option key={c.code}>{c.name}</option>)}</select></label>
       <label>Estado<select value={status} onChange={e => setStatus(e.target.value)}><option value="">Todos</option><option>Activo</option><option>Inactivo</option></select></label>
       <div className="store-filter-actions"><label className="mg-check"><input type="checkbox" checked={deleted} onChange={e => setDeleted(e.target.checked)}/>Incluir eliminados</label>
@@ -76,7 +77,7 @@ function StoreForm({store, catalog, onSaved, onClose}) {
     <label>Código PDV<input {...field('code')} required maxLength={20} pattern="[A-Za-z0-9][A-Za-z0-9_-]{0,19}" disabled={!!store.code}/></label>
     <label>Nombre del PDV<input {...field('name')} required maxLength={120}/></label><label>Tipo de PDV<select {...field('store_type')} required><option value="">Seleccionar tipo</option>{[...catalog.store_types].sort((a,b) => a.localeCompare(b,'es')).map(t => <option key={t}>{t}</option>)}</select></label>
     <StatusField value={form.status} onChange={status => setForm({...form,status})}/>
-    <label>Región<select value={form.region} required onChange={e => setForm({...form,region:e.target.value,commune:''})}><option value="">Seleccionar región</option>{sortByName(catalog.regions).map(r => <option key={r.code}>{r.name}</option>)}</select></label>
+    <label>Región<select value={form.region} required onChange={e => setForm({...form,region:e.target.value,commune:''})}><option value="">Seleccionar región</option>{orderRegions(catalog.regions).map(r => <option key={r.code}>{r.name}</option>)}</select></label>
     <label>Comuna<select {...field('commune')} required disabled={!form.region}><option value="">Seleccionar comuna</option>{sortByName(communes).map(c => <option key={c.code || c.name}>{c.name}</option>)}</select></label>
     <label className="full">Dirección<input {...field('address')} required maxLength={200}/></label><label className="full">Encargado de Local<input {...field('manager')} required maxLength={120}/></label><label className="full">Descripción<textarea {...field('description')} maxLength={2000}/></label>
     <fieldset className="full store-assignments"><legend>Cantidad de góndolas por tipo</legend>

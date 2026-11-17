@@ -1,4 +1,5 @@
 'use client';
+import {orderRegions} from '../../lib/locations.mjs';
 import {useState} from 'react';
 import {api, ROLE_NAMES} from '../../lib/sb';
 import {useApi, ErrorBox, Loading} from '../sb/ui';
@@ -57,7 +58,7 @@ export default function PersonForm({current, self, onClose, onSaved}) {
       {form.status === 'De baja' && <label>Fecha baja<input {...change('endDate')} type="date" min={form.startDate} required/></label>}
       {scoped && <fieldset className="full people-store-scope" disabled={preserve}>
         <legend>PDV asignados</legend>
-          <div className="people-scope-filters"><label>Región<select value={region} onChange={event => {setRegion(event.target.value);setCommune('');}}><option value="">Todas las regiones</option>{sortByName(catalog.data?.locations.regions || []).map(item => <option key={item.code}>{item.name}</option>)}</select></label>
+          <div className="people-scope-filters"><label>Región<select value={region} onChange={event => {setRegion(event.target.value);setCommune('');}}><option value="">Todas las regiones</option>{orderRegions(catalog.data?.locations.regions || []).map(item => <option key={item.code}>{item.name}</option>)}</select></label>
           <label>Comuna<select value={commune} disabled={!region} onChange={event => setCommune(event.target.value)}><option value="">Todas las comunas</option>{sortByName(catalog.data?.locations.regions.find(item => item.name === region)?.communes || []).map(item => <option key={item.code}>{item.name}</option>)}</select></label></div>
           <label className="people-check"><input type="checkbox" checked={allVisible} disabled={!visible.length} ref={input => {if (input) input.indeterminate = !allVisible && visible.some(store => selected.has(store.code));}} onChange={event => {
             const next = new Set(selected);visible.forEach(store => event.target.checked ? next.add(store.code) : next.delete(store.code));setForm({...form,storeCodes:[...next]});

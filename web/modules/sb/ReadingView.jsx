@@ -42,7 +42,8 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo}) {
       try { await download(`/api/readings/${reading.id}/report.xlsx`, `Neuravision_Medicion_${reading.id}.xlsx`); }
       catch (exception) { setError(exception.message); } finally { setBusy(false); }
     }}>Descargar Excel de esta medición</button></div>}
-    {reading.infrastructure?.category && <p className="sb-hint">{reading.infrastructure.category} · {reading.infrastructure.subcategories?.join(', ') || reading.infrastructure.subcategory || 'Todas las subcategorías'}{reading.infrastructure.captureMode === 'manual' ? ` · Ancho manual ${reading.linear_meters} m` : ''}</p>}
+    {reading.infrastructure?.category && <p className="sb-hint">{reading.infrastructure.category} · {reading.infrastructure.subcategories?.join(', ') || reading.infrastructure.subcategory || 'Todas las subcategorías'}{reading.infrastructure.captureMode === 'manual' ? ` · ${reading.linear_meters == null ? 'Ancho estimado por el motor' : 'Ancho manual '+reading.linear_meters+' m'}` : ''}</p>}
+    {reading.infrastructure?.captureMode === 'manual' && reading.infrastructure.depths?.length > 0 && <p className="sb-hint">{reading.infrastructure.depths.length} niveles · {reading.infrastructure.depths.map((depth,index) => `Nivel ${index+1}: ${depth} cm de profundidad`).join(' · ')}</p>}
     <MeasurementReview key={reading.id} reading={{...reading, review}} user={user} onSaved={setReview}/>
     <ManualDetails reading={reading} user={user} reviewVersion={review?.version || 0} onReviewChanged={setReview}/>
     <Card title="Capacidad máxima por dimensiones" subtitle={`Margen adicional de profundidad ${reading.capacity?.dimensionMarginPct ?? '—'} %. La capacidad teórica no confirma existencias ni unidades ocultas.`}>

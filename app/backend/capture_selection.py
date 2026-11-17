@@ -24,24 +24,58 @@ def has_shelves(conn, code):
     return bool(conn.execute('SELECT 1 FROM management_assignments WHERE store_code=? AND quantity>0', (code,)).fetchone())
 
 
-def manual_store(conn, code):
+def manual_store(conn, code, allow_assigned=False):
     store = _row(conn, 'management_stores', 'code', code)
     if store['deleted'] or store['status'] != 'Activo':
-        raise ManagementError('El PDV estÃ¡ inactivo.', 409)
-    if has_shelves(conn, code):
-        raise ManagementError('Este PDV tiene gÃ³ndolas asignadas. Selecciona su tipo y gÃ³ndola.', 409)
+        raise ManagementError('El PDV está inactivo.', 409)
+    if not allow_assigned and has_shelves(conn, code):
+        raise ManagementError('Activa las medidas manuales para este PDV con góndolas asignadas.', 409)
     return store
 
 
-def options(user):
+def geometry(levels=None, depths=None):
+    import math
+    if levels is None and not depths:
+        return {}
+    if type(levels) is not int or not 1 <= levels <= 100 or not depths or len(depths) != levels:
+        raise ManagementError('Indica de 1 a 100 niveles y una profundidad por nivel.')
+    if any(not math.isfinite(depth) or not 0 < depth <= 1000 for depth in depths):
+        raise ManagementError('Las profundidades deben ser mayores a cero y hasta 1.000 cm.')
+    return {'levels':levels, 'depths':depths}
+
+
+def geography(user):
+    import infrastructure
+    if profiles.profile_of(user) != 'replenisher':
+        return infrastructure.REGIONS
     scope = profiles.store_scope(user)
+    stores = [s for s in infrastructure.list_stores() if s['code'] in scope and s['status']=='Activo']
+    selected = {}
+    for store in stores:
+        try:
+            region, commune = infrastructure._location(store['region'], store['commune'])
+        except ManagementError:
+            continue
+        selected.setdefault(region,set()).add(commune)
+    return [{**region,'communes':[c for c in region['communes'] if c['name'] in selected[region['name']]]}
+            for region in infrastructure.REGIONS if region['name'] in selected]
+
+
+def options(user):
+    import infrastructure
+    scope = profiles.store_scope(user)
+    types = []
     with db.get_conn() as conn:
         stores = conn.execute("SELECT code FROM management_stores WHERE deleted=0 AND status='Activo'").fetchall()
-        manual = [store['code'] for store in stores if (scope is None or store['code'] in scope) and not has_shelves(conn, store['code'])]
-    return {'categories': settings_service.read()['state']['catalog']['categories'], 'manual_stores': manual}
+        manual = [s['code'] for s in stores if (scope is None or s['code'] in scope) and not has_shelves(conn, s['code'])]
+        rows = conn.execute("SELECT a.store_code,t.* FROM management_assignments a JOIN management_shelf_types t ON t.id=a.type_id JOIN management_stores s ON s.code=a.store_code WHERE a.quantity>0 AND t.deleted=0 AND t.status='Activo' AND s.deleted=0 AND s.status='Activo'").fetchall()
+        for row in rows:
+            if scope is None or row['store_code'] in scope:
+                types.append(infrastructure._type_public(row))
+    return {'categories': settings_service.read()['state']['catalog']['categories'], 'manual_stores':manual, 'types':types}
 
 
-def manual_point(code, user, values):
+def manual_point(code, user, values, allow_assigned=False):
     identity = json.dumps([code, user['username'], values], sort_keys=True, ensure_ascii=False)
     point_id = MANUAL_PREFIX + hashlib.sha256(identity.encode()).hexdigest()[:32]
     with db.get_conn() as conn:
@@ -51,7 +85,7 @@ def manual_point(code, user, values):
             if existing['store_id'] != code:
                 raise ManagementError('El punto de captura no corresponde al PDV.', 409)
             return point_id
-        store = manual_store(conn, code)
+        store = manual_store(conn, code, allow_assigned)
         validate_selection(values, conn)
-        db.create_point(point_id, store['name'] + ' Â· Captura con ancho manual', store_id=code, gondola_id='Captura manual', conn=conn)
+        db.create_point(point_id, store['name'] + ' · Captura con ancho manual', store_id=code, gondola_id='Captura manual', conn=conn)
     return point_id

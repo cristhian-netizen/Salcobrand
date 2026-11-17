@@ -88,7 +88,8 @@ def router(require_user, require_admin):
 
     @api.get("/location-catalog")
     def locations(user=Depends(require_user)):
-        return {"regions": service.REGIONS}
+        from capture_selection import geography
+        return {'regions': geography(user)}
 
     @api.get("/admin/stores")
     def all_stores(include_deleted: bool = False, user=Depends(require_admin)):

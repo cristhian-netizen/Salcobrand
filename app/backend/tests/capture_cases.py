@@ -14,6 +14,49 @@ from starlette.datastructures import UploadFile
 
 
 class CaptureCases:
+    def test_replenisher_geography_is_assigned_and_administratively_ordered(self):
+        admin=self.client('admin');admin.get('/api/admin/stores')
+        with self.db.get_conn() as conn:
+            conn.execute("UPDATE management_stores SET region='Metropolitana de Santiago',commune='Santiago' WHERE code='L128'")
+            conn.execute("UPDATE management_stores SET region='Arica y Parinacota',commune='Arica' WHERE code='L129'")
+            conn.execute("UPDATE management_stores SET region='Valparaíso',commune='Viña del Mar' WHERE code='L130'")
+        regions=self.client('replenisher').get('/api/location-catalog').json()['regions']
+        self.assertEqual([r['code'] for r in regions],['15','13'])
+        self.assertEqual([[c['name'] for c in r['communes']] for r in regions],[['Arica'],['Santiago']])
+        all_regions=admin.get('/api/admin/location-catalog').json()['regions']
+        self.assertEqual([r['code'] for r in all_regions],['15','01','02','03','04','05','13','06','07','16','08','09','14','10','11','12'])
+        with self.db.get_conn() as conn:
+            conn.execute("UPDATE users SET store_ids_json='[]',store_id=NULL WHERE username='replenisher'")
+        self.assertEqual(self.client('replenisher').get('/api/location-catalog').json()['regions'],[])
+
+    def test_manual_override_geometry_and_preloaded_type_are_frozen_without_changing_masters(self):
+        admin=self.client('admin');admin.get('/api/admin/stores');shelf=self.create_type()
+        admin.put('/api/admin/stores/L128/shelf-assignments/'+shelf['id'],json={'quantity':1,'version':0}).raise_for_status()
+        before=admin.get('/api/admin/shelf-types').json()
+        client=self.client('replenisher')
+        types=client.get('/api/capture/options').json()['types']
+        self.assertEqual([(t['store_code'],t['id']) for t in types],[('L128',shelf['id'])])
+        point=next(p for p in client.get('/api/summary').json()['points'] if p.get('infrastructure',{} ) and p['infrastructure']['type_id']==shelf['id'])
+        response=client.post('/api/points/'+point['id']+'/analysis-jobs',headers={'Idempotency-Key':'preloaded-type-capture-001'},data={'by_type':'true','linear_meters':'5'},files={'images':('photo.jpg',b'synthetic','image/jpeg')})
+        self.assertEqual(response.status_code,202,response.text)
+        payload=self.db.get_job(response.json()['job_id'])['payload']
+        self.assertEqual(payload['linear_meters'],shelf['width_cm']/100)
+        self.assertEqual(payload['infrastructure']['captureMode'],'type')
+        fields={'manual_override':'true','levels':'2','depths':['30','45']}
+        def send(data=fields,key='override-geometry-request-001',store='L128'):
+            return client.post('/api/stores/'+store+'/analysis-jobs',headers={'Idempotency-Key':key},data=data,files={'images':('photo.jpg',b'synthetic','image/jpeg')})
+        result=send();self.assertEqual(result.status_code,202,result.text)
+        snapshot=self.db.get_job(result.json()['job_id'])['payload']
+        self.assertIsNone(snapshot['linear_meters'])
+        self.assertEqual(snapshot['infrastructure']['depths'],[30,45])
+        self.assertEqual(snapshot['infrastructure']['levels'],2)
+        self.assertEqual(send().json()['job_id'],result.json()['job_id'])
+        self.assertEqual(send({**fields,'depths':['30','40']}).status_code,409)
+        self.assertEqual(send({**fields,'depths':['30']},key='invalid-depth-count-001').status_code,400)
+        self.assertEqual(send({**fields,'depths':['30','nan']},key='invalid-depth-value-001').status_code,400)
+        self.assertEqual(send(store='L130').status_code,403)
+        self.assertEqual(admin.get('/api/admin/shelf-types').json(),before)
+
     def test_capture_uses_all_planogram_subcategories_and_freezes_reference(self):
         product=self.create_product();classification=self.multi_classification()
         admin=self.client('admin');admin.get('/api/admin/stores')
@@ -87,6 +130,9 @@ class CaptureCases:
             self.assertEqual(response.status_code, 200, response.text)
             self.assertEqual(set(response.json()), {'regions'})
             regions = response.json()['regions']
+            if username in ('replenisher','legacy-tienda'):
+                self.assertEqual(regions, [])
+                continue
             self.assertEqual(len(regions), 16)
             self.assertEqual(sum(len(region['communes']) for region in regions), 346)
             metropolitan = next(region for region in regions if region['code'] == '13')

@@ -285,3 +285,11 @@
 #nv .ct-subcategory-options input[type=checkbox] { flex: 0 0 18px; width: 18px; height: 18px; min-height: 0; margin: 0; accent-color: #197f86; }
 #nv .ct-subcategory-options label:has(input:checked) { border-color: #197f86; background: #eef9f8; }
 #nv .ct-subcategories:disabled .ct-subcategory-options label { cursor: default; }
+
+#nv .scan-type-picker { display: flex; align-items: end; gap: 12px; }
+#nv .scan-type-picker label { flex: 1; min-width: 0; }
+#nv .scan-type-picker button { margin: 0; }
+#nv .scan-shelf-details { display: flex; align-items: start; gap: 20px; padding: 16px; border: 1px solid #dbe3ec; border-radius: 12px; background: #f8fafc; }
+#nv .scan-shelf-details p { margin: 8px 0; }
+#nv .scan-shelf-details ul { margin: 8px 0 0; padding-left: 18px; }
+@media (max-width: 600px) { #nv .scan-type-picker { flex-direction: column; align-items: stretch; } #nv .scan-shelf-details { flex-wrap: wrap; } }

@@ -1,4 +1,5 @@
 'use client';
+import {orderRegions} from '../../lib/locations.mjs';
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/sb';
 import {
@@ -111,7 +112,7 @@ export default function Planograms({ rest, go, notify }) {
             }}
           >
             <option value="">Todas las regiones</option>
-            {sortByName(data.data?.locations.regions || []).map((r) => (
+            {orderRegions(data.data?.locations.regions || []).map((r) => (
               <option key={r.code}>{r.name}</option>
             ))}
           </select>

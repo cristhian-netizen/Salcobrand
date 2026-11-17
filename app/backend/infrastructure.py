@@ -13,6 +13,10 @@ from PIL import Image
 import db
 
 REGIONS = json.loads(Path(__file__).with_name("chile_locations.json").read_text(encoding="utf-8"))
+REGION_ORDER = ['15','01','02','03','04','05','13','06','07','16','08','09','14','10','11','12']
+REGIONS.sort(key=lambda region: REGION_ORDER.index(region['code']))
+for region in REGIONS:
+    region['communes'].sort(key=lambda commune: unicodedata.normalize('NFD', commune['name']).encode('ascii','ignore').decode().casefold())
 STORE_TYPES = ("Farmacia", "Supermercado", "Tienda de conveniencia", "Minimarket", "Tienda de barrio", "Otro")
 
 
@@ -390,7 +394,7 @@ def infrastructure_state(store_code=None):
 def annotate_points(points):
     with db.get_conn() as conn:
         stores = {r["code"]: dict(r) for r in conn.execute("SELECT code, name, status, deleted FROM management_stores").fetchall()}
-        instances = {r["point_id"]: dict(r) for r in conn.execute("SELECT i.*, t.name AS type_name, t.width_cm, t.depths_json, t.status AS type_status FROM management_instances i JOIN management_shelf_types t ON i.type_id = t.id").fetchall()}
+        instances = {r["point_id"]: dict(r) for r in conn.execute("SELECT i.*, t.name AS type_name, t.width_cm, t.height_cm, t.kind, t.depths_json, t.status AS type_status FROM management_instances i JOIN management_shelf_types t ON i.type_id = t.id").fetchall()}
         plans = {}
         for plan_id in {p.get("planogram_id") for p in points if p.get("planogram_id")}:
             row = conn.execute("SELECT data_json FROM management_planograms WHERE id = ?", (plan_id,)).fetchone()
@@ -411,7 +415,7 @@ def annotate_points(points):
         context = None
         if instance:
             available = available and bool(instance["active"]) and instance["type_status"] == "Activo"
-            context = {key: instance[key] for key in ("id", "type_id", "type_name", "number", "label", "note", "width_cm")}
+            context = {key: instance[key] for key in ("id", "type_id", "type_name", "number", "label", "note", "width_cm", "height_cm", "kind")}
             context["depths"] = json.loads(instance["depths_json"])
         point.update({"can_capture": bool(available), "infrastructure": context})
         if plan:

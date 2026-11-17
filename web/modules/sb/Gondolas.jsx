@@ -93,10 +93,10 @@ function PointDetail({user, go, pointId, tab, notify}) {
     catch (e) { setActionError(e.message); setBusy(false); }
   }
   if (loading && !point) return <Loading text="Cargando góndola…"/>;
-  if (!point) return <><Back onClick={() => go(can(user,'train') ? 'revision' : 'mediciones')}>Góndolas</Back><ErrorBox error={error} onRetry={reload}/></>;
+  if (!point) return <><Back onClick={() => go(can(user,'train') ? 'revision' : 'mediciones')}>{can(user,'train') ? 'Revisión' : 'Mediciones'}</Back><ErrorBox error={error} onRetry={reload}/></>;
   const readings = point.readings || [];
   return <section>
-    <Back onClick={() => go(can(user,'train') ? 'revision' : 'mediciones')}>Góndolas</Back>
+    <Back onClick={() => go(can(user,'train') ? 'revision' : 'mediciones')}>{can(user,'train') ? 'Revisión' : 'Mediciones'}</Back>
     <Header eyebrow={point.store_id || 'Góndola'} title={point.name} subtitle={`${point.id} · ${readings.length} lecturas · creada ${fmt.date(point.created_at)}`}>
       {can(user, 'report') && <button type="button" onClick={() => download(`/api/reports/measurements.csv?point=${encodeURIComponent(point.id)}`, `salcobrand-${point.id}.csv`).catch(e => setActionError(e.message))}><Icon name="download" size={16}/>CSV</button>}
       {can(user, 'scan') && point.can_capture !== false && <button className="action" type="button" onClick={() => go(`escanear/${encodeURIComponent(point.id)}`)}><Icon name="scan" size={16}/>Nueva lectura</button>}

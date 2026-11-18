@@ -8,8 +8,8 @@ const Screen = styled.div`
   min-height: 100dvh;
   display: grid;
   grid-template-columns: minmax(360px, 46%) minmax(0, 1fr);
-  background: var(--nv-bg);
-  color: var(--nv-text);
+  background: #080808;
+  color: #ffffff;
   font-family: var(--nv-font);
   @media (max-width: 800px) { grid-template-columns: 1fr; }
 `;
@@ -25,7 +25,7 @@ const Brand = styled.aside`
   min-height: 100dvh;
   padding: clamp(32px, 5vw, 76px);
   color: #ffffff;
-  background: radial-gradient(circle at 80% 76%, #06a7e248, transparent 45%), #0074c8;
+  background: radial-gradient(circle at 80% 76%, #B1E22518, transparent 45%), #000000;
   &::after {
     content: '';
     position: absolute;
@@ -34,9 +34,9 @@ const Brand = styled.aside`
     aspect-ratio: 1;
     right: -35%;
     bottom: -40%;
-    border: 1px solid #06a7e266;
+    border: 1px solid #B1E22535;
     border-radius: 50%;
-    box-shadow: 0 0 0 70px #06a7e21c, 0 0 0 140px #06a7e210;
+    box-shadow: 0 0 0 70px #B1E2250c, 0 0 0 140px #B1E22508;
   }
   @media (max-width: 800px) { display: none; }
 `;
@@ -67,9 +67,9 @@ const Mark = styled.span`
 const BrandCopy = styled.div`
   max-width: 540px;
   margin: auto 0;
-  span { color: #ffffff; font-size: 12px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; }
+  span { color: #B1E225; font-size: 12px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; }
   h2 { margin: 22px 0 20px; font-size: clamp(43px, 4.4vw, 70px); font-weight: 600; line-height: 1.08; letter-spacing: -.065em; }
-  p { max-width: 440px; color: #ffffff; font-size: 17px; line-height: 1.7; }
+  p { max-width: 440px; color: #b8b8b8; font-size: 17px; line-height: 1.7; }
 `;
 
 const SignInArea = styled.main`
@@ -82,7 +82,7 @@ const SignInArea = styled.main`
 
 const MobileBrand = styled.div`
   display: none;
-  color: var(--nv-text);
+  color: #ffffff;
   @media (max-width: 800px) { display: block; }
 `;
 
@@ -90,24 +90,24 @@ const FormWrap = styled.div`
   width: min(100%, 420px);
   margin: auto;
   padding: 44px 0;
-  .eyebrow { color: #c90188; font-size: 12px; font-weight: 750; letter-spacing: .13em; text-transform: uppercase; }
-  h1 { margin: 14px 0 12px; color: #333333; font-size: clamp(34px, 3vw, 43px); font-weight: 650; line-height: 1.14; letter-spacing: -.06em; }
-  .intro { margin: 0 0 40px; color: #5d6875; font-size: 15px; line-height: 1.6; }
-  label { display: block; margin: 0 0 20px; color: #333333; font-size: 13px; font-weight: 650; }
-  input { display: block; width: 100%; height: 54px; margin-top: 9px; padding: 0 16px; border: 1px solid #cbd8e4; border-radius: 12px; outline: none; background: #ffffff; color: #333333; font: inherit; font-size: 15px; transition: border-color .18s, box-shadow .18s; }
-  input::placeholder { color: #667085; }
-  input:focus { border-color: #0074c8; box-shadow: 0 0 0 4px #0074c824; }
+  .eyebrow { color: #B1E225; font-size: 12px; font-weight: 750; letter-spacing: .13em; text-transform: uppercase; }
+  h1 { margin: 14px 0 12px; color: #ffffff; font-size: clamp(34px, 3vw, 43px); font-weight: 650; line-height: 1.14; letter-spacing: -.06em; }
+  .intro { margin: 0 0 40px; color: #a3a3a3; font-size: 15px; line-height: 1.6; }
+  label { display: block; margin: 0 0 20px; color: #e5e5e5; font-size: 13px; font-weight: 650; }
+  input { display: block; width: 100%; height: 54px; margin-top: 9px; padding: 0 16px; border: 1px solid #383838; border-radius: 12px; outline: none; background: #141414; color: #ffffff; font: inherit; font-size: 15px; transition: border-color .18s, box-shadow .18s; }
+  input::placeholder { color: #8a8a8a; }
+  input:focus { border-color: #B1E225; box-shadow: 0 0 0 4px #B1E2251c; }
   .password-field { position: relative; display: block; }
   .password-label { margin-bottom: 9px; }
   .password-field input { margin-top: 0; padding-right: 88px; }
-  .show-password { position: absolute; right: 10px; top: 16px; padding: 5px 8px; border: 0; background: transparent; color: #0074c8; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
-  .show-password:hover { color: #005fa5; }
+  .show-password { position: absolute; right: 10px; top: 16px; padding: 5px 8px; border: 0; background: transparent; color: #B1E225; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .show-password:hover { color: #d6ff5a; }
   .error { margin: 0 0 18px; padding: 12px 14px; border: 1px solid #f0c9c4; border-radius: 10px; background: #fff1ef; color: #9d3127; font-size: 14px; line-height: 1.5; }
-  .submit { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 54px; margin-top: 30px; border: 0; border-radius: 12px; background: #0074c8; color: #ffffff; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 10px 22px #0074c824; transition: background .18s, transform .18s, box-shadow .18s; }
-  .submit:hover:not(:disabled) { background: #005fa5; transform: translateY(-2px); box-shadow: 0 14px 25px #0074c830; }
+  .submit { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 54px; margin-top: 30px; border: 0; border-radius: 12px; background: linear-gradient(110deg, #B1E225, #d6ff5a); color: #000000; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 10px 22px #B1E22529; transition: background .18s, transform .18s, box-shadow .18s; }
+  .submit:hover:not(:disabled) { background: #d6ff5a; transform: translateY(-2px); box-shadow: 0 14px 25px #B1E22538; }
   .submit:disabled { cursor: wait; opacity: .7; }
   .submit span { font-size: 21px; font-weight: 400; line-height: 1; }
-  .footnote { margin: 24px 0 0; color: #5d6875; font-size: 12px; line-height: 1.6; text-align: center; }
+  .footnote { margin: 24px 0 0; color: #a3a3a3; font-size: 12px; line-height: 1.6; text-align: center; }
   @media (max-width: 800px) { padding: 60px 0; }
   @media (max-width: 480px) { padding: 42px 0; .intro { margin-bottom: 34px; } }
   @media (prefers-reduced-motion: reduce) { input, .submit { transition: none; } .submit:hover:not(:disabled) { transform: none; } }
@@ -115,7 +115,7 @@ const FormWrap = styled.div`
 
 const Copyright = styled.p`
   margin: 0;
-  color: #5d6875;
+  color: #8a8a8a;
   font-size: 12px;
   @media (max-width: 800px) { text-align: center; }
 `;

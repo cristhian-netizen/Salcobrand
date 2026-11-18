@@ -1,3 +1,4 @@
+import SortableTable from '../tables/SortableTable';
 import { fmt } from '../../lib/sb';
 import { Card, Empty, Pill } from '../sb/ui';
 import ReadingTable from './ReadingTable';
@@ -9,7 +10,7 @@ export default function ViewerHome({ data, go, onOpen }) {
         <button key={route} type="button" onClick={() => go(route)}>{label}</button>)}
     </nav>
     <Card title="PDV que requieren atención" body={false}>
-      {data.attention.length ? <div className="sb-table"><table>
+      {data.attention.length ? <div className="sb-table"><SortableTable>
         <thead><tr><th>Punto de venta</th><th>Región / comuna</th><th>Encargado de Local</th><th>Puntaje promedio</th></tr></thead>
         <tbody>{data.attention.map(store => <tr key={store.code}>
           <td><b>{store.name}</b><small>{store.code}</small></td>
@@ -17,7 +18,7 @@ export default function ViewerHome({ data, go, onOpen }) {
           <td>{store.manager || 'Sin encargado registrado'}</td>
           <td><Pill kind={store.score_band}>{fmt.num(store.score)}</Pill></td>
         </tr>)}</tbody>
-      </table></div> : <Empty>Aún no hay mediciones aprobadas para calcular el puntaje de los PDV.</Empty>}
+      </SortableTable></div> : <Empty>Aún no hay mediciones aprobadas para calcular el puntaje de los PDV.</Empty>}
     </Card>
     <ReadingTable title="Mediciones rechazadas para seguimiento" rows={data.rejected} onOpen={onOpen} />
   </>;

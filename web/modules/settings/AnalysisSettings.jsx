@@ -1,4 +1,6 @@
 'use client';
+import SortableTable from '../tables/SortableTable';
+
 import { useState } from 'react';
 import { Card, Pill } from '../sb/ui';
 
@@ -7,7 +9,6 @@ const INDICATORS = [
   ['osa', 'Disponibilidad observada (%)', 'higher'],
   ['sos', 'Participación por caras (%)', 'higher'],
   ['cp', 'Cumplimiento (%)', 'higher'],
-  ['oos', 'Ausencias recientes (cantidad)', 'lower'],
 ];
 
 export default function AnalysisSettings({ state, busy, save }) {
@@ -41,7 +42,7 @@ export default function AnalysisSettings({ state, busy, save }) {
         },
       ]),
     );
-    await save('kpi', { ...value, freshDays: Number(kpis.freshDays) });
+    await save('kpi', value);
   }
   return (
     <>
@@ -139,7 +140,7 @@ export default function AnalysisSettings({ state, busy, save }) {
         <form onSubmit={saveKpis}>
           <fieldset className="settings-fields" disabled={busy}>
             <div className="sb-table">
-              <table>
+              <SortableTable>
                 <thead>
                   <tr>
                     <th>Indicador</th>
@@ -172,25 +173,8 @@ export default function AnalysisSettings({ state, busy, save }) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </SortableTable>
             </div>
-            <label>
-              Antigüedad máxima de una ausencia reciente (días)
-              <input
-                required
-                type="number"
-                min="1"
-                max="365"
-                step="1"
-                value={kpis.freshDays}
-                onChange={(e) =>
-                  setKpis((previous) => ({
-                    ...previous,
-                    freshDays: e.target.value,
-                  }))
-                }
-              />
-            </label>
             <button type="submit" className="action">
               Guardar objetivos
             </button>

@@ -40,14 +40,15 @@ def style(sheet, widths):
     sheet.column_dimensions['A'].number_format = '@'
 
 
-def workbook_bytes(template=False):
+def workbook_bytes(template=False, search="", region="", commune="", status="", include_deleted=False):
     service.bootstrap_legacy_stores()
     book = Workbook()
     sheet = book.active
     sheet.title = 'PDV'
     sheet.append(COLUMNS)
     with db.get_conn() as conn:
-        stores = [] if template else conn.execute('SELECT * FROM management_stores WHERE deleted=0 ORDER BY LOWER(name),code').fetchall()
+        stores = [] if template else conn.execute('SELECT * FROM management_stores' + ('' if include_deleted else ' WHERE deleted=0') + ' ORDER BY LOWER(name),code').fetchall()
+        stores = [s for s in stores if (not region or s['region'] == region) and (not commune or s['commune'] == commune) and (not status or s['status'] == status) and search.casefold() in ' '.join(str(s[k]) for k in ('code','name','commune','address','description')).casefold()]
         for store in stores:
             append_text_row(sheet, [store[field] for field in FIELDS])
             sheet.cell(sheet.max_row, 1).number_format = '@'
@@ -58,7 +59,8 @@ def workbook_bytes(template=False):
                                     'JOIN management_shelf_types t ON t.id=a.type_id '
                                     'JOIN management_stores s ON s.code=a.store_code WHERE s.deleted=0 '
                                     'ORDER BY a.store_code,t.name').fetchall():
-                append_text_row(relations, [row['store_code'],row['name'],row['quantity']])
+                if row['store_code'] in {s['code'] for s in stores}:
+                    append_text_row(relations, [row['store_code'],row['name'],row['quantity']])
             style(relations, [20,42,16])
     style(sheet, [20,34,26,44,36,26,44,30,18])
     states = DataValidation(type='list', formula1='"Activo,Inactivo"')

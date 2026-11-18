@@ -10,7 +10,7 @@ export default function OperationalAlerts({ data, user, go, onResolve, busy }) {
     <Card title="Góndolas con faltantes" subtitle="Góndolas activas según su última medición aprobada de los últimos 30 días. Ordenadas por impacto estimado." body={false}>
       <DashboardTable rows={data.gaps} empty="Ninguna góndola tiene faltantes en su última lectura aprobada del período." columns={[
         ['name', 'Góndola', point => <><b>{point.gondola || point.name}</b><small>{point.store_name || point.store || point.store_id}</small></>],
-        ['date', 'Última lectura', point => fmt.dateTime(point.performance.created_at)],
+        ['date', 'Última lectura', point => <span data-sort-value={point.performance.created_at}>{fmt.dateTime(point.performance.created_at)}</span>],
         ['compliance', 'Cumplimiento', point => <ComplianceBar pct={point.performance.compliance_pct} />],
         ['missing', 'Faltan', point => <Pill kind="bad">{point.performance.missing}</Pill>],
         ['low', 'Bajo esperado', point => point.performance.low || 0],

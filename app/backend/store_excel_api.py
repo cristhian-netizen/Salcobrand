@@ -9,9 +9,9 @@ def router(require_admin):
     api = APIRouter(prefix='/api/admin/store-transfer', tags=['Excel de PDV'], dependencies=[Depends(require_admin)])
 
     @api.get('/workbook.xlsx')
-    def export(template: bool = False):
+    def export(template: bool = False, search: str = "", region: str = "", commune: str = "", status: str = "", include_deleted: bool = False):
         name = 'Plantilla_PDV.xlsx' if template else 'Neuravision_PDV.xlsx'
-        return Response(content=store_excel.workbook_bytes(template),media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        return Response(content=store_excel.workbook_bytes(template, search, region, commune, status, include_deleted),media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                         headers={'Content-Disposition':f'attachment; filename="{name}"','Cache-Control':'no-store'})
 
     @api.get('/filtered.csv')

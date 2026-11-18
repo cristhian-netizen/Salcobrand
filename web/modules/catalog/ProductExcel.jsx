@@ -1,4 +1,6 @@
 'use client';
+import SortableTable from '../tables/SortableTable';
+
 import { useState } from 'react';
 import { api, download } from '../../lib/sb';
 import { Card, ErrorBox } from '../sb/ui';
@@ -112,7 +114,7 @@ export default function ProductExcel({ onSaved }) {
           ) : (
             <>
               <div className="sb-table">
-                <table>
+                <SortableTable>
                   <thead>
                     <tr>
                       <th>SKU</th>
@@ -129,7 +131,7 @@ export default function ProductExcel({ onSaved }) {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </SortableTable>
               </div>
               <button
                 className="action"

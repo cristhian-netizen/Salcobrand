@@ -1,4 +1,6 @@
 'use client';
+import SortableTable from '../tables/SortableTable';
+
 import {sessionUrl} from '../../lib/tab-session.mjs';
 import {useState} from 'react';
 import {api, fmt, download} from '../../lib/sb';
@@ -48,9 +50,9 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo}) {
     <MeasurementReview key={reading.id} reading={{...reading, review}} user={user} onSaved={setReview}/>
     <ManualDetails reading={reading} user={user} reviewVersion={review?.version || 0} onReviewChanged={setReview}/>
     <Card title="Capacidad máxima por dimensiones" subtitle={`Margen adicional de profundidad ${reading.capacity?.dimensionMarginPct ?? '—'} %. La capacidad teórica no confirma existencias ni unidades ocultas.`}>
-      {reading.capacity?.products?.length ? <div className="sb-table"><table><thead><tr><th>Producto</th><th>Nivel / posición</th><th>Profundidad cm</th><th>Espesor cm</th><th>Máximo por cara</th><th>Máximo total</th></tr></thead><tbody>
+      {reading.capacity?.products?.length ? <div className="sb-table"><SortableTable><thead><tr><th>Producto</th><th>Nivel / posición</th><th>Profundidad cm</th><th>Espesor cm</th><th>Máximo por cara</th><th>Máximo total</th></tr></thead><tbody>
         {reading.capacity.products.map((item,index) => <tr key={index}><td>{item.product}<small>{item.matchReason}</small></td><td>{item.level} / {item.position}</td><td>{item.depthCm ?? '—'}</td><td>{item.thicknessCm ?? '—'}</td><td>{item.unitsPerFacing ?? '—'}</td><td>{item.maximumUnits ?? '—'}</td></tr>)}
-      </tbody></table></div> : <p className="sb-hint">Esta captura no tiene profundidades por nivel registradas.</p>}
+      </tbody></SortableTable></div> : <p className="sb-hint">Esta captura no tiene profundidades por nivel registradas.</p>}
     </Card>
     <div className="sb-metrics">
       <article className="sb-metric"><span>Puntaje de exhibición</span>
@@ -70,26 +72,26 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo}) {
         <button key={id} type="button" aria-pressed={tab === id} onClick={() => setTab(id)}>{label}</button>)}
     </div>
     {tab === 'productos' && <Card body={false} title="Productos detectados" actions={can(user, 'train') && reading.needs_review > 0 && <button type="button" onClick={onConfirmGo}>Revisar {reading.needs_review} recortes</button>}>
-      {products.length ? <div className="sb-table"><table><thead><tr><th>Producto</th><th>Nivel / pos.</th><th className="sb-num">Caras</th><th>Estado</th><th className="sb-num">Confianza</th></tr></thead><tbody>
+      {products.length ? <div className="sb-table"><SortableTable><thead><tr><th>Producto</th><th>Nivel / pos.</th><th className="sb-num">Caras</th><th>Estado</th><th className="sb-num">Confianza</th></tr></thead><tbody>
         {products.map((p, i) => <tr key={i}><td><b>{p.product}</b><small>{[p.brand, p.category].filter(Boolean).join(' · ')}</small></td>
           <td>{p.shelf_level} / {p.position_index}</td><td className="sb-num">{p.facings}</td>
           <td><StatusPill status={p.planogram_status || p.match_status}/>{p.needs_review && <> <Pill kind="warn">Confianza limitada</Pill></>}</td>
           <td className="sb-num">{typeof p.confidence === 'number' ? Math.round(p.confidence * 100) + ' %' : '—'}</td></tr>)}
-      </tbody></table></div> : <Empty>El motor no detectó productos en esta lectura.</Empty>}
+      </tbody></SortableTable></div> : <Empty>El motor no detectó productos en esta lectura.</Empty>}
     </Card>}
     {tab === 'planograma' && (c ? <Card body={false} title={c.planogram_name} subtitle={`${c.items?.length || 0} posiciones · ${c.items_missing_price || 0} sin precio`}>
-      <div className="sb-table"><table><thead><tr><th>Posición</th><th>Producto</th><th className="sb-num">Esperadas</th><th className="sb-num">Detectadas</th><th>Estado</th><th className="sb-num">Precio</th></tr></thead><tbody>
+      <div className="sb-table"><SortableTable><thead><tr><th>Posición</th><th>Producto</th><th className="sb-num">Esperadas</th><th className="sb-num">Detectadas</th><th>Estado</th><th className="sb-num">Precio</th></tr></thead><tbody>
         {(c.items || []).map(item => <tr key={item.planogram_item_id}><td>{item.section_label} · banda {item.band} · {item.position_in_section}</td>
           <td><b>{item.title}</b>{item.tag && <small>{item.tag}</small>}</td><td className="sb-num">{item.expected_facings}</td><td className="sb-num">{item.detected_facings}</td>
           <td><StatusPill status={item.status}/></td><td className="sb-num">{clp(item.price_clp)}</td></tr>)}
-      </tbody></table></div>
+      </tbody></SortableTable></div>
       {c.foreign_products?.length > 0 && <div className="sb-card-body"><h3>Productos fuera de planograma</h3><p>{c.foreign_products.map(f => f.product).join(' · ')}</p></div>}
     </Card> : <Card><Empty>Esta góndola no tiene planograma asignado. Asígnalo desde Puntos de venta para medir cumplimiento.</Empty></Card>)}
     {tab === 'reposicion' && <Card body={false} title="Reposición sugerida" subtitle="Posiciones faltantes o bajo lo esperado, prioridad TOP y lanzamientos primero.">
-      {c?.replenishment?.length ? <div className="sb-table"><table><thead><tr><th>Producto</th><th>Posición</th><th className="sb-num">Faltan</th><th className="sb-num">Valor</th><th>Estado</th></tr></thead><tbody>
+      {c?.replenishment?.length ? <div className="sb-table"><SortableTable><thead><tr><th>Producto</th><th>Posición</th><th className="sb-num">Faltan</th><th className="sb-num">Valor</th><th>Estado</th></tr></thead><tbody>
         {c.replenishment.map(item => <tr key={item.planogram_item_id}><td><b>{item.title}</b>{item.tag && <small>{item.tag}</small>}</td><td>{item.section_label} · {item.position_in_section}</td>
           <td className="sb-num">{item.deficit}</td><td className="sb-num">{clp(item.deficit_value_clp)}</td><td><StatusPill status={item.status}/></td></tr>)}
-      </tbody></table></div> : <Empty>{c ? 'No hay posiciones por reponer en esta lectura.' : 'Sin planograma no se puede calcular reposición.'}</Empty>}
+      </tbody></SortableTable></div> : <Empty>{c ? 'No hay posiciones por reponer en esta lectura.' : 'Sin planograma no se puede calcular reposición.'}</Empty>}
     </Card>}
     <div className="sb-actions" style={{justifyContent: 'space-between'}}>
       <span className="sb-hint">Lectura #{reading.id} · {fmt.dateTime(reading.created_at)}{reading.engine ? ` · motor ${reading.engine.version} (${Math.round((reading.engine.elapsed_ms || 0) / 1000)} s)` : ''}</span>

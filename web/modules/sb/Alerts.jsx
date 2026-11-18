@@ -1,5 +1,7 @@
 ﻿'use client';
 import { useState } from 'react';
+import AdministrativeAlerts from '../alerts/AdministrativeAlerts';
+import {profileOf} from '../../lib/profiles.mjs';
 import { api } from '../../lib/sb';
 import { useApi, Header, Loading, ErrorBox } from './ui';
 import Findings from '../alerts/Findings';
@@ -9,7 +11,9 @@ import HomeReadingDetail from '../home/HomeReadingDetail';
 
 const INITIAL = { status: 'Pendiente', store: '', point: '', from: '', to: '' };
 
-export default function Alerts({ user, go, notify }) {
+export default function Alerts(props) { return profileOf(props.user) === 'admin' ? <AdministrativeAlerts go={props.go}/> : <CustomerAlerts {...props}/>; }
+
+function CustomerAlerts({ user, go, notify }) {
   const [filters, setFilters] = useState(INITIAL);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -48,7 +52,7 @@ export default function Alerts({ user, go, notify }) {
     finally { setBusy(false); }
   }
   return <section>
-    <Header eyebrow="Operación" title="Alertas" subtitle="Revisiones rechazadas y hallazgos de tus puntos de venta.">
+    <Header eyebrow="General" title="Alertas" subtitle="Revisiones rechazadas y hallazgos de tus puntos de venta.">
       <button type="button" disabled={busy || loading || invalid} onClick={reload}>Actualizar</button>
     </Header>
     <fieldset className="sb-toolbar alerts-filters" aria-label="Filtros de alertas" disabled={busy}>

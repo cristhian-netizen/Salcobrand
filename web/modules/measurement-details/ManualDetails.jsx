@@ -1,4 +1,6 @@
 'use client';
+import SortableTable from '../tables/SortableTable';
+
 import { useEffect, useState } from 'react';
 import { api, fmt } from '../../lib/sb';
 import { can } from '../../lib/profiles.mjs';
@@ -43,14 +45,14 @@ export default function ManualDetails({ reading, user, reviewVersion, onReviewCh
       {editing ? <DetailsForm readingId={reading.id} initial={data} options={options} onSaved={saved}
         onCancel={() => setEditing(false)} onReload={() => { setEditing(false); reload(); }} /> : <>
         <p>{data.shelfLabel || 'Registro histórico sin ubicación física identificada.'}</p>
-        {data.details.length ? <div className="sb-table"><table>
+        {data.details.length ? <div className="sb-table"><SortableTable>
           <thead><tr><th>Producto / SKU</th><th>Posición</th><th>Participación</th><th>Esperado</th><th>Caras</th><th>Presente</th><th>Planograma</th><th>Precio observado</th><th>Confianza %</th><th>Origen</th></tr></thead>
           <tbody>{data.details.map((row, index) => <tr key={index}>
             <td><b>{row.name}</b><small>{row.sku}</small></td><td>{row.position}</td><td>{row.ownership}</td>
             <td>{answer(row.expected)}</td><td>{row.faces ?? '—'}</td><td>{answer(row.present)}</td><td>{row.match}</td>
             <td>{row.observedPrice ?? '—'}</td><td>{row.confidence ?? '—'}</td><td>Manual</td>
           </tr>)}</tbody>
-        </table></div> : <Empty>Aún no hay detalle manual registrado.</Empty>}
+        </SortableTable></div> : <Empty>Aún no hay detalle manual registrado.</Empty>}
         <div className="manual-confirmations-summary">
           <span>Cobertura completa · {answer(data.scopeConfirmed)}</span>
           <span>Surtido esperado · {answer(data.expectedConfirmed)}</span>

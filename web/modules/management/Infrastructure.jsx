@@ -1,4 +1,6 @@
 'use client';
+import SortableTable from '../tables/SortableTable';
+
 import {useState} from 'react';
 import {api} from '../../lib/sb';
 import {useApi, Header, Card, Loading, Empty, ErrorBox, Modal, Pill} from '../sb/ui';
@@ -28,7 +30,7 @@ export default function Infrastructure({notify}) {
     <ErrorBox error={state.error} onRetry={state.reload}/>
     <div className="sb-toolbar"><label>Buscar<input value={search} onChange={event => setSearch(event.target.value)} placeholder="Nombre, código, tipo o fabricante"/></label><span className="sb-count">{types.length} {types.length === 1 ? 'góndola' : 'góndolas'}</span></div>
     {state.loading ? <Loading/> : <Card body={false}>
-      {!types.length ? <Empty>No hay góndolas con estos filtros.</Empty> : <div className="sb-table"><table>
+      {!types.length ? <Empty>No hay góndolas con estos filtros.</Empty> : <div className="sb-table"><SortableTable>
         <thead><tr><th>Góndola</th><th>Tipo</th><th>Proveedor/fabricante</th><th>Medidas</th><th>Estado</th><th>Acciones</th></tr></thead>
         <tbody>{types.map(type => <tr key={type.id}>
           <td><div className="mg-type"><ShelfPhoto photo={type.photo} name={type.name}/><b>{type.name}</b></div></td>
@@ -38,7 +40,7 @@ export default function Infrastructure({notify}) {
           <td><Pill kind={type.status === 'Activo' ? 'ok' : ''}>{type.status}</Pill></td>
           <td><div className="sb-actions infrastructure-actions"><button type="button" onClick={() => setEdit(type)}>Editar</button><button type="button" onClick={() => {setError('');setRemove(type);}}>Eliminar</button></div></td>
         </tr>)}</tbody>
-      </table></div>}
+      </SortableTable></div>}
     </Card>}
     {edit && <Modal title={edit.id ? 'Editar góndola' : 'Crear góndola'} onClose={() => setEdit(null)}>
       <TypeForm type={edit} onSaved={() => {setEdit(null);state.reload();notify('Góndola guardada.');}} onClose={() => setEdit(null)}/>

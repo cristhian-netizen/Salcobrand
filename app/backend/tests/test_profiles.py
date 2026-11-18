@@ -29,12 +29,13 @@ from people_cases import PeopleCases
 from usage_cases import UsageCases
 from console_cases import ConsoleCases
 from session_cases import SessionCases
+from portal_improvements_cases import PortalImprovementsCases
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
 
-class ProfileHTTPTests(SessionCases, ConsoleCases, UsageCases, PeopleCases, StoreExcelCases, AlertCases, DashboardCases, DetailCases, HomeCases, SettingsCases, ReportCases, CaptureCases, CatalogCases, InfrastructureCases, unittest.TestCase):
+class ProfileHTTPTests(PortalImprovementsCases, SessionCases, ConsoleCases, UsageCases, PeopleCases, StoreExcelCases, AlertCases, DashboardCases, DetailCases, HomeCases, SettingsCases, ReportCases, CaptureCases, CatalogCases, InfrastructureCases, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory(prefix="salcobrand-profile-tests-")

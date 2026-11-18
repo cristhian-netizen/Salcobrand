@@ -53,7 +53,7 @@ def local_datetime(value):
     return parsed.astimezone(CHILE)
 
 
-def history(scope, store="", point="", start="", end="", status="", captured_by=None, include_details=False, include_alerts=False):
+def history(scope, store="", point="", start="", end="", status="", captured_by=None, include_details=False, include_alerts=False, region="", commune=""):
     try:
         for value in (start, end):
             if value:
@@ -100,6 +100,8 @@ def history(scope, store="", point="", start="", end="", status="", captured_by=
         if (start and day < start) or (end and day > end) or (status and state != status):
             continue
         master = by_store.get(reading["store_id"], {})
+        if (region and master.get("region") != region) or (commune and master.get("commune") != commune):
+            continue
         score = db.compute_shelf_standards(json.loads(reading["products_json"] or "[]"), reading["empty_space_pct"])
         paths = json.loads(reading["image_paths_json"] or "[]")
         if not paths and reading["image_path"]:
@@ -133,7 +135,7 @@ def history(scope, store="", point="", start="", end="", status="", captured_by=
             "in_review": sum(r["status"] == "En revisión" for r in rows),
             "rejected": sum(r["status"] == "Rechazado" for r in rows),
             "average_score": average, "average_score_band": score_band(average)},
-            "stores": sorted([{"code": code, "name": by_store.get(code, {}).get("name") or code}
+            "stores": sorted([{"code": code, "name": by_store.get(code, {}).get("name") or code, "region": by_store.get(code, {}).get("region", ""), "commune": by_store.get(code, {}).get("commune", "")}
                               for code in allowed_stores if code], key=lambda s: s["name"].casefold()),
             "points": sorted([dict(p) for p in points], key=lambda p: p["name"].casefold())}
 
@@ -230,3 +232,17 @@ def reading_xlsx_bytes(reading, row):
     output = io.BytesIO()
     book.save(output)
     return output.getvalue()
+
+
+def sorted_rows(rows, sort='', direction='asc'):
+    import unicodedata
+    if not sort:
+        return rows
+    if sort not in FIELDS or direction not in ('asc', 'desc'):
+        raise ManagementError('Selecciona una columna y dirección de orden válidas.')
+    def key(row):
+        value = row.get(sort)
+        return value if sort in ('id','score') else unicodedata.normalize('NFKD', str(value)).encode('ascii','ignore').decode().casefold()
+    present = [row for row in rows if row.get(sort) is not None and row.get(sort) != '']
+    missing = [row for row in rows if row.get(sort) is None or row.get(sort) == '']
+    return sorted(present, key=key, reverse=direction == 'desc') + missing

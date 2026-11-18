@@ -1,4 +1,6 @@
 'use client';
+import SortableTable from '../tables/SortableTable';
+
 import { useState } from 'react';
 import { api } from '../../lib/sb';
 import {
@@ -20,6 +22,7 @@ export default function Products({ notify }) {
   const [brand, setBrand] = useState('');
   const [category, setCategory] = useState('');
   const [selected, setSelected] = useState([]);
+  const [importing, setImporting] = useState(false);
   const [edit, setEdit] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -60,6 +63,7 @@ export default function Products({ notify }) {
   return (
     <section>
       <Header eyebrow="Administración" title="Productos">
+        <button type="button" onClick={() => setImporting(true)}>Carga masiva</button>
         <button className="action" disabled={!catalog.data} onClick={() => setEdit({})}>
           Crear producto
         </button>
@@ -142,7 +146,7 @@ export default function Products({ notify }) {
           <Empty>No hay productos con estos filtros.</Empty>
         ) : (
           <div className="sb-table">
-            <table>
+            <SortableTable>
               <thead>
                 <tr>
                   <th>Seleccionar</th>
@@ -207,11 +211,11 @@ export default function Products({ notify }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </SortableTable>
           </div>
         )}
       </Card>
-      <ProductExcel onSaved={catalog.reload} />
+      {importing && <Modal title="Carga masiva de productos" wide onClose={() => setImporting(false)}><ProductExcel onSaved={catalog.reload}/></Modal>}
       {edit && (
         <Modal
           title={edit.id ? 'Editar producto' : 'Crear producto'}

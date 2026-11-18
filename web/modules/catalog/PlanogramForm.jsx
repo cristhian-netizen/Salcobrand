@@ -1,4 +1,6 @@
 'use client';
+import SortableTable from '../tables/SortableTable';
+
 import {orderRegions} from '../../lib/locations.mjs';
 import { useState } from 'react';
 import { SaveForm, StatusField, enc, sortByName } from '../management/shared';
@@ -221,7 +223,7 @@ function PlanogramForm({ plan, catalog, onSaved, onClose }) {
           </button>
         </div>
         <div className="sb-table ct-positions">
-          <table>
+          <SortableTable>
             <thead>
               <tr>
                 <th>Nivel ↓</th>
@@ -345,7 +347,7 @@ function PlanogramForm({ plan, catalog, onSaved, onClose }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </SortableTable>
         </div>
       </fieldset>
     </SaveForm>

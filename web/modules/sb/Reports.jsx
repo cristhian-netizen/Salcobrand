@@ -1,4 +1,6 @@
 "use client";
+import SortableTable from '../tables/SortableTable';
+
 import { useState } from "react";
 import { api, download, fmt } from "../../lib/sb";
 import { profileOf } from '../../lib/profiles.mjs';
@@ -18,12 +20,14 @@ const INITIAL = { store: "", from: "", to: "", status: "" };
 const STATUSES = ["En revisión", "Aprobado", "Rechazado"];
 
 export default function Reports({ user, go }) {
+  const [sort,setSort] = useState(null);
+  const sortFields=["id","store_id","store_name","region","commune","date","time","score","status","note","performance","captured_by","manager"];
   const [filters, setFilters] = useState(INITIAL);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const invalid = filters.from && filters.to && filters.from > filters.to;
   const query = new URLSearchParams(
-    Object.entries(filters).filter(([, value]) => value),
+    Object.entries({...filters,...(sort?{sort:sortFields[sort.column],direction:sort.direction}:{})}).filter(([, value]) => value),
   ).toString();
   const {
     data,
@@ -73,14 +77,6 @@ export default function Reports({ user, go }) {
         title="Reportes y exportaciones"
         subtitle="Historial de mediciones por PDV, con fecha y hora separadas. Los indicadores de desempeño consideran únicamente mediciones aprobadas."
       >
-        <button
-          type="button"
-          disabled={busy || loading || invalid || !current}
-          onClick={() => exportFile("csv")}
-        >
-          <Icon name="download" size={16} />
-          Descargar CSV
-        </button>
         <button
           type="button"
           className="action"
@@ -187,7 +183,7 @@ export default function Reports({ user, go }) {
             >
               {rows.length ? (
                 <div className="sb-table reports-table" role="region" aria-label="Tabla de reportes de mediciones" tabIndex={0}>
-                  <table>
+                  <SortableTable sort={sort} serverSort onSort={setSort}>
                     <thead>
                       <tr>
                         {[
@@ -252,7 +248,7 @@ export default function Reports({ user, go }) {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </SortableTable>
                 </div>
               ) : (
                 <Empty>No hay mediciones para los filtros seleccionados.</Empty>

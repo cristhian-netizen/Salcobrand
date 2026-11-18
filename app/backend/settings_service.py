@@ -21,6 +21,7 @@ DEFAULTS = {
     'productParameters': {'dimensionMarginPct': 10, 'ownBrands': []},
     'kpiParameters': {**{key: {'warn': warn, 'good': good, 'direction': direction}
                          for key, (_, direction, warn, good) in INDICATORS.items()}, 'freshDays': 7},
+    'alertParameters': {'reviewDays': 7, 'noMeasurementDays': 7},
     'catalogConfigured': False,
 }
 
@@ -56,6 +57,7 @@ def read(conn=None):
                  (json.dumps(DEFAULTS),))
     row = conn.execute('SELECT * FROM management_settings WHERE id = 1').fetchone()
     state = json.loads(row['data_json'])
+    state.setdefault('alertParameters', copy.deepcopy(DEFAULTS['alertParameters']))
     if not state['catalogConfigured']:
         # Existing API-created products remain editable before classification is configured.
         for product in product_references(conn):
@@ -122,6 +124,10 @@ def save(section, value, version, actor):
             if any(row['store_type'] not in types for row in used):
                 raise ManagementError('No puedes quitar o renombrar un tipo asignado a un PDV.', 409)
             state['pdvTypes'] = types
+        elif section == 'alerts':
+            if not isinstance(value, dict) or set(value) != {'reviewDays', 'noMeasurementDays'}:
+                raise ManagementError('Completa los dos plazos de alertas.')
+            state['alertParameters'] = {key: integer(value[key], 'Plazo de alertas (días)', 1, 365) for key in ('reviewDays', 'noMeasurementDays')}
         elif section == 'score':
             if not isinstance(value, dict) or set(value) != {'redMax', 'yellowMax'}:
                 raise ManagementError('Indica los límites rojo y amarillo.')
@@ -138,11 +144,11 @@ def save(section, value, version, actor):
                 raise ManagementError('El margen debe estar entre 0 y 50 %.')
             state['productParameters']['dimensionMarginPct'] = margin
         elif section == 'kpi':
-            if not isinstance(value, dict) or set(value) != {*INDICATORS, 'freshDays'}:
+            if not isinstance(value, dict) or set(value) not in ({*INDICATORS, 'freshDays'}, set(INDICATORS) - {'oos'}):
                 raise ManagementError('Completa los objetivos de todos los indicadores.')
-            kpis = {'freshDays': integer(value['freshDays'], 'Antigüedad de ausencias', 1, 365)}
+            kpis = {'freshDays': integer(value.get('freshDays', state['kpiParameters']['freshDays']), 'Antigüedad de ausencias', 1, 365)}
             for key, (label, direction, _, _) in INDICATORS.items():
-                thresholds = value[key]
+                thresholds = value.get(key, state['kpiParameters'][key])
                 if not isinstance(thresholds, dict) or set(thresholds) != {'warn', 'good', 'direction'} or thresholds['direction'] != direction:
                     raise ManagementError('Revisa los umbrales y la dirección de ' + label)
                 maximum = 9007199254740991 if direction == 'lower' else 100

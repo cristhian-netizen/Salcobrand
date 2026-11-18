@@ -14,7 +14,9 @@ export function regionFor(regions, value) {
 
 
 const REGION_ORDER = ['15','01','02','03','04','05','13','06','07','16','08','09','14','10','11','12'];
-export const orderRegions = regions => [...regions].sort((a,b) => REGION_ORDER.indexOf(a.code) - REGION_ORDER.indexOf(b.code));
+const REGION_NAMES = ['arica','tarapaca','antofagasta','atacama','coquimbo','valparaiso','metropolitana','higgins','maule','nuble','biobio','araucania','rios','lagos','aysen','magallanes'];
+function regionRank(region) { const code = REGION_ORDER.indexOf(region.code); const name = REGION_NAMES.findIndex(part => normalize(region.name).includes(part)); return code >= 0 ? code : name >= 0 ? name : 99; }
+export const orderRegions = regions => [...regions].sort((a,b) => regionRank(a)-regionRank(b) || byLocationName(a,b));
 export const orderRegionNames = (names, regions) => [...new Set(names.filter(Boolean))].sort((a,b) => {
   const left = REGION_ORDER.indexOf(regionFor(regions,a)?.code), right = REGION_ORDER.indexOf(regionFor(regions,b)?.code);
   return (left < 0 ? 99 : left) - (right < 0 ? 99 : right) || collator.compare(a,b);

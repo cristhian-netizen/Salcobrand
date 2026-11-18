@@ -1,4 +1,6 @@
 'use client';
+import SortableTable from '../tables/SortableTable';
+
 import {sessionUrl} from '../../lib/tab-session.mjs';
 import {useMemo, useState} from 'react';
 import {api, download, fmt} from '../../lib/sb';
@@ -37,16 +39,16 @@ function PointList({user, go, initialStore}) {
       <span className="sb-count">{points.length} góndolas</span>
     </div>
     <Card body={false}>
-      {loading && !data ? <Loading/> : points.length ? <div className="sb-table"><table><thead><tr><th>Góndola</th><th>Local</th><th>Planograma</th><th>Última lectura</th><th>Cumplimiento aprobado · 30 días</th><th className="sb-num">Quiebres</th><th className="sb-num">Por revisar</th></tr></thead><tbody>
+      {loading && !data ? <Loading/> : points.length ? <div className="sb-table"><SortableTable><thead><tr><th>Góndola</th><th>Local</th><th>Planograma</th><th>Última lectura</th><th>Cumplimiento aprobado · 30 días</th><th className="sb-num">Quiebres</th><th className="sb-num">Por revisar</th></tr></thead><tbody>
         {points.map(p => <tr key={p.id} className="sb-click" onClick={() => go(`gondolas/${encodeURIComponent(p.id)}`)}>
           <td><b>{p.gondola || p.name}</b><small>{p.id}</small></td><td>{p.store_name || p.store || '—'}</td>
           <td>{p.planogram_name || <span className="sb-hint">Sin planograma</span>}</td>
-          <td>{p.last ? fmt.ago(p.last.created_at) : <span className="sb-hint">Sin lecturas</span>}<small>{p.readings_count} lecturas</small></td>
+          <td data-sort-value={p.last?.created_at || ''}>{p.last ? fmt.ago(p.last.created_at) : <span className="sb-hint">Sin lecturas</span>}<small>{p.readings_count} lecturas</small></td>
           <td><ComplianceBar pct={p.performance?.compliance_pct}/></td>
           <td className="sb-num">{p.performance?.missing ? <Pill kind="bad">{p.performance.missing}</Pill> : 0}</td>
           <td className="sb-num">{p.last?.needs_review ? <Pill kind="warn">{p.last.needs_review}</Pill> : 0}</td>
         </tr>)}
-      </tbody></table></div> : <Empty>No hay góndolas con estos filtros.</Empty>}
+      </tbody></SortableTable></div> : <Empty>No hay góndolas con estos filtros.</Empty>}
     </Card>
     {creating && <CreatePoint user={user} onClose={() => setCreating(false)} onCreated={p => { setCreating(false); go(`gondolas/${encodeURIComponent(p.id)}`); }}/>}
   </section>;
@@ -110,16 +112,16 @@ function PointDetail({user, go, pointId, tab, notify}) {
         <button key={id} type="button" aria-pressed={tab === id} onClick={() => go(`gondolas/${encodeURIComponent(point.id)}/${id}`)}>{label}</button>)}
     </div>
     {tab === 'lecturas' && <Card body={false} title="Historial de lecturas">
-      {readings.length ? <div className="sb-table"><table><thead><tr><th></th><th>Fecha</th><th>Estado</th><th className="sb-num">Caras</th><th>Cumplimiento</th><th>Puntaje</th><th className="sb-num">Por revisar</th></tr></thead><tbody>
+      {readings.length ? <div className="sb-table"><SortableTable><thead><tr><th></th><th>Fecha</th><th>Estado</th><th className="sb-num">Caras</th><th>Cumplimiento</th><th>Puntaje</th><th className="sb-num">Por revisar</th></tr></thead><tbody>
         {readings.map(r => <tr key={r.id} className="sb-click" onClick={() => go(`gondolas/${encodeURIComponent(point.id)}/lectura/${r.id}`)}>
           <td style={{width: 76}}>{r.image_urls?.[0] ? <img className="sb-thumb" src={sessionUrl(r.image_urls[0])} alt="" loading="lazy"/> : <span className="sb-thumb"/>}</td>
-          <td><b>{fmt.dateTime(r.created_at)}</b><small>Lectura #{r.id} · {r.image_urls?.length || 0} fotos</small></td>
+          <td data-sort-value={r.created_at}><b>{fmt.dateTime(r.created_at)}</b><small>Lectura #{r.id} · {r.image_urls?.length || 0} fotos</small></td>
           <td><Pill kind={r.review?.status === 'Aprobado' ? 'ok' : r.review?.status === 'Rechazado' ? 'bad' : 'warn'}>{r.review?.status || 'En revisión'}</Pill></td>
           <td className="sb-num">{r.total_facings}</td><td><ComplianceBar pct={r.compliance?.compliance_pct}/></td>
           <td>{r.standards ? <Pill kind={r.standards.score_band}>{r.standards.overall_score} · {r.standards.grade}</Pill> : '—'}</td>
           <td className="sb-num">{r.needs_review ? <Pill kind="warn">{r.needs_review}</Pill> : 0}</td>
         </tr>)}
-      </tbody></table></div> : <Empty>Sin lecturas todavía. Usa “Nueva lectura” para analizar la góndola.</Empty>}
+      </tbody></SortableTable></div> : <Empty>Sin lecturas todavía. Usa “Nueva lectura” para analizar la góndola.</Empty>}
     </Card>}
     {tab === 'tendencias' && <Trends pointId={point.id}/>}
     {tab === 'reposicion' && <Replenishment pointId={point.id} user={user} notify={notify}/>}
@@ -149,11 +151,11 @@ function Trends({pointId}) {
         <b>{v == null ? '—' : usePct ? Math.round(v) + '%' : v}</b><i style={{height: `${Math.max(2, ((v || 0) / (usePct ? 100 : max)) * 120)}px`}}/><span>{r.date?.slice(5)}</span></div>; })}</div> : <Empty>Sin lecturas suficientes.</Empty>}
     </Card>
     <Card body={false} title="Productos del planograma" subtitle={data?.flag_counts ? Object.entries(data.flag_counts).map(([k, v]) => `${v} ${k}`).join(' · ') : ''}>
-      {data?.skus?.length ? <div className="sb-table"><table><thead><tr><th>Producto</th><th>Posición</th><th className="sb-num">Esperadas</th><th>Serie (caras)</th><th>Tendencia</th></tr></thead><tbody>
+      {data?.skus?.length ? <div className="sb-table"><SortableTable><thead><tr><th>Producto</th><th>Posición</th><th className="sb-num">Esperadas</th><th>Serie (caras)</th><th>Tendencia</th></tr></thead><tbody>
         {data.skus.map(s => <tr key={s.planogram_item_id}><td><b>{s.title}</b>{s.tag && <small>{s.tag}</small>}</td><td>{s.section_label} · {s.position_in_section}</td>
           <td className="sb-num">{s.expected_facings}</td><td style={{fontVariantNumeric: 'tabular-nums'}}>{s.series.map(v => v ?? '·').join('  ')}</td>
           <td><StatusPill status={s.flag_kind} label={s.flag}/></td></tr>)}
-      </tbody></table></div> : <Empty>Asigna un planograma para ver tendencias por producto.</Empty>}
+      </tbody></SortableTable></div> : <Empty>Asigna un planograma para ver tendencias por producto.</Empty>}
     </Card>
   </>;
 }
@@ -173,11 +175,11 @@ function Replenishment({pointId, user, notify}) {
     <ErrorBox error={error}/>
     <div className="sb-grid-2">
       <Card body={false} title="Quiebres recurrentes" subtitle={rep.data ? `Espacio vacío promedio ${fmt.pct(rep.data.avg_empty_space_pct)} en las últimas lecturas` : ''}>
-        {rep.loading && !rep.data ? <Loading/> : rep.data?.recurring_stockouts?.length ? <div className="sb-table"><table><thead><tr><th>Producto</th><th className="sb-num">Quiebres</th><th className="sb-num">Urgencia</th><th></th></tr></thead><tbody>
+        {rep.loading && !rep.data ? <Loading/> : rep.data?.recurring_stockouts?.length ? <div className="sb-table"><SortableTable><thead><tr><th>Producto</th><th className="sb-num">Quiebres</th><th className="sb-num">Urgencia</th><th></th></tr></thead><tbody>
           {rep.data.recurring_stockouts.map(s => <tr key={s.product}><td><b>{s.product}</b><small>{s.brand}</small></td><td className="sb-num">{s.times_out_of_stock} de {s.times_seen}</td>
             <td className="sb-num"><Pill kind={s.urgency_pct >= 60 ? 'bad' : 'warn'}>{Math.round(s.urgency_pct)} %</Pill></td>
             <td>{can(user, 'resolve') && <button type="button" onClick={() => run(() => api(`/api/points/${encodeURIComponent(pointId)}/stock-actions`, {method: 'POST', body: {product_title: s.product, action_type: 'solicitud', quantity: 1, note: 'Quiebre recurrente', planogram_item_id: null}}), 'Solicitud de reposición creada.')}>Solicitar</button>}</td></tr>)}
-        </tbody></table></div> : <Empty>Sin quiebres recurrentes en las últimas lecturas.</Empty>}
+        </tbody></SortableTable></div> : <Empty>Sin quiebres recurrentes en las últimas lecturas.</Empty>}
       </Card>
       {can(user, 'resolve') && <Card title="Nueva solicitud">
         <form className="sb-form" onSubmit={request}>
@@ -190,18 +192,18 @@ function Replenishment({pointId, user, notify}) {
       </Card>}
     </div>
     <Card body={false} title="Solicitudes abiertas">
-      {actions.data?.length ? <div className="sb-table"><table><thead><tr><th>Producto</th><th>Tipo</th><th className="sb-num">Cantidad</th><th>Creada</th><th></th></tr></thead><tbody>
+      {actions.data?.length ? <div className="sb-table"><SortableTable><thead><tr><th>Producto</th><th>Tipo</th><th className="sb-num">Cantidad</th><th>Creada</th><th></th></tr></thead><tbody>
         {actions.data.map(a => <tr key={a.id}><td><b>{a.product_title}</b>{a.note && <small>{a.note}</small>}</td><td>{a.action_type === 'ajuste_robo' ? 'Ajuste por robo' : 'Reposición'}</td>
           <td className="sb-num">{a.quantity}</td><td>{fmt.ago(a.created_at)}<small>{a.created_by}</small></td>
           <td className="sb-actions">{can(user, 'resolve') && <><button type="button" onClick={() => run(() => api(`/api/stock-actions/${a.id}/resolve`, {method: 'POST'}), 'Solicitud resuelta.')}>Resolver</button>
             <button className="remove" type="button" onClick={() => run(() => api(`/api/stock-actions/${a.id}`, {method: 'DELETE'}), 'Solicitud eliminada.')}>Eliminar</button></>}</td></tr>)}
-      </tbody></table></div> : <Empty>No hay solicitudes abiertas.</Empty>}
+      </tbody></SortableTable></div> : <Empty>No hay solicitudes abiertas.</Empty>}
     </Card>
     <Card body={false} title="Quiebres de proveedor">
-      {stockouts.data?.length ? <div className="sb-table"><table><thead><tr><th>Producto</th><th>Registrado</th><th></th></tr></thead><tbody>
+      {stockouts.data?.length ? <div className="sb-table"><SortableTable><thead><tr><th>Producto</th><th>Registrado</th><th></th></tr></thead><tbody>
         {stockouts.data.map(s => <tr key={s.id}><td><b>{s.product_title}</b>{s.note && <small>{s.note}</small>}</td><td>{fmt.ago(s.created_at)}<small>{s.created_by}</small></td>
           <td>{can(user, 'resolve') && <button type="button" onClick={() => run(() => api(`/api/supplier-stockouts/${s.id}/resolve`, {method: 'POST'}), 'Quiebre de proveedor resuelto.')}>Resolver</button>}</td></tr>)}
-      </tbody></table></div> : <Empty>Sin quiebres de proveedor abiertos.</Empty>}
+      </tbody></SortableTable></div> : <Empty>Sin quiebres de proveedor abiertos.</Empty>}
     </Card>
   </>;
 }

@@ -1,4 +1,6 @@
 'use client';
+import SortableTable from '../tables/SortableTable';
+
 import {sessionUrl} from '../../lib/tab-session.mjs';
 import {useState} from 'react';
 import {api, fmt} from '../../lib/sb';
@@ -22,14 +24,14 @@ export default function CaptureLinks({notify}) {
     </Header>
     <ErrorBox error={error || actionError} onRetry={error ? reload : undefined}/>
     <Card body={false}>
-      {loading && !data ? <Loading/> : data?.length ? <div className="sb-table"><table><thead><tr><th>Local</th><th>Enlace</th><th className="sb-num">Fotos</th><th>Última</th><th>Estado</th><th></th></tr></thead><tbody>
+      {loading && !data ? <Loading/> : data?.length ? <div className="sb-table"><SortableTable><thead><tr><th>Local</th><th>Enlace</th><th className="sb-num">Fotos</th><th>Última</th><th>Estado</th><th></th></tr></thead><tbody>
         {data.map(l => <tr key={l.token}><td><b>{l.label || l.store_id}</b><small>{l.universal ? `Universal · ${l.locales?.length || 0} locales` : l.store_id}</small></td>
           <td><button className="link" type="button" onClick={() => navigator.clipboard?.writeText(urlOf(l)).then(() => notify('Enlace copiado.'))} title="Copiar">/captura/{l.token}</button>
             <small>{l.expires_at ? `Vence ${fmt.date(l.expires_at)}` : 'Sin vencimiento'} · máx. {l.max_per_day}/día</small></td>
-          <td className="sb-num">{l.fotos ?? 0}</td><td>{l.ultima ? fmt.ago(l.ultima) : '—'}</td>
+          <td className="sb-num">{l.fotos ?? 0}</td><td data-sort-value={l.ultima || ''}>{l.ultima ? fmt.ago(l.ultima) : '—'}</td>
           <td>{l.active ? <Pill kind="ok">Activo</Pill> : <Pill>Inactivo</Pill>}</td>
           <td className="sb-actions"><button type="button" onClick={() => setViewing(l)}>Fotos</button><button type="button" onClick={() => toggle(l)}>{l.active ? 'Desactivar' : 'Activar'}</button></td></tr>)}
-      </tbody></table></div> : <Empty>No hay enlaces de captura.</Empty>}
+      </tbody></SortableTable></div> : <Empty>No hay enlaces de captura.</Empty>}
     </Card>
     {creating && <Create onClose={() => setCreating(false)} onCreated={() => { setCreating(false); reload(); notify('Enlace creado.'); }}/>}
     {viewing && <Captures link={viewing} onClose={() => setViewing(null)}/>}

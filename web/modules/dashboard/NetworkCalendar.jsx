@@ -1,3 +1,4 @@
+import SortableTable from '../tables/SortableTable';
 import { Card } from '../sb/ui';
 
 function monthLabel(month) {
@@ -18,16 +19,16 @@ export default function NetworkCalendar({ data, filters, onSelect }) {
       </div>
     </Card>
     <Card title="Mediciones por día" subtitle="Mediciones aprobadas según los filtros seleccionados." body={false}>
-      <div className="sb-table"><table className="dashboard-calendar">
+      <div className="sb-table"><SortableTable className="dashboard-calendar">
         <thead><tr><th>Mes</th>{Array.from({ length: 31 }, (_, index) => <th key={index}>{index + 1}</th>)}</tr></thead>
         <tbody>{data.calendar.map(month => <tr key={month.month}>
-          <th>{monthLabel(month.month)}</th>{month.days.map((count, index) => <td key={index}
+          <th data-sort-value={month.month}>{monthLabel(month.month)}</th>{month.days.map((count, index) => <td key={index}
             className={count === null ? 'invalid' : count < 0 ? 'outside' : count > 0 ? 'measured' : ''}
             title={`${month.month}-${String(index + 1).padStart(2, '0')} · ${count === null ? 'fecha inexistente' : count < 0 ? 'fuera del rango' : `${count} mediciones aprobadas`}`}>
             {count === null ? '' : count < 0 ? '—' : count}
           </td>)}
         </tr>)}</tbody>
-      </table></div>
+      </SortableTable></div>
       <p className="dashboard-legend">0 = sin mediciones · — = fuera del rango seleccionado · celda gris = fecha inexistente.</p>
     </Card>
   </>;

@@ -1,4 +1,6 @@
 'use client';
+import SortableTable from '../tables/SortableTable';
+
 import {orderRegions} from '../../lib/locations.mjs';
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/sb';
@@ -29,6 +31,8 @@ export default function Planograms({ rest, go, notify }) {
   const [region, setRegion] = useState('');
   const [commune, setCommune] = useState('');
   const [store, setStore] = useState('');
+  const [category, setCategory] = useState('');
+  const [subcategory, setSubcategory] = useState('');
   const [status, setStatus] = useState('');
   const [edit, setEdit] = useState(null);
   const [deleting, setDeleting] = useState(null);
@@ -49,6 +53,8 @@ export default function Planograms({ rest, go, notify }) {
       (!commune || local?.commune === commune) &&
       (!store || p.store_code === store) &&
       (!status || p.status === status) &&
+      (!category || p.category === category) &&
+      (!subcategory || (p.subcategories || (p.subcategory ? [p.subcategory] : [])).includes(subcategory)) &&
       `${p.name} ${p.description} ${p.id}`
         .toLocaleLowerCase('es')
         .includes(search.toLocaleLowerCase('es'))
@@ -150,6 +156,8 @@ export default function Planograms({ rest, go, notify }) {
             ))}
           </select>
         </label>
+        <label>Categoría<select value={category} onChange={e=>{setCategory(e.target.value);setSubcategory('');}}><option value="">Todas las categorías</option>{[...new Set([...Object.keys(data.data?.classification?.categories || {}),...(data.data?.planograms || []).map(p=>p.category).filter(Boolean)])].sort((a,b)=>a.localeCompare(b,'es')).map(name=><option key={name}>{name}</option>)}</select></label>
+        <label>Subcategoría<select value={subcategory} disabled={!category} onChange={e=>setSubcategory(e.target.value)}><option value="">Todas las subcategorías</option>{[...new Set([...(data.data?.classification?.categories?.[category] || []),...(data.data?.planograms || []).filter(p=>p.category===category).flatMap(p=>p.subcategories || (p.subcategory ? [p.subcategory] : []))])].sort((a,b)=>a.localeCompare(b,'es')).map(name=><option key={name}>{name}</option>)}</select></label>
         <label>
           Estado
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -164,7 +172,7 @@ export default function Planograms({ rest, go, notify }) {
             setRegion('');
             setCommune('');
             setStore('');
-            setStatus('');
+            setStatus('');setCategory('');setSubcategory('');
           }}
         >
           Limpiar filtros
@@ -177,11 +185,12 @@ export default function Planograms({ rest, go, notify }) {
           <Empty>No hay planogramas con estos filtros.</Empty>
         ) : (
           <div className="sb-table">
-            <table>
+            <SortableTable>
               <thead>
                 <tr>
                   <th>Planograma</th>
                   <th>Punto de venta</th>
+                  <th>Categoría</th><th>Subcategoría</th>
                   <th>Versión</th>
                   <th>Estado</th>
                   <th>Productos / caras</th>
@@ -194,13 +203,13 @@ export default function Planograms({ rest, go, notify }) {
                     <td>
                       <b>{p.name}</b>
                       <small>{p.id}</small>
-                      {p.category && <small>{p.category} · {p.subcategories?.join(', ')}</small>}
                     </td>
                     <td>
                       {stores.find((s) => s.code === p.store_code)?.name ||
                         'Pendiente de asignar PDV'}
                       <small>{p.store_code}</small>
                     </td>
+                    <td>{p.category || 'Sin categoría'}</td><td>{(p.subcategories || (p.subcategory ? [p.subcategory] : [])).join(', ') || 'Sin subcategorías'}</td>
                     <td>{p.version || 'Referencia anterior'}</td>
                     <td>
                       <Pill kind={p.status === 'Activo' ? 'ok' : ''}>
@@ -227,7 +236,7 @@ export default function Planograms({ rest, go, notify }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </SortableTable>
           </div>
         )}
       </Card>

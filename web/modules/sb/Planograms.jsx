@@ -1,4 +1,6 @@
 'use client';
+import SortableTable from '../tables/SortableTable';
+
 import {useState} from 'react';
 import {api} from '../../lib/sb';
 import {can} from '../../lib/profiles.mjs';
@@ -21,10 +23,10 @@ function List({user, go}) {
     </Header>
     <ErrorBox error={error} onRetry={reload}/>
     <Card body={false}>
-      {loading && !data ? <Loading/> : data?.length ? <div className="sb-table"><table><thead><tr><th>Planograma</th><th className="sb-num">Productos</th><th className="sb-num">Bandas</th><th className="sb-num">Módulo</th></tr></thead><tbody>
+      {loading && !data ? <Loading/> : data?.length ? <div className="sb-table"><SortableTable><thead><tr><th>Planograma</th><th className="sb-num">Productos</th><th className="sb-num">Bandas</th><th className="sb-num">Módulo</th></tr></thead><tbody>
         {data.map(p => <tr key={p.id} className="sb-click" onClick={() => go(`planogramas/${encodeURIComponent(p.id)}`)}><td><b>{p.name}</b><small>{p.id}</small></td>
           <td className="sb-num">{p.item_count}</td><td className="sb-num">{p.bands ?? '—'}</td><td className="sb-num">{p.module_cm ? `${p.module_cm} cm` : '—'}</td></tr>)}
-      </tbody></table></div> : <Empty>No hay planogramas cargados.</Empty>}
+      </tbody></SortableTable></div> : <Empty>No hay planogramas cargados.</Empty>}
     </Card>
     {importing && <ImportPlanogram onClose={() => setImporting(false)} onDone={id => { setImporting(false); reload(); go(`planogramas/${encodeURIComponent(id)}`); }}/>}
   </section>;
@@ -72,11 +74,11 @@ function Detail({user, go, id, notify}) {
         {isStaff(user) && <button className="remove" type="button" onClick={remove}><Icon name="trash" size={15}/>Eliminar</button>}
       </Header>
       <Card body={false}>
-        {data.items?.length ? <div className="sb-table"><table><thead><tr><th>Posición</th><th>Producto</th><th>Código</th><th className="sb-num">Caras</th><th className="sb-num">Precio</th></tr></thead><tbody>
+        {data.items?.length ? <div className="sb-table"><SortableTable><thead><tr><th>Posición</th><th>Producto</th><th>Código</th><th className="sb-num">Caras</th><th className="sb-num">Precio</th></tr></thead><tbody>
           {data.items.map(i => <tr key={i.id}><td>{i.section_label} · banda {i.band} · {i.position_in_section}</td>
             <td><b>{i.title}</b>{i.tag && <> <Pill kind="info">{i.tag}</Pill></>}</td><td>{i.internal_code || '—'}<small>{i.barcode || ''}</small></td>
             <td className="sb-num">{i.expected_facings}</td><td className="sb-num">{clp(i.price_clp)}</td></tr>)}
-        </tbody></table></div> : <Empty>Este planograma no tiene productos.</Empty>}
+        </tbody></SortableTable></div> : <Empty>Este planograma no tiene productos.</Empty>}
       </Card>
     </>}
   </section>;

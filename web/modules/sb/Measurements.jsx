@@ -1,19 +1,24 @@
 "use client";
+import SortableTable from '../tables/SortableTable';
+
 import { useState } from "react";
 import { api, download, fmt } from "../../lib/sb";
+import {orderRegions} from '../../lib/locations.mjs';
 import { can } from "../../lib/profiles.mjs";
 import { useApi, Header, Card, Loading, Empty, ErrorBox, Pill } from "./ui";
 
-const INITIAL = { store: "", point: "", from: "", to: "", status: "" };
+const INITIAL = { region: "", commune: "", store: "", point: "", from: "", to: "", status: "" };
 
 export default function Measurements({ user, go, rest = [] }) {
   const [filters, setFilters] = useState({...INITIAL, point:rest[0] || ''});
+  const [sort, setSort] = useState(null);
+  const sortFields = ["id","store_name","date","time","score","status","note","captured_by"];
   const [offset, setOffset] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const invalid = filters.from && filters.to && filters.from > filters.to;
   const query = new URLSearchParams(
-    Object.entries(filters).filter(([, value]) => value),
+    Object.entries({...filters, ...(sort ? {sort:sortFields[sort.column], direction:sort.direction} : {})}).filter(([, value]) => value),
   ).toString();
   const key = query + "&offset=" + offset;
   const {
@@ -32,6 +37,7 @@ export default function Measurements({ user, go, rest = [] }) {
       ...previous,
       [name]: value,
       ...(name === "store" ? { point: "" } : {}),
+      ...(name === "region" ? {commune:"",store:"",point:""} : name === "commune" ? {store:"",point:""} : {}),
     }));
     setOffset(0);
   }
@@ -76,6 +82,8 @@ export default function Measurements({ user, go, rest = [] }) {
         )}
       </Header>
       <div className="sb-toolbar" aria-label="Filtros de mediciones">
+        <label>Región<select value={filters.region} onChange={e=>change('region',e.target.value)}><option value="">Todas las regiones</option>{orderRegions([...new Set((data?.stores || []).map(s=>s.region).filter(Boolean))].map(name=>({name}))).map(r=><option key={r.name}>{r.name}</option>)}</select></label>
+        <label>Comuna<select value={filters.commune} disabled={!filters.region} onChange={e=>change('commune',e.target.value)}><option value="">Todas las comunas</option>{[...new Set((data?.stores || []).filter(s=>s.region===filters.region).map(s=>s.commune).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es')).map(name=><option key={name}>{name}</option>)}</select></label>
         <label>
           Punto de venta
           <select
@@ -83,7 +91,7 @@ export default function Measurements({ user, go, rest = [] }) {
             onChange={(e) => change("store", e.target.value)}
           >
             <option value="">Todos los PDV</option>
-            {(data?.stores || []).map((s) => (
+            {(data?.stores || []).filter(s=>(!filters.region||s.region===filters.region)&&(!filters.commune||s.commune===filters.commune)).map((s) => (
               <option key={s.code} value={s.code}>
                 {s.code} · {s.name}
               </option>
@@ -98,7 +106,7 @@ export default function Measurements({ user, go, rest = [] }) {
           >
             <option value="">Todas las góndolas</option>
             {(data?.points || [])
-              .filter((p) => !filters.store || p.store_id === filters.store)
+              .filter((p) => (!filters.store || p.store_id === filters.store) && (data?.stores || []).some(s=>s.code===p.store_id&&(!filters.region||s.region===filters.region)&&(!filters.commune||s.commune===filters.commune)))
               .map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -159,7 +167,7 @@ export default function Measurements({ user, go, rest = [] }) {
           <Card body={false} title={`${current.count} mediciones`}>
             {current.rows.length ? (
               <div className="sb-table">
-                <table>
+                <SortableTable sort={sort} serverSort onSort={next=>{setSort(next);setOffset(0);}}>
                   <thead>
                     <tr>
                       <th>Lectura</th>
@@ -216,7 +224,7 @@ export default function Measurements({ user, go, rest = [] }) {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </SortableTable>
               </div>
             ) : (
               <Empty>No hay mediciones para estos filtros.</Empty>

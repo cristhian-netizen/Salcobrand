@@ -15,7 +15,7 @@ class AlertCases:
 
     def test_alerts_read_permissions_author_and_store_scope(self):
         self.assertEqual(self.client(None).get('/api/alerts').status_code, 401)
-        expected = {'admin':3, 'viewer':3, 'analyst':2, 'replenisher':1}
+        expected = {'admin':0, 'viewer':3, 'analyst':2, 'replenisher':1}
         for role, count in expected.items():
             result = self.client(role).get('/api/alerts')
             self.assertEqual(result.status_code, 200, result.text)

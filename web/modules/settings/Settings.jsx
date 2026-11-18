@@ -5,13 +5,15 @@ import { useApi, Header, Loading, ErrorBox } from '../sb/ui';
 import CatalogSettings from './CatalogSettings';
 import PdvTypesSettings from './PdvTypesSettings';
 import AnalysisSettings from './AnalysisSettings';
+import AlertSettings from './AlertSettings';
+import ClassificationTransfer from './ClassificationTransfer';
 
-export default function Settings({ notify }) {
+export default function Settings({ notify, rest=[] }) {
   const { data, error, loading, setData } = useApi(
     () => api('/api/admin/settings'),
     [],
   );
-  const [tab, setTab] = useState('catalogs');
+  const [tab, setTab] = useState(rest[0] === 'alertas' ? 'alerts' : 'catalogs');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [failure, setFailure] = useState('');
@@ -94,6 +96,7 @@ export default function Settings({ notify }) {
         >
           Parámetros de análisis
         </button>
+        <button type="button" aria-pressed={tab === 'alerts'} onClick={()=>setTab('alerts')}>Alertas administrativas</button>
       </div>
       {loading && !data ? (
         <Loading text="Cargando configuración…" />
@@ -109,8 +112,10 @@ export default function Settings({ notify }) {
                 save={save}
                 onError={setFailure}
               />
+              <ClassificationTransfer onSaved={refresh} notify={notify}/>
             </div>
-            <div style={{ display: tab === 'analysis' ? 'block' : 'none' }}>
+            <div style={{ display: tab === 'alerts' ? 'block' : 'none' }}><AlertSettings state={data.state} busy={busy} save={save}/></div>
+            <div style={{ display: tab === 'analysis'  ? 'block' : 'none' }}>
               <AnalysisSettings state={data.state} busy={busy} save={save} />
             </div>
           </div>

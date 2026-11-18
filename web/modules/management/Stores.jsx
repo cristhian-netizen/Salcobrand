@@ -1,4 +1,6 @@
 'use client';
+import SortableTable from '../tables/SortableTable';
+
 import {orderRegions} from '../../lib/locations.mjs';
 import {useState} from 'react';
 import {api, download, fmt} from '../../lib/sb';
@@ -20,8 +22,8 @@ export default function Stores({notify}) {
     setBusy(true);setError('');
     try {
       const query = new URLSearchParams({search:q,region,commune,status,include_deleted:String(deleted)});
-      await download(excel ? '/api/admin/store-transfer/workbook.xlsx' : '/api/admin/store-transfer/filtered.csv?' + query,
-        excel ? 'Neuravision_PDV.xlsx' : 'Neuravision_PDV.csv');
+      await download('/api/admin/store-transfer/workbook.xlsx?' + query,
+        'Neuravision_PDV.xlsx');
     } catch (exception) {setError(exception.message);} finally {setBusy(false);}
   }
   async function changeStatus(s) {
@@ -31,19 +33,19 @@ export default function Stores({notify}) {
       setRetire(null); stores.reload(); notify(s.deleted ? 'PDV restaurado como inactivo. Puedes editarlo para activarlo.' : 'PDV eliminado del catálogo activo. Su historial se conserva.');
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   }
-  return <section><Header eyebrow="Administración" title="Puntos de venta" subtitle="Datos del local, ubicación, encargado y cantidades de góndolas por tipo."><button type="button" disabled={busy} onClick={() => setImporting(true)}>Carga masiva</button><button type="button" disabled={busy} onClick={() => exportFile(true)}>Exportar Excel</button><button className="action" disabled={!catalog.data} onClick={() => setEdit({})}>Crear PDV</button></Header>
+  return <section><Header eyebrow="Administración" title="Puntos de venta" subtitle="Datos del local, ubicación, encargado y cantidades de góndolas por tipo."><button type="button" disabled={busy} onClick={() => setImporting(true)}>Carga masiva</button><button className="action" disabled={!catalog.data} onClick={() => setEdit({})}>Crear PDV</button></Header>
     <ErrorBox error={stores.error || catalog.error || error} onRetry={() => {stores.reload(); catalog.reload();}}/>
     <div className="sb-toolbar store-filters"><label>Buscar<input value={q} onChange={e => setQ(e.target.value)} placeholder="Código, nombre o dirección"/></label>
       <label>Región<select value={region} onChange={e => {setRegion(e.target.value);setCommune('');}}><option value="">Todas las regiones</option>{orderRegions(catalog.data?.regions || []).map(r => <option key={r.code}>{r.name}</option>)}</select></label>
       <label>Comuna<select value={commune} disabled={!region} onChange={e => setCommune(e.target.value)}><option value="">{region ? 'Todas las comunas' : 'Selecciona primero una región'}</option>{sortByName(catalog.data?.regions.find(r => r.name === region)?.communes || []).map(c => <option key={c.code}>{c.name}</option>)}</select></label>
       <label>Estado<select value={status} onChange={e => setStatus(e.target.value)}><option value="">Todos</option><option>Activo</option><option>Inactivo</option></select></label>
       <div className="store-filter-actions"><label className="mg-check"><input type="checkbox" checked={deleted} onChange={e => setDeleted(e.target.checked)}/>Incluir eliminados</label>
-      <button onClick={() => {setQ('');setRegion('');setCommune('');setStatus('');setDeleted(false);}}>Limpiar filtros</button><button type="button" disabled={busy || stores.loading} onClick={() => exportFile(false)}>Exportar CSV</button></div></div>
-    <p className="sb-hint">El Excel incluye todos los PDV activos e inactivos disponibles y sus relaciones de góndolas. El CSV usa los filtros de la tabla.</p>
-    <Card body={false}>{stores.loading ? <Loading/> : !filtered.length ? <Empty>No hay puntos de venta con estos filtros.</Empty> : <div className="sb-table"><table><thead><tr><th>PDV</th><th>Tipo</th><th>Ubicación</th><th>Encargado de Local</th><th>Tipos y cantidad de góndolas</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{filtered.map(s => <tr key={s.code}>
+      <button onClick={() => {setQ('');setRegion('');setCommune('');setStatus('');setDeleted(false);}}>Limpiar filtros</button><button type="button" disabled={busy || stores.loading} onClick={() => exportFile(true)}>Exportar Excel</button></div></div>
+    <p className="sb-hint">El Excel incluye los PDV según los filtros de la tabla y sus relaciones de góndolas.</p>
+    <Card body={false}>{stores.loading ? <Loading/> : !filtered.length ? <Empty>No hay puntos de venta con estos filtros.</Empty> : <div className="sb-table"><SortableTable><thead><tr><th>PDV</th><th>Tipo</th><th>Ubicación</th><th>Encargado de Local</th><th>Tipos y cantidad de góndolas</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{filtered.map(s => <tr key={s.code}>
       <td><b>{s.name}</b><small>{s.code}</small>{s.needs_completion && <Pill kind="warn">Completar datos</Pill>}</td><td>{s.store_type || 'Sin definir'}</td><td>{s.region || 'Sin región'}<small>{s.commune} · {s.address}</small></td><td>{s.manager || 'Sin asignar'}</td><td>{s.shelf_types?.length ? s.shelf_types.map(type => <small key={type.type_id}>{type.quantity} × {type.name}</small>) : 'Sin asignar'}</td><td><Pill kind={s.deleted ? 'bad' : s.status === 'Activo' ? 'ok' : ''}>{s.deleted ? 'Eliminado' : s.status}</Pill></td>
       <td className="store-actions-cell"><div className="sb-actions store-row-actions">{!s.deleted && <button onClick={() => setEdit(s)}>Editar</button>}<button onClick={() => setHistory(s)}>Historial</button><button onClick={() => {setError('');setRetire(s);}}>{s.deleted ? 'Restaurar' : 'Eliminar'}</button></div></td>
-    </tr>)}</tbody></table></div>}</Card>
+    </tr>)}</tbody></SortableTable></div>}</Card>
     {edit && catalog.data && <Modal title={edit.code ? 'Editar PDV' : 'Crear PDV'} wide onClose={() => setEdit(null)}><StoreForm store={edit} catalog={catalog.data} onClose={() => setEdit(null)} onSaved={() => {setEdit(null);stores.reload();notify('PDV guardado.');}}/></Modal>}
     {history && <History store={history} onClose={() => setHistory(null)}/>}
     {importing && <Modal title="Carga masiva de puntos de venta" wide onClose={() => setImporting(false)}><StoreExcel onClose={() => setImporting(false)} onSaved={result => {setImporting(false);stores.reload();notify(`${result.creates} PDV creados y ${result.updates} actualizados.`);}}/></Modal>}

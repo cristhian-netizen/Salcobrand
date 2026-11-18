@@ -38,8 +38,10 @@ def router(require_report, require_review, authorize_reading, store_scope, requi
         return catalog_response(workbook_bytes(), 'Neuravision_PDV.xlsx')
 
     def filters(store: str = "", point: str = "", start: str = Query(default="", alias="from"),
-                end: str = Query(default="", alias="to"), status: str = "", user=Depends(require_report)):
-        return service.history(store_scope(user), store, point, start, end, status)
+                end: str = Query(default="", alias="to"), status: str = "", region: str = "", commune: str = "", sort: str = "", direction: str = "asc", user=Depends(require_report)):
+        result = service.history(store_scope(user), store, point, start, end, status, region=region, commune=commune)
+        result["rows"] = service.sorted_rows(result["rows"], sort, direction)
+        return result
 
     @api.get("/reports/measurements")
     def preview(result=Depends(filters)):
@@ -48,10 +50,11 @@ def router(require_report, require_review, authorize_reading, store_scope, requi
 
     @api.get("/measurements")
     def measurements(store: str = "", point: str = "", start: str = Query(default="", alias="from"),
-                     end: str = Query(default="", alias="to"), status: str = "", offset: int = Query(default=0, ge=0),
+                     end: str = Query(default="", alias="to"), status: str = "", region: str = "", commune: str = "", sort: str = "", direction: str = "asc", offset: int = Query(default=0, ge=0),
                      user=Depends(require_user)):
         result = service.history(store_scope(user), store, point, start, end, status,
-                                 captured_by=profiles.reading_author(user))
+                                 captured_by=profiles.reading_author(user), region=region, commune=commune)
+        result["rows"] = service.sorted_rows(result["rows"], sort, direction)
         return {"rows": result["rows"][offset:offset + 50], "count": result["totals"]["measurements"],
                 "stores": result["stores"], "points": result["points"], "page_size": 50, "offset": offset}
 

@@ -1,4 +1,6 @@
 'use client';
+import SortableTable from '../tables/SortableTable';
+
 import {useState} from 'react';
 import {api, ROLE_NAMES} from '../../lib/sb';
 import {useApi, Header, Card, Loading, Empty, ErrorBox, Pill, Modal} from './ui';
@@ -30,7 +32,7 @@ export default function Users({user, notify}) {
     </Header>
     <ErrorBox error={state.error} onRetry={state.reload}/>
     <div className="sb-toolbar"><label>Buscar<input value={search} onChange={event => setSearch(event.target.value)} placeholder="Persona, usuario, email, cargo o rol"/></label><span className="sb-count">{rows.length} personas</span></div>
-    <Card body={false}>{state.loading ? <Loading/> : rows.length ? <div className="sb-table"><table>
+    <Card body={false}>{state.loading ? <Loading/> : rows.length ? <div className="sb-table"><SortableTable>
       <thead><tr><th>Persona</th><th>Usuario / email</th><th>Rol / cargo</th><th>Vigencia</th><th>Estado</th><th>Acceso</th><th>Ámbito PDV</th><th>Acciones</th></tr></thead>
       <tbody>{rows.map(person => <tr key={person.id}>
         <td><b>{person.name}</b>{person.needs_completion && <small>Completar ficha</small>}</td>
@@ -45,7 +47,7 @@ export default function Users({user, notify}) {
           {person.username !== user.username && <button type="button" disabled={user.read_only} onClick={() => {setError('');setRemove(person);}}>Eliminar</button>}
         </div></td>
       </tr>)}</tbody>
-    </table></div> : <Empty>No hay personas con estos filtros.</Empty>}</Card>
+    </SortableTable></div> : <Empty>No hay personas con estos filtros.</Empty>}</Card>
     {editing && <Modal title={editing.id ? 'Editar usuario' : 'Crear usuario'} wide onClose={() => setEditing(null)}><PersonForm current={editing} self={user} onClose={() => setEditing(null)} onSaved={saved}/></Modal>}
     {reset && <Modal title="Cambiar contraseña" onClose={() => setReset(null)}><PasswordForm person={reset} onClose={() => setReset(null)} onSaved={saved}/></Modal>}
     {importing && <Modal title="Carga masiva de personas" wide onClose={() => setImporting(false)}>

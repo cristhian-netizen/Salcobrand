@@ -47,59 +47,6 @@ export default function CatalogSettings({
     >
       <form onSubmit={submit}>
         <fieldset className="settings-fields" disabled={busy}>
-          <h3>Marcas y submarcas</h3>
-          {draft.brands.map((brand, index) => (
-            <div className="settings-brand" key={brand.id}>
-              <label>
-                Marca / submarca {index + 1}
-                <input
-                  required
-                  maxLength={100}
-                  value={brand.name}
-                  onChange={(e) => setBrand(brand.id, { name: e.target.value })}
-                />
-              </label>
-              <label className="mg-check">
-                <input
-                  type="checkbox"
-                  checked={brand.own}
-                  onChange={(e) =>
-                    setBrand(brand.id, { own: e.target.checked })
-                  }
-                />
-                Marca propia
-              </label>
-              <button
-                type="button"
-                onClick={() =>
-                  setDraft((previous) => ({
-                    ...previous,
-                    brands: previous.brands.filter(
-                      (row) => row.id !== brand.id,
-                    ),
-                  }))
-                }
-              >
-                Quitar
-              </button>
-            </div>
-          ))}
-          <div className="sb-actions">
-            <button
-              type="button"
-              onClick={() =>
-                setDraft((previous) => ({
-                  ...previous,
-                  brands: [
-                    ...previous.brands,
-                    { id: newId('brand'), name: '', own: false },
-                  ],
-                }))
-              }
-            >
-              Añadir marca / submarca
-            </button>
-          </div>
           <h3>Categorías y subcategorías</h3>
           <p className="sb-hint">
             Una fila por combinación. La submarca exclusiva se aplica a toda la
@@ -185,6 +132,59 @@ export default function CatalogSettings({
               <option key={name} value={name} />
             ))}
           </datalist>
+          <h3>Marcas y submarcas</h3>
+          {draft.brands.map((brand, index) => (
+            <div className="settings-brand" key={brand.id}>
+              <label>
+                Marca / submarca {index + 1}
+                <input
+                  required
+                  maxLength={100}
+                  value={brand.name}
+                  onChange={(e) => setBrand(brand.id, { name: e.target.value })}
+                />
+              </label>
+              <label className="mg-check">
+                <input
+                  type="checkbox"
+                  checked={brand.own}
+                  onChange={(e) =>
+                    setBrand(brand.id, { own: e.target.checked })
+                  }
+                />
+                Marca propia
+              </label>
+              <button
+                type="button"
+                onClick={() =>
+                  setDraft((previous) => ({
+                    ...previous,
+                    brands: previous.brands.filter(
+                      (row) => row.id !== brand.id,
+                    ),
+                  }))
+                }
+              >
+                Quitar
+              </button>
+            </div>
+          ))}
+          <div className="sb-actions">
+            <button
+              type="button"
+              onClick={() =>
+                setDraft((previous) => ({
+                  ...previous,
+                  brands: [
+                    ...previous.brands,
+                    { id: newId('brand'), name: '', own: false },
+                  ],
+                }))
+              }
+            >
+              Añadir marca / submarca
+            </button>
+          </div>
           <div className="sb-actions">
             <button
               type="button"

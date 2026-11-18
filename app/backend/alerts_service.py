@@ -14,6 +14,8 @@ def public(row):
 def summary(user, point='', store='', start='', end='', status='Pendiente'):
     if status not in ('', 'Pendiente', 'Resuelta'):
         raise ManagementError('Selecciona un estado de alerta válido.')
+    if profiles.profile_of(user) == 'admin':
+        return administrative_summary(store)
     scope = profiles.store_scope(user)
     author = profiles.reading_author(user)
     history = measurement_reports.history(scope, store=store, point=point, start=start, end=end,
@@ -75,3 +77,49 @@ def save(reading_id, kind, payload, actor):
                      (reading_id, kind, item['fingerprint'], updated['status'], updated['version'], actor, updated['updated_at']))
         _audit(conn, actor, 'alert.status', f'{reading_id}:{kind}', dict(stored) if stored else None, updated)
     return updated
+
+
+def administrative_summary(store=''):
+    from datetime import datetime, timezone
+    import people_service
+    import settings_service
+    parameters = settings_service.read()['state']['alertParameters']
+    now = datetime.fromisoformat(db.now_iso().replace('Z', '+00:00'))
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    stores = [s for s in infrastructure.list_stores() if s['status'] == 'Activo']
+    if store and store not in {s['code'] for s in stores}:
+        raise ManagementError('El punto de venta no está disponible.', 404)
+    people = [p for p in people_service.list_people() if p['access_enabled'] and p['status'] == 'Vigente'
+              and (not p.get('startDate') or p['startDate'] <= now.date().isoformat())]
+    def assigned(code, role):
+        return [p['name'] for p in people if p['role'] == role and (p.get('allStores') or code in p['storeCodes'])]
+    def elapsed(value):
+        return (now - measurement_reports.local_datetime(value)).total_seconds() / 86400
+    unassigned, stale, pending = [], [], []
+    with db.get_conn() as conn:
+        rows = conn.execute("SELECT r.id, r.created_at, r.captured_by, p.store_id, v.status FROM readings r JOIN points p ON p.id=r.point_id LEFT JOIN management_reading_reviews v ON v.reading_id=r.id").fetchall()
+    for local in stores:
+        if store and local['code'] != store:
+            continue
+        code = local['code']
+        analysts, replenishers = assigned(code, 'analyst'), assigned(code, 'replenisher')
+        base = {'store_id': code, 'store_name': local['name'], 'region': local['region'], 'commune': local['commune']}
+        missing = [label for label, values in [('Analista', analysts), ('Reponedor', replenishers)] if not values]
+        if missing:
+            unassigned.append({**base, 'missing': missing, 'analysts': analysts, 'replenishers': replenishers})
+        readings = [r for r in rows if r['store_id'] == code]
+        latest = max((r['created_at'] for r in readings), key=measurement_reports.local_datetime, default=None)
+        age = elapsed(latest or local['created_at'])
+        if age > parameters['noMeasurementDays']:
+            stale.append({**base, 'last_measurement': latest, 'days_elapsed': int(age)})
+        for reading in readings:
+            age = elapsed(reading['created_at'])
+            if (reading['status'] or 'En revisión') == 'En revisión' and age > parameters['reviewDays']:
+                pending.append({**base, 'id': reading['id'], 'created_at': reading['created_at'],
+                                'captured_by': reading['captured_by'] or 'Sin autor registrado', 'days_elapsed': int(age)})
+    pending.sort(key=lambda r: (-r['days_elapsed'], r['id']))
+    stale.sort(key=lambda r: (-r['days_elapsed'], r['store_name']))
+    return {'mode': 'administrative', 'parameters': parameters, 'unassigned_stores': unassigned,
+            'overdue_reviews': pending, 'inactive_stores': stale, 'stores': stores,
+            'findings': [], 'rejected': [], 'own_rejected': [], 'other_rejected': [], 'points': [], 'gaps': [], 'suppliers': []}

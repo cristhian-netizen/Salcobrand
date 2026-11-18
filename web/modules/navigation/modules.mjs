@@ -20,7 +20,7 @@ export const MODULES = [
   ['configuracion', 'Configuración', 'settings', ['admin']],
   ['ayuda', 'Ayuda y soporte', 'help', ['analyst', 'viewer', 'admin']],
 ];
-export const GROUPS = [['Verificación interna', ['revision']], ['General', ['inicio']], ['Operación', ['escanear', 'mediciones', 'alertas']], ['Análisis', ['dashboards', 'reportes', 'uso-analisis']], ['Administración', ['pdv', 'infraestructura', 'productos', 'planogramas', 'usuarios', 'configuracion', 'ayuda']]];
+export const GROUPS = [['Verificación interna', ['revision']], ['General', ['inicio', 'alertas']], ['Operación', ['escanear', 'mediciones']], ['Análisis', ['dashboards', 'reportes', 'uso-analisis']], ['Administración', ['pdv', 'infraestructura', 'productos', 'planogramas', 'usuarios', 'configuracion', 'ayuda']]];
 export const labelOf = id => MODULES.find(m => m[0] === id)?.[1] || id;
 export const allowed = (id, role) => !!MODULES.find(m => m[0] === id)?.[3].includes(profileOf(role));
 

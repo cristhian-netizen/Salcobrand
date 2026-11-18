@@ -328,3 +328,5 @@
 #nv .classification-file { display: grid; gap: 6px; margin: 16px 0; }
 #nv .sb-metrics.dashboard-three { grid-template-columns: repeat(3,minmax(0,1fr)); }
 @media(max-width:700px) { #nv .sb-metrics.dashboard-three { grid-template-columns: 1fr; } }
+
+#nv .settings-catalog-save { margin-bottom: 20px; }

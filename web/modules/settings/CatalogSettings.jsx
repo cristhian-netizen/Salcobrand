@@ -41,12 +41,12 @@ export default function CatalogSettings({
     }
   }
   return (
-    <Card
-      title="Clasificación de productos"
-      subtitle="Marcas y submarcas, categorías y subcategorías. Marca cuáles pertenecen al cliente."
-    >
-      <form onSubmit={submit}>
-        <fieldset className="settings-fields" disabled={busy}>
+    <form onSubmit={submit}>
+      <Card
+        title="Clasificación de productos"
+        subtitle="Configura las categorías y subcategorías de los productos."
+      >
+        <fieldset className="settings-fields" aria-label="Categorías y subcategorías" disabled={busy}>
           <h3>Categorías y subcategorías</h3>
           <p className="sb-hint">
             Una fila por combinación. La submarca exclusiva se aplica a toda la
@@ -132,7 +132,31 @@ export default function CatalogSettings({
               <option key={name} value={name} />
             ))}
           </datalist>
-          <h3>Marcas y submarcas</h3>
+          <div className="sb-actions">
+            <button
+              type="button"
+              onClick={() =>
+                setDraft((previous) => ({
+                  ...previous,
+                  rows: [
+                    ...previous.rows,
+                    {
+                      id: newId('row'),
+                      category: '',
+                      subcategory: '',
+                      brandId: '',
+                    },
+                  ],
+                }))
+              }
+            >
+              Añadir categoría / subcategoría
+            </button>
+          </div>
+        </fieldset>
+      </Card>
+      <Card title="Marcas y submarcas" subtitle="Configura las marcas y submarcas e indica cuáles pertenecen al cliente.">
+        <fieldset className="settings-fields" aria-label="Marcas y submarcas" disabled={busy}>
           {draft.brands.map((brand, index) => (
             <div className="settings-brand" key={brand.id}>
               <label>
@@ -184,31 +208,12 @@ export default function CatalogSettings({
             >
               Añadir marca / submarca
             </button>
-            <button
-              type="button"
-              onClick={() =>
-                setDraft((previous) => ({
-                  ...previous,
-                  rows: [
-                    ...previous.rows,
-                    {
-                      id: newId('row'),
-                      category: '',
-                      subcategory: '',
-                      brandId: '',
-                    },
-                  ],
-                }))
-              }
-            >
-              Añadir categoría / subcategoría
-            </button>
-            <button type="submit" className="action">
-              Guardar clasificación
-            </button>
           </div>
         </fieldset>
-      </form>
-    </Card>
+      </Card>
+      <div className="sb-actions settings-catalog-save">
+        <button type="submit" className="action" disabled={busy}>Guardar clasificación y marcas</button>
+      </div>
+    </form>
   );
 }

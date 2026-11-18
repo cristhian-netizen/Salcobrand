@@ -101,7 +101,7 @@ export default function Products({ notify }) {
           >
             <option value="">Todas las categorías</option>
             {alphabetical(
-              catalog.data?.classification ? Object.keys(catalog.data.classification.categories).filter(name => !brand || !catalog.data.classification.exclusive[name] || catalog.data.classification.exclusive[name] === brand) : products.filter((p) => !brand || p.subBrand === brand).map((p) => p.category),
+              catalog.data?.classification ? Object.keys(catalog.data.classification.categories) : products.filter((p) => !brand || p.subBrand === brand).map((p) => p.category),
             ).map((c) => (
               <option key={c}>{c}</option>
             ))}

@@ -16,7 +16,7 @@ INDICATORS = {
 }
 DEFAULTS = {
     'pdvTypes': list(STORE_TYPES),
-    'catalog': {'brands': [], 'categories': {}, 'exclusive': {}},
+    'catalog': {'brands': [], 'categories': {}, 'exclusive': {}, 'brandClassifications': {}},
     'scoreParameters': {'redMax': 50, 'yellowMax': 80},
     'productParameters': {'dimensionMarginPct': 10, 'ownBrands': []},
     'kpiParameters': {**{key: {'warn': warn, 'good': good, 'direction': direction}
@@ -70,6 +70,8 @@ def read(conn=None):
                 subs = state['catalog']['categories'].setdefault(category, [])
                 if subcategory not in subs:
                     subs.append(subcategory)
+    state['catalog']['exclusive'] = {}  # Deprecated: a category is never reserved for one brand.
+    state['catalog']['brandClassifications'] = brand_classifications(state['catalog'], product_references(conn))
     used_types = conn.execute("SELECT DISTINCT store_type FROM management_stores WHERE store_type <> ''").fetchall()
     for used in used_types:
         if used['store_type'] not in state['pdvTypes']:
@@ -77,10 +79,24 @@ def read(conn=None):
     return {'state': state, 'version': row['version'], 'updated_by': row['updated_by'], 'updated_at': row['updated_at']}
 
 
-def validate_classification(value, products):
-    if not isinstance(value, dict) or set(value) != {'brands', 'categories', 'exclusive', 'ownBrands'}:
-        raise ManagementError('La clasificación debe incluir marcas, categorías, exclusividad y marcas propias.')
-    brands = names(value['brands'], 'Marcas y submarcas')
+def brand_classifications(catalog, products):
+    result = copy.deepcopy(catalog.get('brandClassifications', {}))
+    for brand in catalog['brands']:
+        if brand in result:
+            continue
+        pairs = {(p.get('category'),p.get('subcategory')) for p in products if p.get('subBrand') == brand
+                 and p.get('subcategory') in catalog['categories'].get(p.get('category'), [])}
+        if len(pairs) == 1:
+            category, subcategory = pairs.pop()
+            result[brand] = {'category':category, 'subcategory':subcategory}
+    return result
+
+
+def validate_classification(value, products, previous_brands=None):
+    required = {'brands','categories','ownBrands'}
+    if not isinstance(value, dict) or not required <= set(value) or set(value) - (required | {'exclusive','brandClassifications'}):
+        raise ManagementError('La clasificación debe incluir marcas, categorías y marcas propias.')
+    brands = names(value['brands'], 'Marcas y submarcas', allow_empty=True)
     raw_categories = value['categories']
     if not isinstance(raw_categories, dict) or not raw_categories:
         raise ManagementError('Agrega categorías y subcategorías.')
@@ -88,21 +104,31 @@ def validate_classification(value, products):
     if any(name in ('__proto__', 'prototype', 'constructor') for name in category_names):
         raise ManagementError('Ese nombre de categoría está reservado.')
     categories = {name: names(raw_categories[name], 'Subcategorías de ' + name) for name in category_names}
-    exclusive = value['exclusive']
-    if not isinstance(exclusive, dict) or any(category not in categories or brand not in brands for category, brand in exclusive.items()):
-        raise ManagementError('La submarca exclusiva debe existir y pertenecer a una categoría configurada.')
-    own = names(value['ownBrands'], 'Marcas propias', allow_empty=True)
-    if any(brand not in brands for brand in own):
-        raise ManagementError('Las marcas propias deben estar en el catálogo de marcas.')
     for product in products:
         if product.get('subBrand') not in brands:
             raise ManagementError('No puedes quitar o renombrar una marca con productos asociados.', 409)
         if product.get('subcategory') not in categories.get(product.get('category'), []):
             raise ManagementError('No puedes quitar o renombrar una categoría o subcategoría con productos asociados.', 409)
-        restriction = exclusive.get(product['category'])
-        if restriction and restriction != product['subBrand']:
-            raise ManagementError('La exclusividad de esta categoría dejaría productos de otras marcas fuera del catálogo.', 409)
-    return {'brands': brands, 'categories': categories, 'exclusive': exclusive}, own
+    relations = value.get('brandClassifications', {})
+    if not isinstance(relations, dict) or len(relations) > 1000:
+        raise ManagementError('Revisa las subcategorías asociadas a las marcas.')
+    clean_relations = {}
+    for brand, relation in relations.items():
+        if brand not in brands or not isinstance(relation, dict) or set(relation) != {'category','subcategory'}:
+            raise ManagementError('La relación de una marca debe indicar su categoría y subcategoría.')
+        category = _text(relation['category'], 'Categoría asociada', 100, True)
+        subcategory = _text(relation['subcategory'], 'Subcategoría asociada', 100, True)
+        if subcategory not in categories.get(category, []):
+            raise ManagementError('La subcategoría asociada a '+brand+' ya no existe. Reasigna la marca antes de quitarla.',409)
+        clean_relations[brand] = {'category':category,'subcategory':subcategory}
+    if previous_brands is not None:
+        for brand in brands:
+            if brand not in previous_brands and brand not in relations:
+                raise ManagementError('Selecciona una subcategoría existente para la nueva marca '+brand+'.')
+    own = names(value['ownBrands'], 'Marcas propias', allow_empty=True)
+    if any(brand not in brands for brand in own):
+        raise ManagementError('Las marcas propias deben estar en el catálogo de marcas.')
+    return {'brands': brands, 'categories': categories, 'exclusive': {}, 'brandClassifications':clean_relations}, own
 
 
 def save(section, value, version, actor):
@@ -113,8 +139,19 @@ def save(section, value, version, actor):
         if current['version'] != version:
             raise ManagementError('La configuración cambió en otra sesión. Actualízala antes de guardar.', 409)
         state = copy.deepcopy(current['state'])
-        if section == 'catalog':
-            catalog, own = validate_classification(value, product_references(conn))
+        if section in ('catalog','categories','brands'):
+            previous = state['catalog']
+            if section == 'categories':
+                if not isinstance(value, dict) or set(value) != {'categories'}:
+                    raise ManagementError('Completa las categorías y subcategorías.')
+                value = {**previous, 'categories':value['categories'], 'ownBrands':state['productParameters']['ownBrands']}
+            elif section == 'brands':
+                if not isinstance(value, dict) or set(value) != {'brands','ownBrands','brandClassifications'}:
+                    raise ManagementError('Completa las marcas, sus subcategorías y las marcas propias.')
+                value = {**value, 'categories':previous['categories']}
+            elif isinstance(value, dict) and 'brandClassifications' not in value:
+                value = {**value,'brandClassifications':{brand:relation for brand,relation in previous.get('brandClassifications',{}).items() if brand in value.get('brands',[])}}
+            catalog, own = validate_classification(value, product_references(conn), previous['brands'])
             state['catalog'] = catalog
             state['productParameters']['ownBrands'] = own
             state['catalogConfigured'] = True
@@ -175,9 +212,6 @@ def validate_product(conn, product):
     catalog = state['catalog']
     if product['subBrand'] not in catalog['brands'] or product['subcategory'] not in catalog['categories'].get(product['category'], []):
         raise ManagementError('Selecciona una marca, categoría y subcategoría configuradas.')
-    exclusive = catalog['exclusive'].get(product['category'])
-    if exclusive and exclusive != product['subBrand']:
-        raise ManagementError('Esta categoría está reservada para otra submarca.')
 
 
 def display_parameters():

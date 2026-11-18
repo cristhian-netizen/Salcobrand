@@ -1,7 +1,7 @@
 import {profileOf} from '../../lib/profiles.mjs';
 
 const STEP = {
-  settings: {title: 'Define los parámetros', text: 'En Configuración crea tipos de PDV, marcas/submarcas, categorías y subcategorías. Revisa las marcas propias y los criterios de análisis.', view: 'configuracion'},
+  settings: {title: 'Define los parámetros', text: 'En Configuración guarda los tipos de PDV y las categorías y subcategorías. Después crea marcas/submarcas eligiendo una subcategoría existente; la categoría se completa automáticamente. Cada cuadro tiene su propio botón de guardar.', view: 'configuracion'},
   infrastructure: {title: 'Crea el catálogo de góndolas', text: 'En Infraestructura crea, modifica o elimina tipos de góndola y registra sus medidas, niveles y foto de referencia. La foto se puede ver en miniatura y ampliar al hacer clic.', view: 'infraestructura'},
   stores: {title: 'Registra los PDV y sus estructuras', text: 'En Puntos de venta completa código, nombre, tipo, región, comuna y encargado. Asigna aquí los tipos y cantidades de góndola. Las asignaciones se hacen en PDV, no en Infraestructura.', view: 'pdv'},
   products: {title: 'Completa los productos', text: 'Registra nombre, SKU, clasificación, formato, dimensiones, precio y foto. Puedes importar Excel con vista previa, exportar y eliminar productos individualmente o mediante selección múltiple.', view: 'productos'},
@@ -42,7 +42,7 @@ const ROLES = {
 
 export const MODULE_HELP = {
   inicio: 'Resumen y accesos según tu perfil. El Analista ve su actividad y las revisiones pendientes; el Superusuario ve prioridades del negocio.',
-  configuracion: 'Tipos de PDV, marcas/submarcas, categorías/subcategorías y criterios de análisis de la organización.',
+  configuracion: 'Tipos de PDV, categorías/subcategorías y marcas con guardado independiente. Las nuevas marcas se vinculan a una subcategoría existente y heredan su categoría.',
   pdv: 'Locales, ubicación, estado, encargado y asignación de tipos/cantidades de góndola. Excel con vista previa, exportación y vínculos con las estructuras existentes.',
   infraestructura: 'Catálogo de tipos de góndola: crear, modificar, eliminar y cargar una foto con miniatura y zoom. Las asignaciones a locales se realizan desde PDV.',
   productos: 'Maestro de productos con SKU, clasificación, medidas, precio, foto, Excel y eliminación individual o múltiple. Las listas de clasificación se ordenan alfabéticamente.',

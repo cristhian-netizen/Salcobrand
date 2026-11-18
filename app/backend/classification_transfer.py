@@ -10,7 +10,7 @@ import settings_service as settings
 from infrastructure import ManagementError, _audit, _text
 from store_excel import style, append_text_row
 
-HEADERS = {'Catalogo': ['Submarca', 'Categoría', 'Subcategoría', 'Marca propia', 'Exclusiva'],
+HEADERS = {'Catalogo': ['Submarca', 'Categoría', 'Subcategoría', 'Marca propia'],
            'Asignaciones': ['SKU', 'Categoría', 'Subcategoría', 'Submarca']}
 
 
@@ -37,13 +37,14 @@ def workbook_bytes():
     with db.get_conn() as conn:
         state = settings.read(conn)['state']
         refs = book.create_sheet('Referencias')
-        append_text_row(refs, ['Tipo', 'Nombre', 'Categoría'])
+        append_text_row(refs, ['Tipo', 'Nombre', 'Categoría', 'Subcategoría'])
         for brand in state['catalog']['brands']:
-            append_text_row(refs, ['Submarca', brand, ''])
+            relation=state['catalog'].get('brandClassifications',{}).get(brand,{})
+            append_text_row(refs, ['Submarca', brand, relation.get('category',''),relation.get('subcategory','')])
         for category, subs in state['catalog']['categories'].items():
             for sub in subs:
-                append_text_row(refs, ['Subcategoría', sub, category])
-        style(refs, [24,36,36])
+                append_text_row(refs, ['Subcategoría', sub, category, sub])
+        style(refs, [24,36,36,36])
     output = io.BytesIO()
     book.save(output)
     return output.getvalue()
@@ -67,14 +68,15 @@ def read_file(content):
                     raise ManagementError('Máximo 5.000 filas por hoja.')
                 rows = list(sheet.iter_rows())
                 names = [str(c.value or '').strip() for c in rows[0]] if rows else []
-                if names != headers:
+                legacy_headers = headers + ['Exclusiva'] if name == 'Catalogo' else headers
+                if names not in (headers, legacy_headers):
                     raise ManagementError('Revisa los encabezados de la hoja ' + name + '. Usa la plantilla.')
                 for number, row in enumerate(rows[1:], 2):
                     if not any(c.value is not None for c in row):
                         continue
                     if any(c.data_type == 'f' for c in row):
                         raise ManagementError(f'{name}, fila {number}: no se permiten fórmulas.')
-                    values = dict(zip(headers, (c.value for c in row)))
+                    values = dict(zip(names, (c.value for c in row)))
                     if name == 'Asignaciones' and not isinstance(values['SKU'], str):
                         raise ManagementError(f'Asignaciones, fila {number}: el SKU debe ser texto para conservar ceros iniciales.')
                     result.append({'sheet': name, 'row': number, 'values': values})
@@ -108,6 +110,7 @@ def transfer(rows, actor, commit=False, version=None):
         products = {p['sku'].casefold(): p for p in catalog.products(conn)}
         projected = copy.deepcopy(products)
         preview, changes, seen = [], [], set()
+        brand_pairs = {}
         for row in sorted(rows, key=lambda r: r['sheet'] != 'Catalogo'):
             values = row['values']
             result = {'sheet': row['sheet'], 'row': row['row'], 'sku': str(values.get('SKU') or ''),
@@ -125,10 +128,12 @@ def transfer(rows, actor, commit=False, version=None):
                         taxonomy['categories'][category].append(sub)
                     if boolean(values.get('Marca propia'), 'Marca propia') and brand not in state['productParameters']['ownBrands']:
                         state['productParameters']['ownBrands'].append(brand)
-                    if boolean(values.get('Exclusiva'), 'Exclusiva'):
-                        if taxonomy['exclusive'].get(category, brand) != brand:
-                            raise ManagementError('La categoría ya tiene otra submarca exclusiva.')
-                        taxonomy['exclusive'][category] = brand
+                    pair = (category,sub)
+                    if brand in brand_pairs and brand_pairs[brand] != pair:
+                        raise ManagementError('Asigna una sola subcategoría a cada marca en la hoja Catalogo.')
+                    brand_pairs[brand] = pair
+                    taxonomy.setdefault('brandClassifications', {})[brand] = {'category':category,'subcategory':sub}
+
                 else:
                     sku = _text(values.get('SKU'), 'SKU', 80, True).casefold()
                     if sku not in products:
@@ -149,7 +154,7 @@ def transfer(rows, actor, commit=False, version=None):
             preview.append(result)
         validation_error = ''
         try:
-            settings.validate_classification({**taxonomy, 'ownBrands':state['productParameters']['ownBrands']}, list(projected.values()))
+            settings.validate_classification({**taxonomy, 'ownBrands':state['productParameters']['ownBrands']}, list(projected.values()), config['state']['catalog']['brands'])
         except ManagementError as exc:
             validation_error = str(exc)
         errors = bool(validation_error or any(r['error'] for r in preview))

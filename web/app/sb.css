@@ -226,8 +226,8 @@
 #nv .settings-fields > label { display: grid; gap: 6px; max-width: 420px; margin-bottom: 14px; }
 #nv .settings-type, #nv .settings-brand, #nv .settings-classification { display: grid; gap: 12px; align-items: end; margin-bottom: 14px; }
 #nv .settings-type { grid-template-columns: minmax(0, 1fr) auto; max-width: 620px; }
-#nv .settings-brand { grid-template-columns: minmax(0, 1fr) auto auto; }
-#nv .settings-classification { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; }
+#nv .settings-brand { grid-template-columns: repeat(3, minmax(0, 1fr)) auto auto; }
+#nv .settings-classification { grid-template-columns: repeat(2, minmax(0, 1fr)) auto; }
 #nv :is(.settings-type, .settings-brand, .settings-classification) label { display: grid; gap: 6px; min-width: 0; }
 #nv :is(.settings-type, .settings-brand, .settings-classification) :is(input:not([type=checkbox]), select) { width: 100%; min-width: 0; }
 #nv .settings-brand .mg-check { display: flex; align-items: center; min-height: 38px; }
@@ -328,5 +328,3 @@
 #nv .classification-file { display: grid; gap: 6px; margin: 16px 0; }
 #nv .sb-metrics.dashboard-three { grid-template-columns: repeat(3,minmax(0,1fr)); }
 @media(max-width:700px) { #nv .sb-metrics.dashboard-three { grid-template-columns: 1fr; } }
-
-#nv .settings-catalog-save { margin-bottom: 20px; }

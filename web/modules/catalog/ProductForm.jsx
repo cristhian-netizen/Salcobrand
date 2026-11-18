@@ -1,4 +1,5 @@
 'use client';
+import {applyBrandClassification} from '../settings/catalog.mjs';
 import { useState } from 'react';
 import { SaveForm, enc, alphabetical } from '../management/shared';
 import ReferenceField from './ReferenceField';
@@ -60,13 +61,7 @@ function ProductForm({
     ),
     exclusive: {},
   };
-  const categories = alphabetical(
-    Object.keys(catalog.categories).filter(
-      (category) =>
-        !catalog.exclusive[category] ||
-        catalog.exclusive[category] === form.subBrand,
-    ),
-  );
+  const categories = alphabetical(Object.keys(catalog.categories));
   const field = (key) => ({
     value: form[key] ?? '',
     onChange: (e) => setForm({ ...form, [key]: e.target.value }),
@@ -130,16 +125,7 @@ function ProductForm({
           required
           value={form.subBrand}
           onChange={(e) => {
-            const subBrand = e.target.value;
-            const allowed =
-              !catalog.exclusive[form.category] ||
-              catalog.exclusive[form.category] === subBrand;
-            setForm({
-              ...form,
-              subBrand,
-              category: allowed ? form.category : '',
-              subcategory: allowed ? form.subcategory : '',
-            });
+            setForm(applyBrandClassification(form,e.target.value,catalog));
           }}
         >
           <option value="">Seleccionar marca / submarca</option>

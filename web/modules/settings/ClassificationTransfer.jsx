@@ -1,5 +1,6 @@
 'use client';
 import {useState} from 'react';
+import {applyBrandClassification} from './catalog.mjs';
 import {api, download} from '../../lib/sb';
 import {Card, Modal, ErrorBox, Loading, useApi} from '../sb/ui';
 import SortableTable from '../tables/SortableTable';
@@ -48,7 +49,7 @@ function Editor({bulk,onSaved}) {
       </>}
     </> : options.loading ? <Loading/> : classification && <form onSubmit={manual}><fieldset className="settings-fields sb-form" disabled={busy}>
       <label className="full">Producto<select required value={selected.sku} onChange={event=>{const p=options.data.products.find(p=>p.sku===event.target.value);setSelected(p?{sku:p.sku,category:p.category,subcategory:p.subcategory,subBrand:p.subBrand}:{sku:'',category:'',subcategory:'',subBrand:''});}}><option value="">Seleccionar producto</option>{options.data.products.map(p=><option key={p.id} value={p.sku}>{p.name} · {p.sku}</option>)}</select></label>
-      <label>Submarca<select required value={selected.subBrand} onChange={e=>setSelected({...selected,subBrand:e.target.value})}><option value="">Seleccionar submarca</option>{[...classification.brands].sort((a,b)=>a.localeCompare(b,'es')).map(name=><option key={name}>{name}</option>)}</select></label>
+      <label>Submarca<select required value={selected.subBrand} onChange={e=>setSelected(applyBrandClassification(selected,e.target.value,classification))}><option value="">Seleccionar submarca</option>{[...classification.brands].sort((a,b)=>a.localeCompare(b,'es')).map(name=><option key={name}>{name}</option>)}</select></label>
       <label>Categoría<select required value={selected.category} onChange={e=>setSelected({...selected,category:e.target.value,subcategory:''})}><option value="">Seleccionar categoría</option>{Object.keys(classification.categories).sort((a,b)=>a.localeCompare(b,'es')).map(name=><option key={name}>{name}</option>)}</select></label>
       <label>Subcategoría<select required disabled={!selected.category} value={selected.subcategory} onChange={e=>setSelected({...selected,subcategory:e.target.value})}><option value="">Seleccionar subcategoría</option>{[...(classification.categories[selected.category]||[])].sort((a,b)=>a.localeCompare(b,'es')).map(name=><option key={name}>{name}</option>)}</select></label>
       <button type="submit" className="action" disabled={!selected.sku}>Guardar clasificación del producto</button>

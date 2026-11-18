@@ -163,7 +163,9 @@ class DashboardCases:
         import settings_service
         config = settings_service.read()
         catalog = config['state']['catalog']
+        category=next(iter(catalog['categories']));subcategory=catalog['categories'][category][0]
         settings_service.save('catalog', {**catalog, 'brands':catalog['brands'] + ['Marca propia','Competidor'],
+                                         'brandClassifications':{**catalog.get('brandClassifications',{}),**{brand:{'category':category,'subcategory':subcategory} for brand in ('Marca propia','Competidor')}},
                                          'ownBrands':['Marca propia']}, config['version'], 'admin')
         with self.db.get_conn() as conn:
             conn.execute('UPDATE readings SET products_json=? WHERE id=?', (json.dumps([

@@ -41,7 +41,7 @@ class SettingsCases:
         value = self.classification()
         value['brands'].append('Nueva marca')
         value['categories']['Nueva categoría'] = ['Nueva subcategoría']
-        value['exclusive']['Nueva categoría'] = 'Nueva marca'
+        value['brandClassifications']['Nueva marca'] = {'category':'Nueva categoría','subcategory':'Nueva subcategoría'}
         value['ownBrands'] = ['Nueva marca']
         response = self.configure('catalog', value)
         self.assertEqual(response.status_code, 200, response.text)
@@ -49,7 +49,7 @@ class SettingsCases:
         self.assertEqual(catalog['ownBrands'], ['Nueva marca'])
         valid = {**self.product_fields('NEW'), 'subBrand': 'Nueva marca', 'category': 'Nueva categoría', 'subcategory': 'Nueva subcategoría'}
         self.assertEqual(self.client('admin').post('/api/admin/catalog/products', json=valid).status_code, 201)
-        invalid = {**valid, 'sku': 'BAD', 'subBrand': 'Marca QA'}
+        invalid = {**valid, 'sku': 'BAD', 'subcategory':'Subcategoría no configurada'}
         self.assertEqual(self.client('admin').post('/api/admin/catalog/products', json=invalid).status_code, 400)
         import catalog_excel
         book = Workbook();sheet = book.active;sheet.title = 'Productos';sheet.append(catalog_excel.COLUMNS)
@@ -58,9 +58,9 @@ class SettingsCases:
         preview = self.client('admin').post('/api/admin/catalog/products/import', files={'file': ('bad.xlsx', output.getvalue(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')})
         self.assertEqual(preview.status_code, 200, preview.text)
         self.assertTrue(preview.json()['errors'])
-        self.assertIn('reservada', preview.json()['errors'][0]['message'])
+        self.assertIn('configuradas', preview.json()['errors'][0]['message'])
 
-    def test_used_classifications_and_exclusivity_are_protected(self):
+    def test_used_classifications_are_protected_and_exclusivity_is_removed(self):
         self.create_product()
         current = self.classification()
         for key, replacement in [('brands', ['Otra']), ('categories', {'Otra': ['Otra']})]:
@@ -69,7 +69,10 @@ class SettingsCases:
         invalid = copy.deepcopy(current);invalid['brands'].append('marca qa')
         self.assertEqual(self.configure('catalog', invalid).status_code, 400)
         invalid = copy.deepcopy(current);invalid['brands'].append('Otra');invalid['exclusive']['Cuidado personal'] = 'Otra'
-        self.assertEqual(self.configure('catalog', invalid).status_code, 409)
+        invalid['brandClassifications']['Otra'] = {'category':'Cuidado personal','subcategory':'Desodorantes'}
+        response=self.configure('catalog', invalid)
+        self.assertEqual(response.status_code,200,response.text)
+        self.assertEqual(response.json()['state']['catalog']['exclusive'],{})
 
     def test_settings_concurrency_persistence_and_section_preservation(self):
         initial = self.configuration()

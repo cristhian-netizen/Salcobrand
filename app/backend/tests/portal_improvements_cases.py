@@ -79,7 +79,7 @@ class PortalImprovementsCases:
     def test_classification_import_previews_and_atomically_assigns_existing_sku(self):
         product=self.create_product()
         admin=self.client('admin')
-        content=self.classification_file([['Marca QA','Salud','Sexual','No','No']], [['000123','Salud','Sexual','Marca QA']])
+        content=self.classification_file([['Marca QA','Salud','Sexual','No']], [['000123','Salud','Sexual','Marca QA']])
         path='/api/admin/settings/classification/import'
         preview=admin.post(path,files={'file':('test.xlsx',content)}).json()
         self.assertFalse(preview['has_errors'],preview)
@@ -98,7 +98,7 @@ class PortalImprovementsCases:
         self.create_product()
         admin=self.client('admin');path='/api/admin/settings/classification'
         before=self.configuration()
-        content=self.classification_file([['Marca QA','Salud','Sexual','No','No']], [['UNKNOWN','Salud','Sexual','Marca QA']])
+        content=self.classification_file([['Marca QA','Salud','Sexual','No']], [['UNKNOWN','Salud','Sexual','Marca QA']])
         preview=admin.post(path+'/import',files={'file':('test.xlsx',content)}).json()
         self.assertTrue(preview['has_errors'])
         self.assertEqual(admin.post(path+'/import',files={'file':('test.xlsx',content)},data={'commit':'true','version':preview['version']}).status_code,400)
@@ -110,7 +110,7 @@ class PortalImprovementsCases:
         for role in ('analyst','viewer','replenisher'):
             self.assertEqual(self.client(role).get(path).status_code,403)
             self.assertEqual(self.client(role).post(path+'/import',files={'file':('test.xlsx',content)}).status_code,403)
-        malicious=self.classification_file([['=1+1','Salud','Sexual','No','No']])
+        malicious=self.classification_file([['=1+1','Salud','Sexual','No']])
         self.assertEqual(admin.post(path+'/import',files={'file':('test.xlsx',malicious)}).status_code,400)
 
     def test_pdv_filtered_excel_keeps_only_matching_relationships(self):

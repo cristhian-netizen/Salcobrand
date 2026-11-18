@@ -403,8 +403,7 @@ def api_register(payload: AuthPayload, request: Request, response: Response):
         raise HTTPException(status_code=403, detail="El registro requiere un código de invitación")
     if len(username) < 3:
         raise HTTPException(status_code=400, detail="El usuario debe tener al menos 3 caracteres")
-    if len(payload.password) < 6:
-        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 6 caracteres")
+    auth.validate_password(payload.password)
     if db.user_exists(username):
         raise HTTPException(status_code=409, detail="Ese usuario ya existe")
 
@@ -417,13 +416,14 @@ def api_register(payload: AuthPayload, request: Request, response: Response):
 
 @app.post("/api/auth/login")
 def api_login(payload: AuthPayload, request: Request, response: Response):
-    username = payload.username.strip().lower()
-    user = db.get_user(username)
+    user = auth.login_user(payload.username)
     # los teclados de teléfono agregan un espacio al final al autocompletar: se tolera en la contraseña
     password = payload.password.strip() if payload.password.strip() else payload.password
     if not user or not (auth.verify_password(password, user["password_hash"], user["salt"])
                         or auth.verify_password(payload.password, user["password_hash"], user["salt"])):
-        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
+        raise HTTPException(status_code=401, detail="Usuario, email o contraseña incorrectos")
+
+    username = user["username"]
 
     import people_service
     if people_service.account_status(username) == 'De baja':
@@ -442,8 +442,7 @@ def api_change_password(payload: PasswordChangePayload, request: Request, respon
     row = db.get_user(user["username"])
     if not row or not auth.verify_password(payload.current_password, row["password_hash"], row["salt"]):
         raise HTTPException(status_code=403, detail="Contraseña actual incorrecta")
-    if len(payload.new_password) < 8:
-        raise HTTPException(status_code=400, detail="La nueva contraseña debe tener al menos 8 caracteres")
+    auth.validate_password(payload.new_password)
     password_hash, salt = auth.hash_password(payload.new_password)
     db.update_user_password(user["username"], password_hash, salt)
     _set_session_cookie(response, user['username'], request)
@@ -507,8 +506,7 @@ def api_create_user(payload: UserCreatePayload, _admin: dict = Depends(require_a
     username = payload.username.strip().lower()
     if len(username) < 3:
         raise HTTPException(status_code=400, detail="El usuario debe tener al menos 3 caracteres")
-    if len(payload.password) < 6:
-        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 6 caracteres")
+    auth.validate_password(payload.password)
     if payload.role not in profiles.PROFILES:
         raise HTTPException(status_code=400, detail="Selecciona Administrador, Analista, Reponedor o Superusuario")
     if db.user_exists(username):
@@ -540,8 +538,7 @@ def api_update_user(username: str, payload: UserUpdatePayload, admin: dict = Dep
         data.get("store_id", current.get("store_id")), data.get("store_name", current.get("store_name")), assigned)
     kwargs = {"role": role, "set_store": set_store or role is not None, "store_id": store_id, "store_name": store_name, "store_ids": store_ids}
     if data.get("password") is not None:
-        if len(data["password"]) < 6:
-            raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 6 caracteres")
+        auth.validate_password(data["password"])
         kwargs["password_hash"], kwargs["salt"] = auth.hash_password(data["password"])
     return db.update_user(username, **kwargs)
 

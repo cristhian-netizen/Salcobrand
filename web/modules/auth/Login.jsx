@@ -157,8 +157,8 @@ export default function Login({onLogin}) {
         <h1>Inicia sesión</h1>
         <p className="intro">Accede a tu espacio de trabajo y continúa donde lo dejaste.</p>
         <form onSubmit={submit} aria-busy={busy}>
-          <label htmlFor="login-username">Usuario
-            <input id="login-username" name="username" autoComplete="username" placeholder="Tu nombre de usuario" required disabled={busy}/>
+          <label htmlFor="login-username">Usuario o email
+            <input id="login-username" name="username" autoComplete="username" placeholder="Tu nombre de usuario o email" required disabled={busy}/>
           </label>
           <label className="password-label" htmlFor="login-password">Contraseña</label>
           <span className="password-field">

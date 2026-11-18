@@ -1,4 +1,5 @@
 'use client';
+import {PASSWORD_PATTERN, PASSWORD_HELP} from '../../lib/password-policy.mjs';
 import SortableTable from '../tables/SortableTable';
 
 import {useState} from 'react';
@@ -76,8 +77,9 @@ function PasswordForm({person,onClose,onSaved}) {
     } catch (exception) {setError(exception.message);} finally {setBusy(false);}
   }
   return <form className="sb-form" onSubmit={submit}><p className="full">Usuario {person.username}. La nueva contraseña cerrará las sesiones de esta cuenta.</p>
-    <label className="full">Nueva contraseña<input name="password" type="password" minLength={12} maxLength={512} required autoComplete="new-password" disabled={busy}/></label>
-    <label className="full">Repite la nueva contraseña<input name="confirmation" type="password" minLength={12} maxLength={512} required autoComplete="new-password" disabled={busy}/></label>
+    <p className="full sb-hint">{PASSWORD_HELP}</p>
+    <label className="full">Nueva contraseña<input name="password" type="password" minLength={8} maxLength={512} pattern={PASSWORD_PATTERN} title={PASSWORD_HELP} required autoComplete="new-password" disabled={busy}/></label>
+    <label className="full">Repite la nueva contraseña<input name="confirmation" type="password" minLength={8} maxLength={512} pattern={PASSWORD_PATTERN} title={PASSWORD_HELP} required autoComplete="new-password" disabled={busy}/></label>
     <div className="full"><ErrorBox error={error}/></div><div className="sb-actions"><button type="button" disabled={busy} onClick={onClose}>Cancelar</button><button type="submit" className="action" disabled={busy}>{busy ? 'Guardando…' : 'Guardar contraseña'}</button></div>
   </form>;
 }

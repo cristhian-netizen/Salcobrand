@@ -81,7 +81,7 @@ class PeopleCases:
         self.assertEqual(client.get('/api/auth/me').status_code,401)
         self.assertEqual(login().status_code,200)
         self.assertFalse(client.get('/api/auth/me').json()['read_only'])
-        self.assertEqual(self.update_person(person,status='De baja').status_code,400)
+        self.assertEqual(self.update_person(person,status='De baja',endDate='invalid').status_code,400)
         changed=self.update_person(person,status='De baja',endDate='2026-11-12')
         self.assertEqual(changed.status_code,200,changed.text)
         self.assertEqual(login().status_code,403)

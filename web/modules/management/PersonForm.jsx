@@ -1,4 +1,5 @@
 'use client';
+import {PASSWORD_PATTERN, PASSWORD_HELP} from '../../lib/password-policy.mjs';
 import {orderRegions} from '../../lib/locations.mjs';
 import {useState} from 'react';
 import {api, ROLE_NAMES} from '../../lib/sb';
@@ -18,7 +19,7 @@ export default function PersonForm({current, self, onClose, onSaved}) {
     return {stores,locations};
   }, []);
   const [form,setForm] = useState({names:'',paternal:'',maternal:'',email:'',username:'',position:'',startDate:'',endDate:'',status:'Vigente',role:'replenisher',storeCodes:[],allStores:false,...current});
-  const [enabled,setEnabled] = useState(!!current.access_enabled || !current.id);
+  const [enabled,setEnabled] = useState(!!current.access_enabled);
   const [password,setPassword] = useState('');
   const [confirmation,setConfirmation] = useState('');
   const [region,setRegion] = useState('');
@@ -45,19 +46,20 @@ export default function PersonForm({current, self, onClose, onSaved}) {
     } catch (exception) {setError(exception.message);} finally {setBusy(false);}
   }
   return <form className="sb-form" onSubmit={submit}>
+    <p className="full sb-hint">Solo Nombre de usuario, Email, Rol y Estado son obligatorios. Los datos personales, las fechas y los PDV se pueden completar después.</p>
     <fieldset className="mg-fields" disabled={busy || readOnly}>
-      <label>Nombres<input {...change('names')} required maxLength={100}/></label>
-      <label>Apellido paterno<input {...change('paternal')} required maxLength={80}/></label>
-      <label>Apellido materno<input {...change('maternal')} maxLength={80}/></label>
-      <label>Email<input {...change('email')} type="email" required maxLength={180}/></label>
       <label>Nombre de usuario<input {...change('username')} readOnly={!!current.access_enabled} required minLength={3} maxLength={80} autoComplete="off"/></label>
+      <label>Email<input {...change('email')} type="email" required maxLength={180}/></label>
       <label>Rol<select {...change('role')} required disabled={own}>{Object.entries(ROLE_NAMES).filter(([value]) => value !== 'local-neura').map(([value,label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-      <label>Cargo<input {...change('position')} required maxLength={120}/></label>
-      <label>Estado<select value={form.status} disabled={own} onChange={event => setForm({...form,status:event.target.value,endDate:event.target.value === 'De baja' ? form.endDate : ''})}><option>Vigente</option><option>Suspendido</option><option>De baja</option></select></label>
-      <label>Fecha alta<input {...change('startDate')} type="date" required/></label>
-      {form.status === 'De baja' && <label>Fecha baja<input {...change('endDate')} type="date" min={form.startDate} required/></label>}
+      <label>Estado<select value={form.status} required disabled={own} onChange={event => setForm({...form,status:event.target.value,endDate:event.target.value === 'De baja' ? form.endDate : ''})}><option>Vigente</option><option>Suspendido</option><option>De baja</option></select></label>
+      <label>Nombres<input {...change('names')} maxLength={100}/></label>
+      <label>Apellido paterno<input {...change('paternal')} maxLength={80}/></label>
+      <label>Apellido materno<input {...change('maternal')} maxLength={80}/></label>
+      <label>Cargo<input {...change('position')} maxLength={120}/></label>
+      <label>Fecha alta<input {...change('startDate')} type="date"/></label>
+      {form.status === 'De baja' && <label>Fecha baja<input {...change('endDate')} type="date" min={form.startDate}/></label>}
       {scoped && <fieldset className="full people-store-scope" disabled={preserve}>
-        <legend>PDV asignados</legend>
+        <legend>PDV asignados (opcional)</legend><p className="sb-hint">Sin PDV asignados, esta cuenta no podrá consultar ni realizar mediciones de locales.</p>
           <div className="people-scope-filters"><label>Región<select value={region} onChange={event => {setRegion(event.target.value);setCommune('');}}><option value="">Todas las regiones</option>{orderRegions(catalog.data?.locations.regions || []).map(item => <option key={item.code}>{item.name}</option>)}</select></label>
           <label>Comuna<select value={commune} disabled={!region} onChange={event => setCommune(event.target.value)}><option value="">Todas las comunas</option>{sortByName(catalog.data?.locations.regions.find(item => item.name === region)?.communes || []).map(item => <option key={item.code}>{item.name}</option>)}</select></label></div>
           <label className="people-check"><input type="checkbox" checked={allVisible} disabled={!visible.length} ref={input => {if (input) input.indeterminate = !allVisible && visible.some(store => selected.has(store.code));}} onChange={event => {
@@ -71,7 +73,9 @@ export default function PersonForm({current, self, onClose, onSaved}) {
       </fieldset>}
       <section className="full people-access"><h3>Acceso a la plataforma</h3><p>{CAPABILITIES[form.role]}</p>
         <label className="people-check"><input type="checkbox" checked={enabled} disabled={!!current.access_enabled} onChange={event => setEnabled(event.target.checked)}/>Habilitar inicio de sesión</label>
-        {enabled && !current.access_enabled && <div className="people-scope-filters"><label>Contraseña inicial<input type="password" minLength={12} maxLength={512} required value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password"/></label><label>Repite la contraseña<input type="password" minLength={12} maxLength={512} required value={confirmation} onChange={event => setConfirmation(event.target.value)} autoComplete="new-password"/></label></div>}
+        {!enabled && <p className="sb-hint">Se guardará la ficha sin acceso. Para que pueda iniciar sesión, habilita esta opción y define una contraseña.</p>}
+        {enabled && !current.access_enabled && <div className="people-scope-filters"><label>Contraseña inicial<input type="password" minLength={8} maxLength={512} pattern={PASSWORD_PATTERN} title={PASSWORD_HELP} required value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password"/></label><label>Repite la contraseña<input type="password" minLength={8} maxLength={512} pattern={PASSWORD_PATTERN} title={PASSWORD_HELP} required value={confirmation} onChange={event => setConfirmation(event.target.value)} autoComplete="new-password"/></label></div>}
+        {enabled && !current.access_enabled && <p className="sb-hint">{PASSWORD_HELP} La contraseña se solicita únicamente al habilitar el inicio de sesión.</p>}
         <p className="sb-hint">Vigente permite operar. Suspendido permite entrar y consultar. De baja bloquea el acceso y conserva el historial.</p>
       </section>
     </fieldset>

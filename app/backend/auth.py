@@ -28,6 +28,38 @@ def _load_or_create_secret() -> bytes:
 _SECRET = _load_or_create_secret()
 
 
+PASSWORD_HELP = 'La contraseña debe tener entre 8 y 512 caracteres, al menos una mayúscula y un número.'
+
+
+def validate_password(password):
+    if (not isinstance(password,str) or not 8 <= len(password) <= 512
+            or not any(char.isupper() for char in password) or not any(char in '0123456789' for char in password)):
+        from infrastructure import ManagementError
+        raise ManagementError(PASSWORD_HELP)
+
+
+def login_user(identifier):
+    identifier=identifier.strip().lower()
+    with db.get_conn() as conn:
+        rows=conn.execute('SELECT username FROM users WHERE LOWER(username)=? UNION '
+            'SELECT u.username FROM users u JOIN management_people p ON LOWER(p.username)=LOWER(u.username) WHERE LOWER(p.email)=?',
+            (identifier,identifier)).fetchall()
+    # Old ambiguous aliases fail closed, without choosing an account arbitrarily.
+    return db.get_user(rows[0]['username']) if len(rows)==1 else None
+
+
+def validate_login_identity(conn, username, email='', exclude_username=None):
+    from infrastructure import ManagementError
+    identifiers={value.strip().lower() for value in (username,email) if value}
+    exclude=(exclude_username or '').lower()
+    for row in conn.execute('SELECT username FROM users').fetchall():
+        if row['username'].lower()!=exclude and row['username'].lower() in identifiers:
+            raise ManagementError('Ya existe una cuenta con ese usuario o email.',409)
+    for row in conn.execute('SELECT username,email FROM management_people').fetchall():
+        if row['username'].lower()!=exclude and identifiers.intersection({row['username'].lower(),row['email'].lower()}):
+            raise ManagementError('Ya existe una persona con ese usuario o email.',409)
+
+
 def hash_password(password: str, salt: str = None) -> tuple:
     salt = salt or secrets.token_hex(16)
     digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), PBKDF2_ITERATIONS)

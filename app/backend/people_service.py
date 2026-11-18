@@ -39,7 +39,7 @@ def list_people(conn=None):
                        'allStores':False if user else data.get('allStores', False),
                        'status':data.get('status', 'Vigente'), 'access_enabled':bool(user),
                        'version':row['version'] if row else user['auth_version'] + 1,
-                       'needs_completion':not all(data.get(key) for key in ('names','paternal','email','position','startDate'))})
+                       'needs_completion':not bool(data.get('email'))})
     return sorted(result, key=lambda item:(item['name'].casefold(), item['username']))
 
 
@@ -52,8 +52,8 @@ def find(conn, person_id):
 
 def normalize(values):
     data = {key:_text(values.get(key, ''), label, maximum, required) for key,label,maximum,required in (
-        ('names','Nombres',100,True), ('paternal','Apellido paterno',80,True), ('maternal','Apellido materno',80,False),
-        ('email','Email',180,True), ('position','Cargo',120,True), ('username','Nombre de usuario',80,True))}
+        ('names','Nombres',100,False), ('paternal','Apellido paterno',80,False), ('maternal','Apellido materno',80,False),
+        ('email','Email',180,True), ('position','Cargo',120,False), ('username','Nombre de usuario',80,True))}
     data['username'] = data['username'].lower()
     if not re.fullmatch(r'[\w.@+-]{3,80}', data['username']):
         raise ManagementError('Nombre de usuario: usa entre 3 y 80 letras, números o los caracteres . @ + - _.')
@@ -75,9 +75,7 @@ def normalize(values):
             except (ValueError, TypeError):
                 raise ManagementError('Usa fechas válidas en formato AAAA-MM-DD.')
         data[key] = value
-    if not data['startDate'] or (data['status'] == 'De baja' and not data['endDate']):
-        raise ManagementError('Completa la fecha de alta y, para De baja, la fecha de baja.')
-    if data['endDate'] and data['endDate'] < data['startDate']:
+    if data['endDate'] and data['startDate'] and data['endDate'] < data['startDate']:
         raise ManagementError('La fecha de baja no puede ser anterior a la fecha de alta.')
     data['storeCodes'] = list(dict.fromkeys(str(code).strip().upper() for code in values.get('storeCodes', [])))
     data['allStores'] = bool(values.get('allStores')) and data['role'] == 'analyst'
@@ -85,13 +83,12 @@ def normalize(values):
         data['storeCodes'] = []
     if data['allStores']:
         data['storeCodes'] = []
-    data['name'] = ' '.join(filter(None, (data['names'],data['paternal'],data['maternal'])))
+    data['name'] = ' '.join(filter(None, (data['names'],data['paternal'],data['maternal']))) or data['username']
     return data
 
 
 def password_hash(password):
-    if not isinstance(password, str) or not 12 <= len(password) <= 512:
-        raise ManagementError('La contraseña debe tener entre 12 y 512 caracteres.')
+    auth.validate_password(password)
     return auth.hash_password(password)
 
 
@@ -120,6 +117,7 @@ def save(values, actor, person_id=None, version=None, enable_access=False, passw
     user = dict(user_row) if user_row else None
     if user and (user.get('is_internal') or not user.get('portal_access',1)):
         raise ManagementError('Esta cuenta pertenece al equipo interno.',403)
+    auth.validate_login_identity(conn,data['username'],data['email'],before['username'] if before else None)
     enabled = bool(user or enable_access)
     if data['username'] == actor.casefold() and before and (data['role'] != before['role'] or data['status'] != before['status']):
         raise ManagementError('No puedes cambiar tu propio rol ni desactivar o suspender tu acceso.', 403)
@@ -134,8 +132,6 @@ def save(values, actor, person_id=None, version=None, enable_access=False, passw
         if any(code.casefold() not in known for code in data['storeCodes']):
             raise ManagementError('Selecciona PDV registrados en el catálogo.')
         data['storeCodes'] = [known[code.casefold()] for code in data['storeCodes']]
-        if enabled and data['status'] == 'Vigente' and data['role'] in ('analyst','replenisher') and not data['storeCodes'] and not data['allStores']:
-            raise ManagementError('Asigna al menos un PDV al analista o reponedor.')
     if user:
         kwargs = {}
         public = db._user_public(user)

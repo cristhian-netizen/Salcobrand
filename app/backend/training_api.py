@@ -92,6 +92,7 @@ def router(require_training, require_internal):
                 if current['role']!='local-neura' or not current['is_internal']:
                     raise ManagementError('Ese usuario ya existe con otro perfil.',409)
                 return {'username':username,'role':'local-neura','created':False}
+            auth.validate_password(payload.password)
             hashed,salt=auth.hash_password(payload.password)
             db.create_user(username,hashed,salt,role='local-neura',conn=conn)
             _audit(conn,user['username'],'training.account',username,None,{'role':'local-neura'})

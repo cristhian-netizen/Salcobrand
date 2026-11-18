@@ -83,3 +83,22 @@ sembrar las relaciones antiguas. Los registros anteriores con varias
 subcategorías se conservan para consulta/captura; deben clasificarse en una sola
 antes de usar la nueva asignación. No se actualizan lecturas ni fotos históricas.
 Cada captura nueva congela la referencia seleccionada en su solicitud.
+
+
+## Cuentas: identificadores y contraseñas
+
+El acceso admite nombre de usuario o el email registrado por el administrador,
+sin distinguir mayúsculas y conservando siempre el usuario canónico en la sesión,
+los permisos y la autoría. Los emails y usuarios no pueden colisionar con otra
+cuenta. Las coincidencias ambiguas heredadas se rechazan, sin elegir una cuenta.
+Una ficha sin acceso habilitado no permite entrar por ninguno de sus identificadores.
+
+Solo Nombre de usuario, Email, Rol y Estado son obligatorios en la ficha. Los
+antecedentes personales, fechas y PDV son opcionales. Analista/Reponedor sin PDV
+mantienen un ámbito vacío. Habilitar una cuenta exige definir una contraseña de
+8 a 512 caracteres, una mayúscula y un número; la misma regla se aplica al cambio
+y restablecimiento. No se modifican las contraseñas ya registradas.
+
+La carga de personas admite solo los cuatro encabezados obligatorios o la
+plantilla completa. Las columnas opcionales omitidas conservan sus datos en las
+fichas existentes y la importación no crea cuentas ni concede PDV automáticamente.

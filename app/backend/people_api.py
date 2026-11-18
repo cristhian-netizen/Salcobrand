@@ -9,13 +9,13 @@ from infrastructure import ManagementError
 
 class Person(BaseModel):
     model_config = ConfigDict(extra='forbid')
-    names: str
-    paternal: str
+    names: str = ''
+    paternal: str = ''
     maternal: str = ''
     email: str
     username: str
-    position: str
-    startDate: str
+    position: str = ''
+    startDate: str = ''
     endDate: str = ''
     status: str
     role: str

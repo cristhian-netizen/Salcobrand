@@ -339,6 +339,11 @@ def create_user(username: str, password_hash: str, salt: str, role: str = "admin
     with (nullcontext(conn) if conn is not None else get_conn()) as conn:
         from catalog_service import lock_catalog
         lock_catalog(conn)
+        # Avoid a new username claiming the email alias of another account/draft.
+        aliases=conn.execute('SELECT username FROM management_people WHERE LOWER(email)=LOWER(?) AND LOWER(username)<>LOWER(?)',(username,username)).fetchall()
+        if aliases:
+            from infrastructure import ManagementError
+            raise ManagementError('Ese usuario ya está reservado como email de otra persona.',409)
         conn.execute(
             "INSERT INTO users (username, password_hash, salt, created_at, role, store_id, store_name, store_ids_json, auth_version, is_internal) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",

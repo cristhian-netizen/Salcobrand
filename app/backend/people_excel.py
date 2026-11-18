@@ -7,6 +7,7 @@ import zipfile
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils.datetime import from_excel
 import db
+import auth
 import people_service as service
 import profiles
 from catalog_service import lock_catalog
@@ -45,18 +46,19 @@ def read_rows(content):
                 raise ManagementError('Máximo 5.000 filas y 100 columnas.')
             rows = list(sheet.iter_rows())
             headers = [str(cell.value or '').strip() for cell in rows[0]] if rows else []
-            if any(column not in headers for column in COLUMNS) or len([h for h in headers if h]) != len(set(h for h in headers if h)):
-                raise ManagementError('Faltan columnas o hay encabezados repetidos. Usa la plantilla.')
+            if any(column not in headers for column in ('Email','Estado','Nombre de usuario','Rol')) or len([h for h in headers if h]) != len(set(h for h in headers if h)):
+                raise ManagementError('Incluye Email, Estado, Nombre de usuario y Rol, sin encabezados repetidos.')
             result = []
             for number,row in enumerate(rows[1:],2):
-                cells = [row[headers.index(column)] for column in COLUMNS]
-                if all(cell.value in (None,'') for cell in cells):
+                cells = [row[headers.index(column)] if column in headers else None for column in COLUMNS]
+                if all(cell is None or cell.value in (None,'') for cell in cells):
                     continue
-                error = 'No se permiten fórmulas en la ficha.' if any(cell.data_type == 'f' for cell in cells) else ''
-                if any(not isinstance(cells[index].value,(str,type(None))) for index in (7,10)):
+                error = 'No se permiten fórmulas en la ficha.' if any(cell is not None and cell.data_type == 'f' for cell in cells) else ''
+                if any(cells[index] is not None and not isinstance(cells[index].value,(str,type(None))) for index in (7,10)):
                     error = 'Nombre de usuario y Código PDV deben ser texto.'
                 values = {}
                 for field,cell in zip(FIELDS,cells):
+                    if cell is None:continue
                     value = cell.value
                     if field in ('startDate','endDate') and isinstance(value,(int,float)):
                         value = from_excel(value,book.epoch)
@@ -88,22 +90,26 @@ def transfer(content, actor, commit=False, version=None):
             raise ManagementError('Las fichas, permisos, PDV o el archivo cambiaron. Vuelve a validar.',409)
         existing = {person['username'].casefold():person for person in people}
         known = {store['code'].casefold():store['code'] for store in stores if not store['deleted']}
-        records, errors, usernames, emails = [], [], set(), set()
+        records, errors, identifiers = [], [], set()
         for number,values,error in read_rows(content):
             try:
                 if error:
                     raise ManagementError(error)
                 username = values['username'].lower()
                 old = existing.get(username)
-                code = values.pop('storeCode')
+                has_code='storeCode' in values
+                code = values.pop('storeCode','')
+                if old:
+                    values={**{key:old.get(key,'') for key in ('names','paternal','maternal','position','startDate','endDate')},**values}
                 if code and code.casefold() not in known:
                     raise ManagementError('Código PDV no registrado.')
                 values.update(role={name:key for key,name in profiles.PROFILE_NAMES.items()}.get(values['role'],values['role']),
-                              storeCodes=[known[code.casefold()]] if code else [], allStores=not code and values['role'] in ('Analista','analyst'))
+                              storeCodes=old['storeCodes'] if old and not has_code else [known[code.casefold()]] if code else [], allStores=False)
                 data = service.normalize(values)
-                if data['username'] in usernames or data['email'].casefold() in emails:
+                auth.validate_login_identity(conn,data["username"],data["email"],old["username"] if old else None)
+                if {data['username'].casefold(),data['email'].casefold()}.intersection(identifiers):
                     raise ManagementError('Nombre de usuario o email repetido en el archivo.')
-                usernames.add(data['username']); emails.add(data['email'].casefold())
+                identifiers.update((data['username'].casefold(),data['email'].casefold()))
                 if any((person.get('email') or '').casefold() == data['email'].casefold() and person['username'].casefold() != username for person in people):
                     raise ManagementError('Email asignado a otra persona.')
                 if old and old['access_enabled'] and any(data[key] != old[key] for key in ('role','status','storeCodes','allStores','endDate')):

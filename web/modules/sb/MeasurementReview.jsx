@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../../lib/sb";
 import { can } from "../../lib/profiles.mjs";
-import { Card, ErrorBox, Pill } from "./ui";
+import { Card, ErrorBox } from "./ui";
 
 export default function MeasurementReview({ reading, user, onSaved }) {
   const [saved, setSaved] = useState(
@@ -46,6 +46,7 @@ export default function MeasurementReview({ reading, user, onSaved }) {
       setBusy(false);
     }
   }
+  if (!editable) return saved.note ? <p className="sb-hint measurement-review-note"><b>Observación del analista:</b> {saved.note}</p> : null;
   return (
     <Card
       className="measurement-review"
@@ -53,7 +54,6 @@ export default function MeasurementReview({ reading, user, onSaved }) {
       subtitle="Solo las mediciones aprobadas se consideran en el desempeño."
     >
       <ErrorBox error={error} />
-      {editable ? (
         <form className="sb-form" onSubmit={save}>
           <label>
             Estado
@@ -89,22 +89,7 @@ export default function MeasurementReview({ reading, user, onSaved }) {
             {message && <span role="status">{message}</span>}
           </div>
         </form>
-      ) : (
-        <>
-          <Pill
-            kind={
-              saved.status === "Aprobado"
-                ? "ok"
-                : saved.status === "Rechazado"
-                  ? "bad"
-                  : "warn"
-            }
-          >
-            {saved.status}
-          </Pill>
-          {saved.note && <p>{saved.note}</p>}
-        </>
-      )}
+
     </Card>
   );
 }

@@ -69,12 +69,15 @@ se obtiene del catálogo. Guardar el maestro no asigna automáticamente nuevos P
 «Asignar a PDV» abre la selección múltiple con región, comuna, tipo de PDV,
 categoría y subcategoría. Los dos últimos filtros consultan las referencias
 actuales de los locales; «Todas» incluye locales sin referencia. La selección
-se conserva al cambiar filtros. La selección del país respeta PDV activos y,
-si se especifica un tipo de góndola, su disponibilidad en cada PDV.
+se conserva al cambiar filtros. La selección del país incluye los PDV activos,
+sin exigir un tipo de góndola en el modal.
 
 Primero se revisa el resumen. Si otra referencia activa ocupa el mismo PDV,
 categoría, subcategoría y tipo, se requiere confirmar su reemplazo. Las
-asignaciones generales y por tipo se editan separadamente; las específicas
+asignaciones se administran por PDV, sin selector de tipo de góndola. Las
+relaciones por tipo que ya existen se conservan para los locales retenidos; los
+PDV nuevos reciben una asignación general. Al desmarcar un PDV se retiran todas
+sus relaciones con ese planograma. Las referencias específicas existentes
 prevalecen sobre las generales. Los cambios concurrentes se rechazan por versión.
 
 La actualización crea tablas aditivas y deriva una sola vez las asignaciones

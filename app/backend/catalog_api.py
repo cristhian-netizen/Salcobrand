@@ -72,7 +72,7 @@ class PlanUpdate(PlanFields):
 
 class PlanAssignments(Payload):
     stores: List[str] = Field(default_factory=list, max_length=10000)
-    type_id: str = Field(default='', max_length=150)
+    type_id: str | None = Field(default=None, max_length=150)
     version: StrictInt = Field(ge=0)
     replace_conflicts: bool = False
 

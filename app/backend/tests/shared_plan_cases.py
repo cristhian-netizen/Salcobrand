@@ -102,3 +102,36 @@ class SharedPlanCases:
         detail=admin.get('/api/admin/catalog/planograms/'+plan['id']+'/assignments').json()
         self.assertEqual(detail['assignments'],[])
         self.assertEqual(self.db.get_point(point['id'])['planogram_id'],plan['id'])
+
+    def test_shared_plan_store_only_assignment_preserves_types_and_allows_untyped_pdv(self):
+        plan,_=self.shared_master('PDV-only');admin=self.client('admin');first=self.create_type()
+        response=admin.post('/api/admin/shelf-types',json={'name':'Another type','width_cm':100,'depths':[30]})
+        self.assertEqual(response.status_code,201,response.text);second=response.json()
+        for store,shelf in [('L128',first),('L129',second)]:
+            admin.put('/api/admin/stores/'+store+'/shelf-assignments/'+shelf['id'],json={'quantity':1,'version':0}).raise_for_status()
+            self.assignment(plan,[store],shelf['id']).raise_for_status()
+        path='/api/admin/catalog/planograms/'+plan['id']+'/assignments'
+        before=admin.get(path).json();body={'stores':['L128','L129','L130'],'version':before['version']}
+        preview=admin.post(path+'/preview',json=body);self.assertEqual(preview.status_code,200,preview.text)
+        self.assertEqual(preview.json()['added'],['L130']);self.assertEqual(preview.json()['removed'],[])
+        self.assertEqual(admin.get(path).json()['assignments'],before['assignments'])
+        result=admin.put(path,json=body);self.assertEqual(result.status_code,200,result.text)
+        after=admin.get(path).json()
+        for row in before['assignments']:self.assertIn(row,after['assignments'])
+        self.assertEqual({(r['store_code'],r['type_id']) for r in after['assignments']},{('L128',first['id']),('L129',second['id']),('L130','')})
+        result=admin.put(path,json={'stores':['L129','L130'],'version':after['version']});self.assertEqual(result.status_code,200,result.text)
+        detail=admin.get(path).json();self.assertEqual({r['store_code'] for r in detail['assignments']},{'L129','L130'})
+        self.assertEqual(admin.put(path,json={'stores':[],'version':detail['version']}).status_code,200)
+        self.assertEqual(admin.get(path).json()['assignments'],[])
+
+    def test_shared_plan_store_only_assignment_keeps_conflict_confirmation_and_versions(self):
+        first,_=self.shared_master('PDV-first');second,_=self.shared_master('PDV-second');admin=self.client('admin')
+        self.assignment(first,['L128']).raise_for_status()
+        path='/api/admin/catalog/planograms/'+second['id']+'/assignments';version=admin.get(path).json()['version']
+        body={'stores':['L128','L129'],'version':version}
+        preview=admin.post(path+'/preview',json=body);self.assertEqual(preview.status_code,200,preview.text)
+        self.assertEqual(len(preview.json()['conflicts']),1)
+        self.assertEqual(admin.put(path,json=body).status_code,409)
+        saved=admin.put(path,json={**body,'replace_conflicts':True});self.assertEqual(saved.status_code,200,saved.text)
+        self.assertEqual(admin.put(path,json={**body,'replace_conflicts':True}).status_code,409)
+        self.assertEqual(admin.get('/api/admin/catalog/planograms/'+first['id']).json()['assigned_count'],0)

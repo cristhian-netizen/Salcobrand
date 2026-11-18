@@ -8,14 +8,12 @@ import {INITIAL_FILTERS,eligibleStore,filteredStores,selectStores} from './assig
 
 export default function PlanogramAssignments({plan,catalog,onSaved,onEdit}) {
   const state=useApi(()=>api('/api/admin/catalog/planograms/'+encodeURIComponent(plan.id)+'/assignments'),[plan.id]);
-  const [filters,setFilters]=useState(INITIAL_FILTERS),[type,setType]=useState('');
+  const [filters,setFilters]=useState(INITIAL_FILTERS);
   const [selected,setSelected]=useState([]),[preview,setPreview]=useState(null),[replace,setReplace]=useState(false);
   const [busy,setBusy]=useState(false),[error,setError]=useState('');
   useEffect(()=>{
     if(!state.data)return;
-    const types=[...new Set(state.data.assignments.map(r=>r.type_id))];
-    const initial=types.length===1?types[0]:'';
-    setType(initial);setSelected([...new Set(state.data.assignments.filter(r=>r.type_id===initial).map(r=>r.store_code))]);setPreview(null);setReplace(false);
+    setSelected([...new Set(state.data.assignments.map(r=>r.store_code))]);setPreview(null);setReplace(false);
   },[state.data]);
   const stores=state.data?.stores||[],types=state.data?.types||[];
   const choices=filteredStores(stores,filters);
@@ -28,7 +26,7 @@ export default function PlanogramAssignments({plan,catalog,onSaved,onEdit}) {
   async function submit(commit=false){
     setBusy(true);setError('');
     try{
-      const result=await api('/api/admin/catalog/planograms/'+encodeURIComponent(plan.id)+'/assignments'+(commit?'':'/preview'),{method:commit?'PUT':'POST',body:{stores:selected,type_id:type,version:state.data.version,replace_conflicts:replace}});
+      const result=await api('/api/admin/catalog/planograms/'+encodeURIComponent(plan.id)+'/assignments'+(commit?'':'/preview'),{method:commit?'PUT':'POST',body:{stores:selected,version:state.data.version,replace_conflicts:replace}});
       if(commit)onSaved();else setPreview(result);
     }catch(e){setError(e.message);}finally{setBusy(false);}
   }
@@ -38,8 +36,6 @@ export default function PlanogramAssignments({plan,catalog,onSaved,onEdit}) {
     <ErrorBox error={error||state.error} onRetry={state.reload}/>
     {!valid&&<div className="sb-error">El planograma necesita una única subcategoría antes de asignarlo. <button type="button" onClick={onEdit}>Editar clasificación</button></div>}
     <fieldset className="settings-fields" disabled={busy||state.loading||!state.data}>
-      <label>Tipo de góndola de la asignación<select value={type} onChange={e=>{const type=e.target.value;setType(type);selection([...new Set(state.data.assignments.filter(r=>r.type_id===type).map(r=>r.store_code))]);}}><option value="">General: cualquier tipo o medidas manuales</option>{types.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}{[...new Set(state.data?.assignments.map(r=>r.type_id))].filter(id=>id&&!types.some(t=>t.id===id)).map(id=><option key={id} value={id}>Tipo anterior · {id}</option>)}</select></label>
-      <p className="sb-hint">Una asignación específica por tipo tiene prioridad sobre la general. Cada tipo se administra por separado.</p>
       <div className="sb-toolbar assignment-filters">
         <label>Región<select value={filters.region} onChange={e=>change('region',e.target.value)}><option value="">Todas las regiones</option>{orderRegions(names(stores.map(s=>s.region)).map(name=>({name}))).map(r=><option key={r.name}>{r.name}</option>)}</select></label>
         <label>Comuna<select value={filters.commune} disabled={!filters.region} onChange={e=>change('commune',e.target.value)}><option value="">Todas las comunas</option>{names(stores.filter(s=>s.region===filters.region).map(s=>s.commune)).map(n=><option key={n}>{n}</option>)}</select></label>
@@ -50,8 +46,8 @@ export default function PlanogramAssignments({plan,catalog,onSaved,onEdit}) {
         <button type="button" onClick={()=>setFilters(INITIAL_FILTERS)}>Limpiar filtros</button>
       </div>
       <p className="sb-hint">Categoría y subcategoría filtran las referencias actuales de los PDV. Con «Todas» también se muestran los locales sin referencia.</p>
-      <div className="sb-actions assignment-selection"><button type="button" onClick={()=>selection(selectStores(selected,choices,type))}>Seleccionar todos los filtrados</button><button type="button" onClick={()=>selection(selectStores(selected,stores,type))}>Seleccionar todos los PDV del país</button><button type="button" onClick={()=>selection([])}>Limpiar selección</button><span>{selected.length} PDV seleccionados · {choices.length} visibles</span></div>
-      <div className="sb-table assignment-table"><SortableTable><thead><tr><th>Seleccionar</th><th>PDV</th><th>Región / comuna</th><th>Tipo de PDV</th><th>Referencias actuales</th></tr></thead><tbody>{choices.map(s=><tr key={s.code}><td><input type="checkbox" aria-label={'Seleccionar '+s.code} checked={selected.includes(s.code)} disabled={!selected.includes(s.code)&&!eligibleStore(s,type)} onChange={e=>selection(e.target.checked?[...selected,s.code]:selected.filter(code=>code!==s.code))}/></td><td><b>{s.name}</b><small>{s.code}{s.deleted?' · Eliminado':s.status!=='Activo'?' · Inactivo':''}{type&&!s.type_ids.includes(type)?' · Sin este tipo de góndola':''}</small></td><td>{s.region}<small>{s.commune}</small></td><td>{s.store_type}</td><td>{s.references.length?s.references.map(r=><small key={r.plan_id+r.subcategory+r.type_id}>{r.name} · {r.subcategory} · {r.type_id?types.find(t=>t.id===r.type_id)?.name||'Tipo anterior':'General'}</small>):'Sin referencia'}</td></tr>)}</tbody></SortableTable>{!choices.length&&<p className="sb-empty">No hay PDV con estos filtros.</p>}</div>
+      <div className="sb-actions assignment-selection"><button type="button" onClick={()=>selection(selectStores(selected,choices))}>Seleccionar todos los filtrados</button><button type="button" onClick={()=>selection(selectStores(selected,stores))}>Seleccionar todos los PDV del país</button><button type="button" onClick={()=>selection([])}>Limpiar selección</button><span>{selected.length} PDV seleccionados · {choices.length} visibles</span></div>
+      <div className="sb-table assignment-table"><SortableTable><thead><tr><th>Seleccionar</th><th>PDV</th><th>Región / comuna</th><th>Tipo de PDV</th><th>Referencias actuales</th></tr></thead><tbody>{choices.map(s=><tr key={s.code}><td><input type="checkbox" aria-label={'Seleccionar '+s.code} checked={selected.includes(s.code)} disabled={!selected.includes(s.code)&&!eligibleStore(s)} onChange={e=>selection(e.target.checked?[...selected,s.code]:selected.filter(code=>code!==s.code))}/></td><td><b>{s.name}</b><small>{s.code}{s.deleted?' · Eliminado':s.status!=='Activo'?' · Inactivo':''}</small></td><td>{s.region}<small>{s.commune}</small></td><td>{s.store_type}</td><td>{s.references.length?s.references.map(r=><small key={r.plan_id+r.subcategory+r.type_id}>{r.name} · {r.subcategory} · {r.type_id?types.find(t=>t.id===r.type_id)?.name||'Tipo anterior':'General'}</small>):'Sin referencia'}</td></tr>)}</tbody></SortableTable>{!choices.length&&<p className="sb-empty">No hay PDV con estos filtros.</p>}</div>
       <div className="sb-actions assignment-selection"><button type="button" className="action" disabled={!valid} onClick={()=>submit()}>Revisar asignación</button></div>
       {preview&&<section className="assignment-preview" aria-label="Resumen de asignación">
         <h3>Resumen antes de confirmar</h3><p>{preview.selected} PDV · {preview.added.length} nuevas asignaciones · {preview.removed.length} asignaciones que se quitarán.</p>

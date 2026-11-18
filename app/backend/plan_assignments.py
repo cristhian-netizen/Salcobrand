@@ -80,7 +80,7 @@ def details(plan_id):
             'version':version,'plan_version':meta['version']}
 
 
-def preview(conn,plan_id,stores,type_id='',replace_conflicts=False):
+def preview(conn,plan_id,stores,type_id=None,replace_conflicts=False):
     meta=json.loads(_row(conn,'management_planograms','id',plan_id)['data_json'])
     subs=meta.get('subcategories') or []
     if not meta.get('category') or len(subs)!=1:
@@ -93,7 +93,8 @@ def preview(conn,plan_id,stores,type_id='',replace_conflicts=False):
         if shelf['deleted'] or shelf['status']!='Activo':raise ManagementError('El tipo de góndola no está activo.',409)
     category,sub=meta['category'],subs[0]
     bindings=rows(conn)
-    current={r['store_code'] for r in bindings if r['plan_id']==plan_id and r['type_id']==type_id}
+    current_bindings=[r for r in bindings if r['plan_id']==plan_id and (type_id is None or r['type_id']==type_id)]
+    current={r['store_code'] for r in current_bindings}
     selected=set(stores)
     for code in selected:
         store=_row(conn,'management_stores','code',code)
@@ -102,7 +103,8 @@ def preview(conn,plan_id,stores,type_id='',replace_conflicts=False):
                 raise ManagementError('Solo puedes añadir PDV y planogramas activos.',409)
             if type_id and not conn.execute('SELECT 1 FROM management_assignments WHERE store_code=? AND type_id=? AND quantity>0',(code,type_id)).fetchone():
                 raise ManagementError('El tipo de góndola seleccionado no está asignado al PDV '+code+'.',409)
-    conflicts=[r for r in bindings if r['store_code'] in selected and r['plan_id']!=plan_id and r['category']==category and r['subcategory']==sub and r['type_id']==type_id and r['status']=='Activo']
+    targets={(code,t) for code in selected for t in ({r['type_id'] for r in current_bindings if r['store_code']==code} or {''})} if type_id is None else {(code,type_id) for code in selected}
+    conflicts=[r for r in bindings if (r['store_code'],r['type_id']) in targets and r['plan_id']!=plan_id and r['category']==category and r['subcategory']==sub and r['status']=='Activo']
     return {'selected':len(selected),'added':sorted(selected-current),'removed':sorted(current-selected),
             'conflicts':conflicts,'category':category,'subcategory':sub,'type_id':type_id}
 
@@ -111,19 +113,27 @@ def change(plan_id,payload,actor,commit=False):
     with db.get_conn() as conn:
         catalog.lock_catalog(conn);initialize(conn)
         catalog.lock_catalog(conn,payload['version'])
-        result=preview(conn,plan_id,payload['stores'],payload.get('type_id',''))
+        result=preview(conn,plan_id,payload['stores'],payload.get('type_id'))
         if not commit:return {**result,'version':payload['version']}
         if result['conflicts'] and not payload.get('replace_conflicts'):
             raise ManagementError('Hay PDV con otra referencia activa. Revisa la vista previa y confirma el reemplazo.',409)
         for conflict in result['conflicts']:
             conn.execute('DELETE FROM management_plan_scopes WHERE plan_id=? AND store_code=? AND category=? AND subcategory=? AND type_id=?',
                          tuple(conflict[k] for k in ('plan_id','store_code','category','subcategory','type_id')))
-        conn.execute('DELETE FROM management_plan_scopes WHERE plan_id=? AND type_id=?',(plan_id,result['type_id']))
-        for store in payload['stores']:
+        if result['type_id'] is None:
+            previous=[r for r in rows(conn) if r['plan_id']==plan_id]
+            selected=set(payload['stores'])
+            targets={(store,t) for store in selected for t in ({r['type_id'] for r in previous if r['store_code']==store} or {''})}
+            for store in {r['store_code'] for r in previous}-selected:
+                conn.execute('DELETE FROM management_plan_scopes WHERE plan_id=? AND store_code=?',(plan_id,store))
+        else:
+            conn.execute('DELETE FROM management_plan_scopes WHERE plan_id=? AND type_id=?',(plan_id,result['type_id']))
+            targets={(store,result['type_id']) for store in payload['stores']}
+        for store,type_id in targets:
             # Replace inactive references as well; they must not resurface on reactivation.
             conn.execute('DELETE FROM management_plan_scopes WHERE plan_id<>? AND store_code=? AND category=? AND subcategory=? AND type_id=?',
-                         (plan_id,store,result['category'],result['subcategory'],result['type_id']))
-            insert(conn,plan_id,store,result['category'],result['subcategory'],result['type_id'],actor)
+                         (plan_id,store,result['category'],result['subcategory'],type_id))
+            insert(conn,plan_id,store,result['category'],result['subcategory'],type_id,actor)
         conn.execute('INSERT INTO management_plan_scope_state(plan_id,initialized_at) VALUES (?,?) ON CONFLICT DO NOTHING',(plan_id,db.now_iso()))
         catalog.changed(conn)
         _audit(conn,actor,'planogram.assignments',plan_id,None,{k:v for k,v in result.items() if k!='conflicts'})

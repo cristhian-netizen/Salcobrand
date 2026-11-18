@@ -268,3 +268,41 @@ class CatalogCases:
         payload['items'][0]['title']='Actualizado'
         self.assertEqual(upload(payload,True).status_code,200)
         self.assertEqual(self.db.get_point('point-a')['planogram_id'],'legacy-json')
+
+    def test_product_display_types_and_unit_format_roundtrip_and_validation(self):
+        admin=self.client('admin')
+        for index,display in enumerate(('Individual','Pack 2x','Pack 3x','Pack 4x','Pack 5x')):
+            product=self.create_product(sku='DISPLAY-'+str(index),barcode='DISPLAY-BAR-'+str(index),productType=display,saleUnit='unidad',quantity=2,price=4990)
+            detail=admin.get('/api/admin/catalog/products/'+product['id']).json()
+            self.assertEqual((detail['productType'],detail['saleUnit'],detail['quantity']),(display,'unidad',2))
+        for changes in ({'productType':'Pack 6x'},{'saleUnit':'unidad','quantity':1.5},{'saleUnit':'unidad','quantity':0}):
+            r=admin.post('/api/admin/catalog/products',json={**self.product_fields(sku='INVALID-DISPLAY'),**changes})
+            self.assertEqual(r.status_code,400,r.text)
+        legacy=self.create_product(sku='LEGACY-DISPLAY',barcode='LEGACY-BAR')
+        changed=admin.patch('/api/admin/catalog/products/'+legacy['id'],json={**self.product_fields(sku='LEGACY-DISPLAY'),'barcode':'LEGACY-BAR','productType':'Pack 3x','saleUnit':'unidad','quantity':3,'version':1})
+        self.assertEqual(changed.status_code,200,changed.text)
+        self.assertEqual(changed.json()['productType'],'Pack 3x')
+
+    def test_product_display_excel_new_headers_unit_prices_and_legacy_import(self):
+        admin=self.client('admin')
+        unit=self.create_product(sku='UNIT-PRICE',barcode='UNIT-BAR',saleUnit='unidad',productType='Pack 2x',quantity=2,price=4990)
+        grams=self.create_product(sku='GRAM-PRICE',barcode='GRAM-BAR',saleUnit='gramos',quantity=100,price=1000)
+        ml=self.create_product(sku='ML-PRICE',barcode='ML-BAR',saleUnit='ml',quantity=50,price=1000)
+        self.create_product(sku='NULL-PRICE',barcode='NULL-BAR',saleUnit='unidad',productType='Individual',quantity=1,price=None)
+        content=admin.get('/api/admin/catalog/products.xlsx').content
+        book=load_workbook(io.BytesIO(content));sheet=book['Productos']
+        headers=[c.value for c in sheet[1]]
+        self.assertEqual(headers[6],'Tipo de display');self.assertEqual(headers[14],'Precio por kg/litro/unidad (CLP)')
+        rows={r[5]:r for r in sheet.iter_rows(min_row=2,values_only=True)}
+        self.assertEqual(rows['UNIT-PRICE'][14],2495)
+        self.assertEqual(rows['GRAM-PRICE'][14],10000);self.assertEqual(rows['ML-PRICE'][14],20000)
+        self.assertIsNone(rows['NULL-PRICE'][14])
+        preview=admin.post('/api/admin/catalog/products/import',files={'file':('new.xlsx',content)},data={'commit':'false'})
+        self.assertEqual(preview.status_code,200,preview.text);self.assertEqual(preview.json()['errors'],[])
+        sheet.cell(1,7,'Tipo producto');sheet.cell(1,15,'Precio por kg/litro (CLP)');out=io.BytesIO();book.save(out)
+        old=admin.post('/api/admin/catalog/products/import',files={'file':('old.xlsx',out.getvalue())},data={'commit':'false'})
+        self.assertEqual(old.status_code,200,old.text);self.assertEqual(old.json()['errors'],[])
+        confirmed=admin.post('/api/admin/catalog/products/import',files={'file':('old.xlsx',out.getvalue())},data={'commit':'true','version':str(old.json()['version'])})
+        self.assertEqual(confirmed.status_code,200,confirmed.text)
+        detail=admin.get('/api/admin/catalog/products/'+unit['id']).json()
+        self.assertEqual((detail['productType'],detail['saleUnit']),('Pack 2x','unidad'))

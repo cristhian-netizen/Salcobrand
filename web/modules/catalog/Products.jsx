@@ -13,6 +13,7 @@ import {
   Modal,
 } from '../sb/ui';
 import ProductForm from './ProductForm';
+import {unitPrice,priceUnit} from './product-format.mjs';
 import ProductExcel from './ProductExcel';
 import { alphabetical } from '../management/shared';
 
@@ -170,7 +171,7 @@ export default function Products({ notify }) {
                   <th>Formato</th>
                   <th>Volumen</th>
                   <th>Precio CLP</th>
-                  <th>Precio por kg/litro</th>
+                  <th>Precio por kg/litro/unidad</th>
                   <th>Acción</th>
                 </tr>
               </thead>
@@ -209,15 +210,15 @@ export default function Products({ notify }) {
                     <td data-sort-value={p.price}>
                       {p.price == null ? '—' : p.price.toLocaleString('es-CL')}
                     </td>
-                    <td data-sort-value={p.price == null ? '' : p.price*1000/p.quantity}>
+                    <td data-sort-value={unitPrice(p) ?? ''}>
                       {p.price == null
                         ? '—'
-                        : ((p.price * 1000) / p.quantity).toLocaleString(
+                        : unitPrice(p).toLocaleString(
                             'es-CL',
                             { maximumFractionDigits: 2 },
                           ) +
                           ' CLP/' +
-                          (p.saleUnit === 'ml' ? 'litro' : 'kg')}
+                          priceUnit(p.saleUnit)}
                     </td>
                     <td>
                       <button onClick={() => setEdit(p)}>Editar</button>

@@ -7,9 +7,9 @@ import catalog_service as catalog
 import db
 from infrastructure import ManagementError
 
-COLUMNS = ["SubMarca", "Categoría", "SubCategoría", "Nombre producto", "Descripción", "SKU", "Tipo producto",
+COLUMNS = ["SubMarca", "Categoría", "SubCategoría", "Nombre producto", "Descripción", "SKU", "Tipo de display",
            "Formato de venta", "Cantidad", "Alto (cm)", "Espesor (cm)", "Ancho (cm)", "Volumen (cm³)",
-           "Precio (CLP)", "Precio por kg/litro (CLP)", "Código de barras"]
+           "Precio (CLP)", "Precio por kg/litro/unidad (CLP)", "Código de barras"]
 FIELDS = ["subBrand", "category", "subcategory", "name", "description", "sku", "productType", "saleUnit",
           "quantity", "height", "thickness", "width", "volume", "price", "unitPrice", "barcode"]
 
@@ -23,13 +23,14 @@ def workbook_bytes(template=False):
     with db.get_conn() as conn:
         rows = [] if template else catalog.products(conn)
     for product in rows:
-        values = {**product, "unitPrice": product["price"] * 1000 / product["quantity"] if product["price"] is not None else None}
+        values = {**product, "unitPrice": product["price"] * (1 if product["saleUnit"] == "unidad" else 1000) / product["quantity"] if product["price"] is not None else None}
         sheet.append([values.get(key, "") for key in FIELDS])
         for cell in sheet[sheet.max_row]:
             if isinstance(cell.value, str):
                 cell.data_type = "s"
     for column in sheet.columns:
         sheet.column_dimensions[column[0].column_letter].width = 24
+    sheet.column_dimensions["O"].width = 36
     output = io.BytesIO()
     book.save(output)
     return output.getvalue()
@@ -51,6 +52,8 @@ def read_rows(content):
                 raise ManagementError("Máximo 5.000 filas y 100 columnas por hoja.")
             cells = list(sheet.iter_rows())
             headers = [str(c.value or "").strip() for c in cells[0]] if cells else []
+            aliases = {"Tipo producto":"Tipo de display", "Tipo de producto":"Tipo de display", "Precio por kg/litro (CLP)":"Precio por kg/litro/unidad (CLP)"}
+            headers = [aliases.get(header, header) for header in headers]
             required = COLUMNS[:-1]  # Barcodes are optional for templates from the previous portal.
             if any(c not in headers for c in required) or len([h for h in headers if h]) != len(set(h for h in headers if h)):
                 raise ManagementError("Faltan columnas o hay encabezados repetidos. Usa la plantilla.")
@@ -59,7 +62,7 @@ def read_rows(content):
                 if not any(c.value is not None for c in row):
                     continue
                 values = {field: row[headers.index(column)].value if column in headers else "" for field, column in zip(FIELDS, COLUMNS)}
-                error = "No se permiten fórmulas en los campos del producto." if any(c.data_type == "f" for c in row if c.column <= len(headers) and headers[c.column - 1] not in ("Volumen (cm³)", "Precio por kg/litro (CLP)")) else ""
+                error = "No se permiten fórmulas en los campos del producto." if any(c.data_type == "f" for index, c in enumerate(row) if index < len(headers) and headers[index] not in ("Volumen (cm³)", "Precio por kg/litro/unidad (CLP)")) else ""
                 if any(not isinstance(values[key], (str, type(None))) for key in ("sku", "barcode")):
                     error = "SKU y código de barras deben ser texto para conservar ceros iniciales."
                 result.append((number, values, error))

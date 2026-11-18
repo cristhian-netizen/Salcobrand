@@ -1,4 +1,5 @@
 'use client';
+import {DISPLAY_TYPES} from './product-format.mjs';
 import {applyBrandClassification} from '../settings/catalog.mjs';
 import { useState } from 'react';
 import { SaveForm, enc, alphabetical } from '../management/shared';
@@ -36,7 +37,7 @@ function ProductForm({
     category: '',
     subcategory: '',
     description: '',
-    productType: 'Envasado',
+    productType: 'Individual',
     saleUnit: 'gramos',
     quantity: '',
     height: '',
@@ -45,6 +46,7 @@ function ProductForm({
     price: '',
     photo: '',
     ...product,
+    productType: product.id && !DISPLAY_TYPES.includes(product.productType) ? '' : product.productType || 'Individual',
   });
   const [processing, setProcessing] = useState(false);
   const catalog = classification || {
@@ -69,6 +71,7 @@ function ProductForm({
   function payload() {
     if (processing)
       throw Error('Espera a que termine de cargar la fotografía.');
+    if (!DISPLAY_TYPES.includes(form.productType)) throw Error('Selecciona un tipo de display.');
     const result = Object.fromEntries(
       [
         'name',
@@ -159,10 +162,10 @@ function ProductForm({
         </select>
       </label>
       <label>
-        Tipo de producto
-        <select {...field('productType')}>
-          <option>Envasado</option>
-          <option>a granel</option>
+        Tipo de display
+        <select required {...field('productType')}>
+          {!form.productType && <option value="">Seleccionar tipo de display</option>}
+          {DISPLAY_TYPES.map(name => <option key={name}>{name}</option>)}
         </select>
       </label>
       <label>
@@ -170,8 +173,10 @@ function ProductForm({
         <select {...field('saleUnit')}>
           <option value="gramos">gramos</option>
           <option value="ml">ml</option>
+          <option value="unidad">unidad</option>
         </select>
       </label>
+      {product.id && !DISPLAY_TYPES.includes(product.productType) && <p className="full sb-hint">Tipo anterior registrado: {product.productType}. Selecciona el tipo de display para guardar la actualización.</p>}
       {[
         ['quantity', 'Cantidad'],
         ['height', 'Alto (cm)'],
@@ -183,9 +188,9 @@ function ProductForm({
           <input
             required
             type="number"
-            min="0.001"
+            min={key === 'quantity' && form.saleUnit === 'unidad' ? '1' : '0.001'}
             max="1000000"
-            step="any"
+            step={key === 'quantity' && form.saleUnit === 'unidad' ? '1' : 'any'}
             {...field(key)}
           />
         </label>

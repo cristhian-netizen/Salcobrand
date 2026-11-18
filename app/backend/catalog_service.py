@@ -55,8 +55,10 @@ def product_data(values):
         result[key] = _text(values.get(key, ""), label, limit, required)
     for key, label in (("quantity", "Cantidad"), ("height", "Alto"), ("width", "Ancho"), ("thickness", "Espesor")):
         result[key] = positive(values.get(key), label)
-    if values.get("saleUnit") not in ("gramos", "ml") or values.get("productType") not in ("Envasado", "a granel"):
-        raise ManagementError("Selecciona un formato de venta y un tipo de producto válidos.")
+    if values.get("saleUnit") not in ("gramos", "ml", "unidad") or values.get("productType") not in ("Individual", "Pack 2x", "Pack 3x", "Pack 4x", "Pack 5x", "Envasado", "a granel"):
+        raise ManagementError("Selecciona un formato de venta y un tipo de display válidos.")
+    if values["saleUnit"] == "unidad" and not float(result["quantity"]).is_integer():
+        raise ManagementError("La cantidad en unidades debe ser un número entero mayor a cero.")
     result.update({key: values[key] for key in ("saleUnit", "productType")})
     price = values.get("price")
     if price is not None and (isinstance(price, bool) or not isinstance(price, (float, int)) or not math.isfinite(price) or not 0 <= price <= 1000000000):

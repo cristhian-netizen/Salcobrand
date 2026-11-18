@@ -105,3 +105,18 @@ y restablecimiento. No se modifican las contraseñas ya registradas.
 La carga de personas admite solo los cuatro encabezados obligatorios o la
 plantilla completa. Las columnas opcionales omitidas conservan sus datos en las
 fichas existentes y la importación no crea cuentas ni concede PDV automáticamente.
+
+
+## Presentación comercial del producto
+
+Crear/Editar producto usa «Tipo de display»: Individual, Pack 2x, Pack 3x, Pack 4x
+o Pack 5x. El formato de venta admite gramos, ml y unidad; en unidad la cantidad
+es un entero positivo. El precio por unidad es precio/cantidad, mientras que
+kg/litro conservan la conversión precio*1000/cantidad. No se infiere la cantidad
+a partir del display del pack.
+
+Los datos anteriores Envasado/a granel no se reclasifican automáticamente. Al
+editar esos productos, el formulario solicita elegir su display. La API y las
+plantillas anteriores siguen aceptando sus valores para mantener compatibilidad.
+Las nuevas plantillas exportan «Tipo de display» y «Precio por kg/litro/unidad
+(CLP)»; la importación acepta también los encabezados anteriores.

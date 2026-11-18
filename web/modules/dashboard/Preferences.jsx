@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal } from '../sb/ui';
 
 export const DEFAULT_PANELS = { operation: true, vision: true, business: true };
-const LABELS = { operation: 'Cobertura, frecuencia y ranking', vision: 'Ejecución, participación y tendencias', business: 'Indicadores pendientes de conexión' };
+const LABELS = { operation: 'Cobertura, frecuencia y ranking', vision: 'Participación por marca', business: 'Indicadores pendientes de conexión' };
 
 export function loadPreferences(key) {
   try {

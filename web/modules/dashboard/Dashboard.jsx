@@ -8,7 +8,6 @@ import HomeReadingDetail from '../home/HomeReadingDetail';
 import Filters, { INITIAL } from './Filters';
 import Performance from './Performance';
 import Operations from './Operations';
-import Vision from './Vision';
 import Brands from './Brands';
 import NetworkCalendar from './NetworkCalendar';
 import DashboardTable from './DashboardTable';
@@ -64,7 +63,7 @@ export default function Dashboard({ user, go, notify }) {
         <Operations data={current.operation} cutoff={current.cutoff} />
         <NetworkCalendar data={current} filters={filters} onSelect={store => setFilters({ ...filters, store })} />
       </>}
-      {enabled(user, 'vision') && panels.vision && <><Vision data={current.vision} months={current.months} onOpen={setSelected} /><Brands data={current.brands} /></>}
+      {enabled(user, 'vision') && panels.vision && <Brands data={current.brands} />}
       {user.tenant?.modules?.sales && <Card title="Ventas e inventario"><p>Requiere integración de ventas e inventario.</p></Card>}
       {panels.business && <Card title="Indicadores por conectar" body={false}><DashboardTable rows={PENDING} columns={[
         ['name', 'Indicador'], ['source', 'Datos necesarios'],

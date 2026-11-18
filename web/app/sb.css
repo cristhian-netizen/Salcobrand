@@ -27,9 +27,9 @@
 #nv main .dashboard-network button { text-align: left; white-space: normal; padding: 12px; height: 100%; }
 #nv .dashboard-network small { display: block; font-size: 12px; font-weight: 400; margin-top: 5px; }
 #nv main .dashboard-network button[aria-pressed=true] { background: var(--nv-primary); color: var(--nv-on-primary); }
-#nv main table.dashboard-calendar { width: max-content; min-width: 100%; }
-#nv main .dashboard-calendar :is(th, td) { padding: 7px; min-width: 30px; text-align: center; font-size: 11px; border: 1px solid var(--nv-border); }
-#nv main .dashboard-calendar th:first-of-type { text-align: left; white-space: nowrap; }
+#nv main table.dashboard-calendar { table-layout: fixed; width: 100%; min-width: 820px; }
+#nv main .dashboard-calendar :is(th, td) { padding: 5px 2px; min-width: 0; text-align: center; font-size: 11px; border: 1px solid var(--nv-border); }
+#nv main .dashboard-calendar th:first-of-type { width: 120px; padding-inline: 7px; text-align: left; white-space: nowrap; }
 #nv .dashboard-calendar .invalid { background: #e3e6eb; }
 #nv .dashboard-calendar .outside { color: var(--nv-text-subtle); }
 #nv .dashboard-calendar .measured { background: #b8e8d5; color: #124d3c; font-weight: 700; }
@@ -368,3 +368,8 @@
 #nv .sb-photos { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 560px)); }
 #nv .sb-modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--nv-border); }
 #nv .sb-modal-title h2:focus-visible { outline: 2px solid var(--nv-primary); outline-offset: 4px; border-radius: 3px; }
+
+/* Calendar days share the available width instead of growing to intrinsic content. */
+#nv .dashboard-calendar-wrap { padding: 0 16px; }
+#nv main table.dashboard-calendar thead th:not(:first-of-type) .table-sort { display: inline-flex; flex-direction: column; justify-content: center; gap: 0; width: 100%; line-height: 14px; white-space: nowrap; }
+#nv main table.dashboard-calendar thead th:not(:first-of-type) .table-sort > span:last-of-type { font-size: 9px; line-height: 10px; }

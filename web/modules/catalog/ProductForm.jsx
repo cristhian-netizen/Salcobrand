@@ -168,6 +168,7 @@ function ProductForm({
           {DISPLAY_TYPES.map(name => <option key={name}>{name}</option>)}
         </select>
       </label>
+      {product.id && !DISPLAY_TYPES.includes(product.productType) && <p className="full sb-hint">Tipo anterior registrado: {product.productType}. Selecciona el tipo de display para guardar la actualización.</p>}
       <label>
         Formato de venta
         <select {...field('saleUnit')}>
@@ -176,7 +177,6 @@ function ProductForm({
           <option value="unidad">unidad</option>
         </select>
       </label>
-      {product.id && !DISPLAY_TYPES.includes(product.productType) && <p className="full sb-hint">Tipo anterior registrado: {product.productType}. Selecciona el tipo de display para guardar la actualización.</p>}
       {[
         ['quantity', 'Cantidad'],
         ['height', 'Alto (cm)'],

@@ -62,15 +62,35 @@ export function StatusPill({status, label}) {
 }
 
 export function Modal({title, onClose, children, wide = false, titleExtra, actions}) {
+  const dialog = useRef(null);
+  const content = useRef(null);
+  const heading = useRef(null);
+  const [long, setLong] = useState(false);
+  useEffect(() => {
+    const measure = () => {
+      const box = dialog.current, body = content.current;
+      if (box && body) setLong(body.offsetHeight + heading.current.parentElement.parentElement.offsetHeight > box.clientHeight + 48);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(dialog.current);
+    observer.observe(content.current);
+    measure();
+    return () => observer.disconnect();
+  }, []);
+  function backToTop() {
+    dialog.current.scrollTo({top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'});
+    heading.current.focus({preventScroll: true});
+  }
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   return <div className="sb-modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-    <div className={'sb-modal' + (wide ? ' sb-modal-wide' : '')} role="dialog" aria-modal="true" aria-label={title}>
-      <div className="sb-card-head"><div className="sb-modal-title"><h2>{title}</h2>{titleExtra}</div><div className="sb-modal-actions">{actions}<button className="nv-icon-button" type="button" onClick={onClose} aria-label="Cerrar"><Icon name="close"/></button></div></div>
-      <div className="sb-card-body">{children}</div>
+    <div ref={dialog} className={'sb-modal' + (wide ? ' sb-modal-wide' : '')} role="dialog" aria-modal="true" aria-label={title}>
+      <div className="sb-card-head"><div className="sb-modal-title"><h2 ref={heading} tabIndex={-1}>{title}</h2>{titleExtra}</div><div className="sb-modal-actions">{actions}<button className="nv-icon-button" type="button" onClick={onClose} aria-label="Cerrar"><Icon name="close"/></button></div></div>
+      <div ref={content} className="sb-card-body">{children}</div>
+      {long && <div className="sb-modal-footer"><button type="button" className="modal-back-to-top" onClick={backToTop}><span aria-hidden="true">↑</span> Volver arriba</button></div>}
     </div>
   </div>;
 }

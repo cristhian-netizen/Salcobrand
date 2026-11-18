@@ -235,7 +235,7 @@
 @media (max-width: 640px) { #nv .settings-classification, #nv .settings-brand { grid-template-columns: minmax(0, 1fr); } }
 .sb-modal-backdrop { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 16px; background: rgba(16, 24, 40, .5); }
 #nv .sb-modal { width: min(100%, 560px); max-height: calc(100vh - 32px); overflow: auto; background: var(--nv-surface); border-radius: 16px; box-shadow: var(--nv-shadow-lg); }
-#nv .sb-modal .sb-card-head { position: sticky; top: 0; background: var(--nv-surface); z-index: 1; }
+#nv .sb-modal > .sb-card-head { position: sticky; top: 0; background: var(--nv-surface); z-index: 1; }
 
 @media (max-width: 1100px) {
   #nv .sb-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -356,3 +356,15 @@
 #nv .sb-modal-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-left: auto; }
 #nv .measurement-header-status { display: inline-flex; align-items: center; }
 @media (max-width: 600px) { #nv .sb-modal-actions { width: 100%; } #nv .measurement-header-export { white-space: normal; } }
+
+/* Keep scrollable data inside its card, including grid and modal children. */
+#nv :is(.sb-card, .sb-card-body, .sb-table, .sb-metric) { min-width: 0; max-width: 100%; }
+#nv .sb-table { overscroll-behavior-inline: contain; }
+#nv .sb-modal { min-width: 0; overflow-x: hidden; overscroll-behavior-y: contain; }
+#nv .sb-modal > .sb-card-body > * { min-width: 0; max-width: 100%; }
+#nv .sb-modal :is(form, fieldset, label, .sb-card-head > div) { min-width: 0; }
+#nv .sb-modal :is(input, select, textarea, img, canvas, iframe) { max-width: 100%; }
+#nv .sb-modal :is(h2, p, legend, label) { overflow-wrap: anywhere; }
+#nv .sb-photos { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 560px)); }
+#nv .sb-modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--nv-border); }
+#nv .sb-modal-title h2:focus-visible { outline: 2px solid var(--nv-primary); outline-offset: 4px; border-radius: 3px; }

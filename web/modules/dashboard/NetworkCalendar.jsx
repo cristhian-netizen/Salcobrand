@@ -19,7 +19,7 @@ export default function NetworkCalendar({ data, filters, onSelect }) {
       </div>
     </Card>
     <Card title="Mediciones por día" subtitle="Mediciones aprobadas según los filtros seleccionados." body={false}>
-      <div className="sb-table"><SortableTable className="dashboard-calendar">
+      <div className="sb-table" tabIndex={0} role="region" aria-label="Mediciones por día: tabla con desplazamiento horizontal"><SortableTable className="dashboard-calendar">
         <thead><tr><th>Mes</th>{Array.from({ length: 31 }, (_, index) => <th key={index}>{index + 1}</th>)}</tr></thead>
         <tbody>{data.calendar.map(month => <tr key={month.month}>
           <th data-sort-value={month.month}>{monthLabel(month.month)}</th>{month.days.map((count, index) => <td key={index}

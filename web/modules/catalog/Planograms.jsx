@@ -14,7 +14,6 @@ import {
   Modal,
   Pill,
 } from '../sb/ui';
-import { ImportPlanogram } from '../sb/Planograms';
 import PlanogramForm from './PlanogramForm';
 import PlanogramAssignments from './PlanogramAssignments';
 import { enc, sortByName } from '../management/shared';
@@ -38,7 +37,6 @@ export default function Planograms({ rest, go, notify }) {
   const [assigning,setAssigning]=useState(null);
   const [edit, setEdit] = useState(null);
   const [deleting, setDeleting] = useState(null);
-  const [importing, setImporting] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -97,7 +95,6 @@ export default function Planograms({ rest, go, notify }) {
         >
           Crear planograma
         </button>
-        <button onClick={() => setImporting(true)}>Importar PDF/JSON</button>
       </Header>
       <ErrorBox error={data.error} onRetry={data.reload} />
       <div className="sb-toolbar">
@@ -258,16 +255,6 @@ export default function Planograms({ rest, go, notify }) {
             }}
           />
         </Modal>
-      )}
-      {importing && (
-        <ImportPlanogram
-          onClose={() => setImporting(false)}
-          onDone={() => {
-            setImporting(false);
-            data.reload();
-            notify('Planograma importado.');
-          }}
-        />
       )}
       {deleting && (
         <Modal

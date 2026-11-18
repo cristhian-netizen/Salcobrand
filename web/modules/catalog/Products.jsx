@@ -21,6 +21,7 @@ export default function Products({ notify }) {
   const [search, setSearch] = useState('');
   const [brand, setBrand] = useState('');
   const [category, setCategory] = useState('');
+  const [subcategory, setSubcategory] = useState('');
   const [selected, setSelected] = useState([]);
   const [importing, setImporting] = useState(false);
   const [edit, setEdit] = useState(null);
@@ -32,6 +33,7 @@ export default function Products({ notify }) {
     (p) =>
       (!brand || p.subBrand === brand) &&
       (!category || p.category === category) &&
+      (!subcategory || p.subcategory === subcategory) &&
       `${p.name} ${p.sku} ${p.description}`
         .toLocaleLowerCase('es')
         .includes(search.toLocaleLowerCase('es')),
@@ -69,7 +71,7 @@ export default function Products({ notify }) {
         </button>
       </Header>
       <ErrorBox error={catalog.error} onRetry={catalog.reload} />
-      <div className="sb-toolbar">
+      <div className="sb-toolbar" aria-label="Filtros de productos">
         <label>
           Buscar
           <input
@@ -85,6 +87,7 @@ export default function Products({ notify }) {
             onChange={(e) => {
               setBrand(e.target.value);
               setCategory('');
+              setSubcategory('');
             }}
           >
             <option value="">Todas las submarcas</option>
@@ -97,7 +100,7 @@ export default function Products({ notify }) {
           Categoría
           <select
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            onChange={(e) => {setCategory(e.target.value);setSubcategory('');}}
           >
             <option value="">Todas las categorías</option>
             {alphabetical(
@@ -107,11 +110,22 @@ export default function Products({ notify }) {
             ))}
           </select>
         </label>
+        <label>
+          Subcategoría
+          <select value={subcategory} onChange={(e) => setSubcategory(e.target.value)}>
+            <option value="">Todas las subcategorías</option>
+            {alphabetical([
+              ...(category ? catalog.data?.classification?.categories?.[category] || [] : Object.values(catalog.data?.classification?.categories || {}).flat()),
+              ...products.filter(p => (!category || p.category === category) && (!brand || p.subBrand === brand)).map(p => p.subcategory),
+            ]).map(name => <option key={name}>{name}</option>)}
+          </select>
+        </label>
         <button
           onClick={() => {
             setSearch('');
             setBrand('');
             setCategory('');
+            setSubcategory('');
           }}
         >
           Limpiar filtros

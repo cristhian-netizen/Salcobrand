@@ -7,7 +7,6 @@ import {api, fmt, download} from '../../lib/sb';
 import {can} from '../../lib/profiles.mjs';
 import {Card, Metric, StatusPill, Pill, Empty} from './ui';
 import MeasurementReview from './MeasurementReview';
-import ManualDetails from '../measurement-details/ManualDetails';
 
 const clp = v => typeof v === 'number' ? '$' + Math.round(v).toLocaleString('es-CL') : '—';
 const BOX = {ok: '#12b76a', match: '#12b76a', confirmed: '#12b76a', low: '#f79009', unmatched: '#f79009', unreadable: '#f79009', missing: '#f04438', gap: '#f04438', foreign: '#6172f3'};
@@ -80,7 +79,6 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo}) {
     </Card>}
     {reading.infrastructure?.category && <p className="sb-hint">{reading.infrastructure.category} · {reading.infrastructure.subcategories?.join(', ') || reading.infrastructure.subcategory || 'Todas las subcategorías'}{reading.infrastructure.captureMode === 'manual' ? ` · ${reading.linear_meters == null ? 'Ancho no informado' : 'Ancho manual '+reading.linear_meters+' m'}` : ''}</p>}
     {reading.infrastructure?.captureMode === 'manual' && reading.infrastructure.depths?.length > 0 && <p className="sb-hint">{reading.infrastructure.depths.length} niveles · {reading.infrastructure.depths.map((depth,index) => `Nivel ${index+1}: ${depth} cm de profundidad`).join(' · ')}</p>}
-    <ManualDetails reading={reading} user={user} reviewVersion={review?.version || 0} onReviewChanged={setReview}/>
     <Card title="Capacidad máxima por dimensiones" subtitle={`Margen adicional de profundidad ${reading.capacity?.dimensionMarginPct ?? '—'} %. La capacidad teórica no confirma existencias ni unidades ocultas.`}>
       {reading.capacity?.products?.length ? <div className="sb-table"><SortableTable><thead><tr><th>Producto</th><th>Nivel / posición</th><th>Profundidad cm</th><th>Espesor cm</th><th>Máximo por cara</th><th>Máximo total</th></tr></thead><tbody>
         {reading.capacity.products.map((item,index) => <tr key={index}><td>{item.product}<small>{item.matchReason}</small></td><td>{item.level} / {item.position}</td><td>{item.depthCm ?? '—'}</td><td>{item.thicknessCm ?? '—'}</td><td>{item.unitsPerFacing ?? '—'}</td><td>{item.maximumUnits ?? '—'}</td></tr>)}

@@ -61,7 +61,7 @@ export function StatusPill({status, label}) {
   return <Pill kind={kind}>{label || text}</Pill>;
 }
 
-export function Modal({title, onClose, children, wide = false}) {
+export function Modal({title, onClose, children, wide = false, titleExtra, actions}) {
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -69,7 +69,7 @@ export function Modal({title, onClose, children, wide = false}) {
   }, [onClose]);
   return <div className="sb-modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
     <div className={'sb-modal' + (wide ? ' sb-modal-wide' : '')} role="dialog" aria-modal="true" aria-label={title}>
-      <div className="sb-card-head"><h2>{title}</h2><button className="nv-icon-button" type="button" onClick={onClose} aria-label="Cerrar"><Icon name="close"/></button></div>
+      <div className="sb-card-head"><div className="sb-modal-title"><h2>{title}</h2>{titleExtra}</div><div className="sb-modal-actions">{actions}<button className="nv-icon-button" type="button" onClick={onClose} aria-label="Cerrar"><Icon name="close"/></button></div></div>
       <div className="sb-card-body">{children}</div>
     </div>
   </div>;

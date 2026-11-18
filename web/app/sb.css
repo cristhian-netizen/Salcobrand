@@ -351,3 +351,8 @@
 
 #nv .sb-crop .shelf-photo-button { width: 100%; cursor: zoom-in; }
 #nv .sb-crop .shelf-photo-button img { width: 100%; height: 170px; }
+
+#nv .sb-modal-title { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; min-width: 0; flex: 1 1 280px; }
+#nv .sb-modal-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-left: auto; }
+#nv .measurement-header-status { display: inline-flex; align-items: center; }
+@media (max-width: 600px) { #nv .sb-modal-actions { width: 100%; } #nv .measurement-header-export { white-space: normal; } }

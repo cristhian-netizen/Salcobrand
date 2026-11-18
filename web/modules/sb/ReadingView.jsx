@@ -24,7 +24,7 @@ function Photo({url, index, engineImage, products}) {
   </figure>;
 }
 
-export default function ReadingView({reading, user, onDeleted, onConfirmGo}) {
+export default function ReadingView({reading, user, onDeleted, onConfirmGo, showExport = true, onReviewChanged}) {
   const [review, setReview] = useState(reading.review);
   const [tab, setTab] = useState('productos');
   const [busy, setBusy] = useState(false);
@@ -86,7 +86,7 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo}) {
     </Card>
     <div className="reading-actions">
     {error && <div className="sb-error" role="alert">{error}</div>}
-    {can(user, 'read') && <div className="sb-actions"><button type="button" disabled={busy} onClick={async () => {
+    {showExport && can(user, 'read') && <div className="sb-actions"><button type="button" disabled={busy} onClick={async () => {
       setBusy(true); setError('');
       try { await download(`/api/readings/${reading.id}/report.xlsx`, `Neuravision_Medicion_${reading.id}.xlsx`); }
       catch (exception) { setError(exception.message); } finally { setBusy(false); }
@@ -96,6 +96,6 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo}) {
       {can(user, 'manage') && <button className="remove" type="button" disabled={busy} onClick={remove}>Eliminar lectura</button>}
     </div>
     </div>
-    <MeasurementReview key={reading.id} reading={{...reading, review}} user={user} onSaved={setReview}/>
+    <MeasurementReview key={reading.id} reading={{...reading, review}} user={user} onSaved={updated => {setReview(updated); onReviewChanged?.(updated);}}/>
   </>;
 }

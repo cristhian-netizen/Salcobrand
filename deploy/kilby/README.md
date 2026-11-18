@@ -60,3 +60,26 @@ la API detiene brevemente su única instancia para volver a montar el disco.
 de claves externas. Sus claves y contadores son temporales. El portal usa las
 cuentas persistidas en PostgreSQL. La migración de clientes externos de la API v1
 requiere configurar su almacenamiento persistente y verificar sus consumidores.
+
+
+## Planogramas compartidos entre PDV
+
+El maestro contiene el PDF/imagen, posiciones y una única subcategoría; la categoría
+se obtiene del catálogo. Guardar el maestro no asigna automáticamente nuevos PDV.
+«Asignar a PDV» abre la selección múltiple con región, comuna, tipo de PDV,
+categoría y subcategoría. Los dos últimos filtros consultan las referencias
+actuales de los locales; «Todas» incluye locales sin referencia. La selección
+se conserva al cambiar filtros. La selección del país respeta PDV activos y,
+si se especifica un tipo de góndola, su disponibilidad en cada PDV.
+
+Primero se revisa el resumen. Si otra referencia activa ocupa el mismo PDV,
+categoría, subcategoría y tipo, se requiere confirmar su reemplazo. Las
+asignaciones generales y por tipo se editan separadamente; las específicas
+prevalecen sobre las generales. Los cambios concurrentes se rechazan por versión.
+
+La actualización crea tablas aditivas y deriva una sola vez las asignaciones
+anteriores, conservando los tipos de góndola vinculados. Desasignar no vuelve a
+sembrar las relaciones antiguas. Los registros anteriores con varias
+subcategorías se conservan para consulta/captura; deben clasificarse en una sola
+antes de usar la nueva asignación. No se actualizan lecturas ni fotos históricas.
+Cada captura nueva congela la referencia seleccionada en su solicitud.

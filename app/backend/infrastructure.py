@@ -395,6 +395,7 @@ def annotate_points(points):
     with db.get_conn() as conn:
         stores = {r["code"]: dict(r) for r in conn.execute("SELECT code, name, status, deleted FROM management_stores").fetchall()}
         instances = {r["point_id"]: dict(r) for r in conn.execute("SELECT i.*, t.name AS type_name, t.width_cm, t.height_cm, t.kind, t.depths_json, t.status AS type_status FROM management_instances i JOIN management_shelf_types t ON i.type_id = t.id").fetchall()}
+        shared_plans={r['plan_id'] for r in conn.execute('SELECT plan_id FROM management_plan_scope_state').fetchall()}
         plans = {}
         for plan_id in {p.get("planogram_id") for p in points if p.get("planogram_id")}:
             row = conn.execute("SELECT data_json FROM management_planograms WHERE id = ?", (plan_id,)).fetchone()
@@ -410,7 +411,7 @@ def annotate_points(points):
         if point['id'].startswith('SB-MANUAL-'):
             available = False
         plan = plans.get(point.get("planogram_id"))
-        if plan:
+        if plan and point.get("planogram_id") not in shared_plans:
             available = available and plan["status"] == "Activo" and (plan["store_code"] == point.get("store_id") or point["id"] in plan.get("legacy_point_ids", []))
         context = None
         if instance:
@@ -418,7 +419,7 @@ def annotate_points(points):
             context = {key: instance[key] for key in ("id", "type_id", "type_name", "number", "label", "note", "width_cm", "height_cm", "kind")}
             context["depths"] = json.loads(instance["depths_json"])
         point.update({"can_capture": bool(available), "infrastructure": context})
-        if plan:
+        if plan and point.get('planogram_id') not in shared_plans:
             point['planogram_classification'] = {key: plan.get(key, '' if key == 'category' else []) for key in ('category', 'subcategories')}
         if store:
             point["store_name"] = store["name"]
@@ -430,7 +431,9 @@ def capture_context(point_id):
     with db.get_conn() as conn:
         point = _row(conn, "points", "id", point_id)
     annotated = annotate_points([point])[0]
-    if point.get("planogram_id"):
+    with db.get_conn() as conn:
+        shared=conn.execute("SELECT 1 FROM management_plan_scope_state WHERE plan_id=?",(point.get("planogram_id"),)).fetchone()
+    if point.get("planogram_id") and not shared:
         from catalog_service import validate_assignment
         validate_assignment(point["planogram_id"], point.get("store_id"), point_id)
     if not annotated["can_capture"]:

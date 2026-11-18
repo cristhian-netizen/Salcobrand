@@ -151,11 +151,13 @@ def delete_products(selected, actor):
 
 
 def plan_public(plan):
+    import plan_assignments
+    shared = plan_assignments.summary(plan['id'])
     with db.get_conn() as conn:
         row = conn.execute("SELECT * FROM management_planograms WHERE id = ?", (plan["id"],)).fetchone()
     if row:
-        return {**plan, "category": "", "subcategories": [], "position_mode": "faces", **json.loads(row["data_json"]), "version": row["version"], "managed": True}
-    return {**plan, "category": "", "subcategories": [], "version": 0, "managed": False, "position_mode": "products", "store_code": "", "status": "Activo", "description": "", "photo": "", "document": "", "document_name": "", "document_page": 1,
+        return {**plan, "category": "", "subcategories": [], "position_mode": "faces", **json.loads(row["data_json"]), "version": row["version"], "managed": True, **shared}
+    return {**plan, "category": "", "subcategories": [], "version": 0, "managed": False, **shared, "position_mode": "products", "store_code": "", "status": "Activo", "description": "", "photo": "", "document": "", "document_name": "", "document_page": 1,
             "positionRows": [{"level": i["band"] or 1, "position": i["position_in_section"] or index + 1,
                               "faces": i["expected_facings"] or 1, "productId": "", "legacy_item_id": i["id"],
                               "sku": i["internal_code"] or "", "barcode": i["barcode"] or "", "legacy_title": i["title"]}
@@ -163,6 +165,8 @@ def plan_public(plan):
 
 
 def state():
+    import plan_assignments
+    plan_assignments.prepare()
     with db.get_conn() as conn:
         items = [{key: value for key, value in p.items() if key != "photo"} for p in products(conn)]
         version = conn.execute("SELECT version FROM management_catalog_state WHERE id = 1").fetchone()["version"]
@@ -319,10 +323,16 @@ def validate_assignment(plan_id, store_code, point_id=None):
     with db.get_conn() as conn:
         row = conn.execute("SELECT data_json FROM management_planograms WHERE id = ?", (plan_id,)).fetchone()
     if row:
-        meta = json.loads(row["data_json"])
-        allowed_legacy = point_id in meta.get("legacy_point_ids", [])
-        if meta["status"] != "Activo" or (meta["store_code"] != store_code and not allowed_legacy):
-            raise ManagementError("Selecciona un planograma activo del mismo PDV que la góndola.", 409)
+        import plan_assignments
+        with db.get_conn() as conn:
+            initialized=conn.execute('SELECT 1 FROM management_plan_scope_state WHERE plan_id=?',(plan_id,)).fetchone()
+            if initialized:
+                if not any(r['plan_id']==plan_id for r in plan_assignments.available(conn,store_code)):
+                    raise ManagementError('El planograma no está asignado a este PDV.',409)
+                return
+        meta=json.loads(row['data_json'])
+        if meta['status']!='Activo' or (meta.get('store_code')!=store_code and point_id not in meta.get('legacy_point_ids',[])):
+            raise ManagementError('Selecciona un planograma activo asignado al PDV.',409)
 
 
 def save_plan(values, actor, plan_id=None):
@@ -334,17 +344,19 @@ def save_plan(values, actor, plan_id=None):
         version = metadata["version"] if metadata else 0
         if before and values.get("version") != version:
             raise ManagementError("El planograma cambió en otra sesión. Actualiza antes de guardar.", 409)
-        store = _row(conn, "management_stores", "code", values.get("store_code"))
-        if store["deleted"]:
-            raise ManagementError("Selecciona un PDV disponible.")
-        assignments = conn.execute("SELECT id, store_id FROM points WHERE planogram_id = ?", (plan_id,)).fetchall() if before else []
-        if metadata:
-            legacy_points = json.loads(metadata["data_json"]).get("legacy_point_ids", [])
-            if any(p["store_id"] != store["code"] and p["id"] not in legacy_points for p in assignments):
-                raise ManagementError("Este planograma sigue asignado a góndolas de su PDV anterior. Desasígnalo de esas góndolas antes de cambiar el PDV.", 409)
-        else:
-            # Imported Salcobrand references may already be shared by several stores.
-            legacy_points = [p["id"] for p in assignments if p["store_id"] != store["code"]]
+        import plan_assignments
+        plan_assignments.initialize(conn)
+        previous_meta=json.loads(metadata['data_json']) if metadata else {}
+        code=values.get('store_code')
+        code=previous_meta.get('store_code','') if code is None else code
+        store = _row(conn,'management_stores','code',code) if code else None
+        if store and store['deleted']:
+            raise ManagementError('Selecciona un PDV disponible.')
+        assignments = conn.execute('SELECT id,store_id FROM points WHERE planogram_id=?',(plan_id,)).fetchall() if before else []
+        legacy_points=previous_meta.get('legacy_point_ids',[]) if metadata else [p['id'] for p in assignments if not store or p['store_id']!=store['code']]
+        if metadata and store and not conn.execute('SELECT 1 FROM management_plan_scope_state WHERE plan_id=?',(plan_id,)).fetchone():
+            if any(p['store_id']!=store['code'] and p['id'] not in legacy_points for p in assignments):
+                raise ManagementError('Desasigna las góndolas anteriores antes de cambiar el PDV de este registro antiguo.',409)
         from product_classification import selection, validate
         previous = json.loads(metadata['data_json']) if metadata else {}
         category = values.get('category')
@@ -353,7 +365,15 @@ def save_plan(values, actor, plan_id=None):
         subcategories = previous.get('subcategories', []) if subcategories is None else subcategories
         classification = selection(category, subcategories=subcategories)
         validate(classification, conn)
+        if (values.get('category') is not None or values.get('subcategories') is not None) and (not category or len(subcategories)!=1):
+            raise ManagementError('Cada planograma debe pertenecer a una única subcategoría.')
+        if before: plan_assignments.reclassify(conn,plan_id,category,subcategories)
         status = _status(values.get("status", "Activo"))
+        if metadata and previous_meta.get('status')!='Activo' and status=='Activo':
+            bindings=plan_assignments.rows(conn)
+            slots={(r['store_code'],r['category'],r['subcategory'],r['type_id']) for r in bindings if r['plan_id']==plan_id}
+            if any((r['store_code'],r['category'],r['subcategory'],r['type_id']) in slots and r['plan_id']!=plan_id and r['status']=='Activo' for r in bindings):
+                raise ManagementError('Hay otra referencia activa en los PDV asignados. Quita esas asignaciones antes de activar este planograma.',409)
         description = _text(values.get("description", ""), "Descripción", 2000)
         photo = image_reference(values.get("photo", ""))
         page = values.get("document_page", 1)
@@ -365,8 +385,8 @@ def save_plan(values, actor, plan_id=None):
             raise ManagementError("Carga una imagen o PDF del planograma.")
         document_name = _text(values.get("document_name", ""), "Archivo", 200)
         duplicate = conn.execute("SELECT m.id, p.name, m.data_json FROM management_planograms m JOIN planograms p ON p.id = m.id WHERE LOWER(p.name) = LOWER(?)", (name,)).fetchall()
-        if any(r["id"] != plan_id and json.loads(r["data_json"])["store_code"] == store["code"] for r in duplicate):
-            raise ManagementError("Ya existe un planograma con ese nombre en el PDV.", 409)
+        if any(r["id"] != plan_id and json.loads(r["data_json"]).get("store_code",'') == (store['code'] if store else '') for r in duplicate):
+            raise ManagementError("Ya existe un planograma con ese nombre.", 409)
         old_plan = db.get_planogram(plan_id) if before else None
         old_items = {i["id"]: i for i in old_plan["items"]} if old_plan else {}
         position_mode = values.get("position_mode", "faces")
@@ -374,7 +394,7 @@ def save_plan(values, actor, plan_id=None):
             raise ManagementError("La numeración de posiciones no es válida.")
         rows, items = position_items(values.get("positionRows", []), {p["id"]: p for p in products(conn)}, old_items, position_mode)
         plan_id = plan_id or "catalog-" + uuid.uuid4().hex
-        meta = {"category": category, "subcategories": classification.get("subcategories", []), "store_code": store["code"], "status": status, "description": description, "photo": photo,
+        meta = {"category": category, "subcategories": classification.get("subcategories", []), "store_code": store["code"] if store else "", "status": status, "description": description, "photo": photo,
                 "document": document, "document_name": document_name, "document_page": page, "document_pages": reference["pages"], "positionRows": rows,
                 "legacy_point_ids": legacy_points, "position_mode": position_mode}
         if old_plan:
@@ -403,6 +423,7 @@ def save_plan(values, actor, plan_id=None):
             conn.execute("UPDATE management_planograms SET data_json = ?, version = version + 1, updated_at = ? WHERE id = ?", (json.dumps(meta), db.now_iso(), plan_id))
         else:
             conn.execute("INSERT INTO management_planograms (id, data_json, updated_at) VALUES (?, ?, ?)", (plan_id, json.dumps(meta), db.now_iso()))
+        plan_assignments.initialize(conn)
         _audit(conn, actor, "planogram.update" if before else "planogram.create", plan_id, {"version": version}, {"version": version + 1, "name": name})
         changed(conn)
     return plan_public(db.get_planogram(plan_id))
@@ -418,6 +439,8 @@ def delete_plan(plan_id, version, actor):
         freeze_readings(conn, db.get_planogram(plan_id))
         conn.execute("UPDATE points SET planogram_id = NULL WHERE planogram_id = ?", (plan_id,))
         conn.execute("DELETE FROM planogram_items WHERE planogram_id = ?", (plan_id,))
+        conn.execute("DELETE FROM management_plan_scopes WHERE plan_id=?",(plan_id,))
+        conn.execute("DELETE FROM management_plan_scope_state WHERE plan_id=?",(plan_id,))
         conn.execute("DELETE FROM planograms WHERE id = ?", (plan_id,))
         conn.execute("DELETE FROM management_planograms WHERE id = ?", (plan_id,))
         changed(conn)

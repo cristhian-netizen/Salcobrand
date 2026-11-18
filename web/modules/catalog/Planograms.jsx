@@ -16,6 +16,7 @@ import {
 } from '../sb/ui';
 import { ImportPlanogram } from '../sb/Planograms';
 import PlanogramForm from './PlanogramForm';
+import PlanogramAssignments from './PlanogramAssignments';
 import { enc, sortByName } from '../management/shared';
 
 export default function Planograms({ rest, go, notify }) {
@@ -34,6 +35,7 @@ export default function Planograms({ rest, go, notify }) {
   const [category, setCategory] = useState('');
   const [subcategory, setSubcategory] = useState('');
   const [status, setStatus] = useState('');
+  const [assigning,setAssigning]=useState(null);
   const [edit, setEdit] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [importing, setImporting] = useState(false);
@@ -47,11 +49,11 @@ export default function Planograms({ rest, go, notify }) {
   const communes =
     data.data?.locations.regions.find((r) => r.name === region)?.communes || [];
   const plans = (data.data?.planograms || []).filter((p) => {
-    const local = stores.find((s) => s.code === p.store_code);
+    const locals=stores.filter(s=>(p.assigned_store_codes || (p.store_code?[p.store_code]:[])).includes(s.code));
     return (
-      (!region || local?.region === region) &&
-      (!commune || local?.commune === commune) &&
-      (!store || p.store_code === store) &&
+      (!region || locals.some(s=>s.region===region)) &&
+      (!commune || locals.some(s=>s.commune===commune&&(!region||s.region===region))) &&
+      (!store || locals.some(s=>s.code===store)) &&
       (!status || p.status === status) &&
       (!category || p.category === category) &&
       (!subcategory || (p.subcategories || (p.subcategory ? [p.subcategory] : [])).includes(subcategory)) &&
@@ -189,7 +191,7 @@ export default function Planograms({ rest, go, notify }) {
               <thead>
                 <tr>
                   <th>Planograma</th>
-                  <th>Punto de venta</th>
+                  <th>PDV asignados</th>
                   <th>Categoría</th><th>Subcategoría</th>
                   <th>Versión</th>
                   <th>Estado</th>
@@ -204,11 +206,7 @@ export default function Planograms({ rest, go, notify }) {
                       <b>{p.name}</b>
                       <small>{p.id}</small>
                     </td>
-                    <td>
-                      {stores.find((s) => s.code === p.store_code)?.name ||
-                        'Pendiente de asignar PDV'}
-                      <small>{p.store_code}</small>
-                    </td>
+                    <td data-sort-value={p.assigned_count||0}><button type="button" className="link" onClick={()=>setAssigning(p)}>{p.assigned_count||0} PDV · Ver lista</button></td>
                     <td>{p.category || 'Sin categoría'}</td><td>{(p.subcategories || (p.subcategory ? [p.subcategory] : [])).join(', ') || 'Sin subcategorías'}</td>
                     <td>{p.version || 'Referencia anterior'}</td>
                     <td>
@@ -220,7 +218,8 @@ export default function Planograms({ rest, go, notify }) {
                       {p.item_count} / {p.face_count}
                     </td>
                     <td>
-                      <div className="sb-actions">
+                      <div className="sb-actions planogram-row-actions">
+                        <button type="button" onClick={()=>setAssigning(p)}>Asignar a PDV</button>
                         <button onClick={() => setEdit(p)}>Editar</button>
                         <button
                           className="remove"
@@ -240,6 +239,7 @@ export default function Planograms({ rest, go, notify }) {
           </div>
         )}
       </Card>
+      {assigning && data.data && <Modal wide title="Asignar planograma a PDV" onClose={()=>setAssigning(null)}><PlanogramAssignments plan={assigning} catalog={data.data} onEdit={()=>{setEdit(assigning);setAssigning(null);}} onSaved={()=>{setAssigning(null);data.reload();notify('Asignaciones del planograma guardadas.');}}/></Modal>}
       {edit && data.data && (
         <Modal
           wide
@@ -250,7 +250,8 @@ export default function Planograms({ rest, go, notify }) {
             plan={edit}
             catalog={data.data}
             onClose={close}
-            onSaved={() => {
+            onSaved={(saved) => {
+              if(!edit.id)setAssigning(saved);
               close();
               data.reload();
               notify('Planograma guardado.');

@@ -1,11 +1,10 @@
 'use client';
 import SortableTable from '../tables/SortableTable';
 
-import {orderRegions} from '../../lib/locations.mjs';
 import { useState } from 'react';
 import { SaveForm, StatusField, enc, sortByName } from '../management/shared';
 import ReferenceField from './ReferenceField';
-import CategorySelection from './CategorySelection';
+import {subcategoryOptions} from '../settings/catalog.mjs';
 import { api } from '../../lib/sb';
 import { useApi, Loading, ErrorBox } from '../sb/ui';
 
@@ -26,9 +25,6 @@ export default function PlanogramEditor(props) {
 }
 
 function PlanogramForm({ plan, catalog, onSaved, onClose }) {
-  const local = catalog.stores.find((s) => s.code === plan.store_code);
-  const [region, setRegion] = useState(local?.region || '');
-  const [commune, setCommune] = useState(local?.commune || '');
   const [processing, setProcessing] = useState(false);
   const [form, setForm] = useState({
     category: '',
@@ -47,11 +43,7 @@ function PlanogramForm({ plan, catalog, onSaved, onClose }) {
     ...plan,
   });
   const products = sortByName(catalog.products);
-  const communes =
-    catalog.locations.regions.find((r) => r.name === region)?.communes || [];
-  const stores = sortByName(
-    catalog.stores.filter((s) => s.region === region && s.commune === commune),
-  );
+  const subcategoryChoices=subcategoryOptions(catalog.classification.categories);
   const field = (key) => ({
     value: form[key],
     onChange: (e) => setForm({ ...form, [key]: e.target.value }),
@@ -86,13 +78,12 @@ function PlanogramForm({ plan, catalog, onSaved, onClose }) {
   function payload() {
     if (processing) throw Error('Espera a que termine de cargar el archivo.');
     if (Object.keys(catalog.classification.categories).length && !form.category) throw Error('Selecciona una categoría.');
-    if (catalog.classification.categories[form.category]?.length && !form.subcategories.length) throw Error('Selecciona al menos una subcategoría.');
+    if (!form.category || form.subcategories.length!==1) throw Error('Selecciona una única subcategoría.');
     const result = Object.fromEntries(
       [
         'category',
         'subcategories',
         'name',
-        'store_code',
         'status',
         'description',
         'photo',
@@ -125,62 +116,15 @@ function PlanogramForm({ plan, catalog, onSaved, onClose }) {
         Nombre del planograma
         <input required maxLength={150} {...field('name')} />
       </label>
-      <label>
-        Región
-        <select
-          required
-          value={region}
-          onChange={(e) => {
-            setRegion(e.target.value);
-            setCommune('');
-            setForm({ ...form, store_code: '' });
-          }}
-        >
-          <option value="">Seleccionar región</option>
-          {orderRegions(catalog.locations.regions).map((r) => (
-            <option key={r.code}>{r.name}</option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Comuna
-        <select
-          required
-          value={commune}
-          disabled={!region}
-          onChange={(e) => {
-            setCommune(e.target.value);
-            setForm({ ...form, store_code: '' });
-          }}
-        >
-          <option value="">Seleccionar comuna</option>
-          {sortByName(communes).map((c) => (
-            <option key={c.name}>{c.name}</option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Punto de venta
-        <select required disabled={!commune} {...field('store_code')}>
-          <option value="">Seleccionar PDV</option>
-          {stores.map((s) => (
-            <option key={s.code} value={s.code}>
-              {s.name} ({s.code})
-            </option>
-          ))}
-        </select>
-      </label>
       <StatusField
         value={form.status}
         onChange={(status) => setForm({ ...form, status })}
       />
-      <CategorySelection categories={catalog.classification.categories} value={form} required onChange={value => setForm(current => ({...current, category:value.category, subcategories:value.subcategories}))}/>
-      {form.legacy_point_ids?.length > 0 && (
-        <p className="full sb-hint">
-          Se conservan {form.legacy_point_ids.length} asignaciones anteriores de
-          este planograma compartido en góndolas de otros locales.
-        </p>
-      )}
+      <label>Subcategoría del planograma<select required value={form.subcategories.length===1?JSON.stringify([form.category,form.subcategories[0]]):''} onChange={e=>{const choice=subcategoryChoices.find(c=>c.key===e.target.value);setForm({...form,category:choice?.category||'',subcategories:choice?[choice.subcategory]:[]});}}><option value="">Seleccionar subcategoría</option>{subcategoryChoices.map(c=><option key={c.key} value={c.key}>{c.subcategory} · {c.category}</option>)}</select></label>
+      <label>Categoría<input readOnly value={form.subcategories.length===1?form.category:''} placeholder="Se completa al elegir subcategoría"/></label>
+      {plan.subcategories?.length>1&&<p className="full sb-hint">Este registro anterior tiene varias subcategorías. Selecciona una para utilizar la asignación compartida.</p>}
+      {!!plan.assigned_count&&<p className="full sb-hint">Los cambios se aplicarán a las próximas mediciones de los {plan.assigned_count} PDV asignados. Las mediciones anteriores se conservan.</p>}
+      <p className="full sb-hint">Guarda el planograma y usa «Asignar a PDV» para seleccionar uno o varios locales.</p>
       <label className="full">
         Descripción
         <textarea maxLength={2000} {...field('description')} />

@@ -328,3 +328,10 @@
 #nv .classification-file { display: grid; gap: 6px; margin: 16px 0; }
 #nv .sb-metrics.dashboard-three { grid-template-columns: repeat(3,minmax(0,1fr)); }
 @media(max-width:700px) { #nv .sb-metrics.dashboard-three { grid-template-columns: 1fr; } }
+
+#nv .assignment-selection { margin: 14px 0; }
+#nv .assignment-table { max-height: 420px; overflow: auto; border: 1px solid var(--nv-border); border-radius: 10px; }
+#nv .assignment-preview { margin-top: 18px; padding: 16px; border: 1px solid var(--nv-border); border-radius: 12px; background: var(--nv-surface-3); }
+#nv .assignment-preview details { margin-bottom: 14px; }
+#nv .sb-actions.planogram-row-actions { flex-wrap: nowrap; gap: 6px; }
+#nv main .planogram-row-actions button { margin: 0; min-height: 28px; padding: 4px 7px; font-size: 12px; white-space: nowrap; }

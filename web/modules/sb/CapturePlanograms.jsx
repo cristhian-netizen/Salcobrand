@@ -5,8 +5,8 @@ import {useApi, Loading, ErrorBox} from './ui';
 import PdfPreview from '../catalog/PdfPreview';
 import ShelfPhoto from '../management/ShelfPhoto';
 
-export default function CapturePlanograms({store, classification, preferredPlan}) {
-  const params = new URLSearchParams({store,category:classification.category});
+export default function CapturePlanograms({store, classification, preferredPlan,typeId='',onReference}) {
+  const params = new URLSearchParams({store,category:classification.category,type_id:typeId});
   for (const sub of classification.subcategories || []) params.append('subcategories', sub);
   const query = params.toString();
   const ready = !!store && !!classification.category && !!classification.subcategories?.length;
@@ -16,6 +16,7 @@ export default function CapturePlanograms({store, classification, preferredPlan}
   useEffect(() => {
     setSelected(current.some(plan => plan.id === preferredPlan) ? preferredPlan : current[0]?.id || '');
   },[result.data,query,preferredPlan]);
+  useEffect(()=>{onReference?.({query,id:current.some(p=>p.id===selected)?selected:'',loading:result.loading,error:result.error});},[query,selected,result.data,result.loading,result.error,onReference]);
   if (!ready) return null;
   if (result.loading && !current.length) return <div className="full"><Loading text="Buscando planograma asociado…"/></div>;
   if (result.error) return <div className="full"><ErrorBox error={result.error} onRetry={result.reload}/></div>;
@@ -23,12 +24,12 @@ export default function CapturePlanograms({store, classification, preferredPlan}
   return <section className="full capture-planograms" aria-label="Planograma asociado">
     <div className="sb-actions"><h3>{current.length === 1 ? 'Planograma asociado' : 'Planogramas asociados'}</h3></div>
     {current.length > 1 && <div className="sb-actions">{current.map(plan => <button type="button" key={plan.id} aria-pressed={plan.id === selected} onClick={() => setSelected(plan.id)}>Ver {plan.name}</button>)}</div>}
-    {current.some(plan => plan.id === selected) && <Reference key={store+':'+selected} store={store} id={selected}/>}
+    {current.some(plan => plan.id === selected) && <Reference typeId={typeId} key={store+':'+selected} store={store} id={selected}/>}
   </section>;
 }
 
-function Reference({store,id}) {
-  const {data,error,loading,reload} = useApi(() => api('/api/capture/planograms/'+encodeURIComponent(id)+'?'+new URLSearchParams({store})),[store,id]);
+function Reference({store,id,typeId}) {
+  const {data,error,loading,reload} = useApi(() => api('/api/capture/planograms/'+encodeURIComponent(id)+'?'+new URLSearchParams({store,type_id:typeId})),[store,id,typeId]);
   const [page,setPage] = useState(1);
   const [expanded,setExpanded] = useState(true);
   const [url,setUrl] = useState('');

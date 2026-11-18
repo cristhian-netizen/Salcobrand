@@ -300,6 +300,8 @@ def delete_planogram(planogram_id: str) -> None:
             catalog_service.freeze_readings(conn, plan)
         conn.execute("UPDATE points SET planogram_id = NULL WHERE planogram_id = ?", (planogram_id,))
         conn.execute("DELETE FROM planogram_items WHERE planogram_id = ?", (planogram_id,))
+        conn.execute("DELETE FROM management_plan_scopes WHERE plan_id=?",(planogram_id,))
+        conn.execute("DELETE FROM management_plan_scope_state WHERE plan_id=?",(planogram_id,))
         conn.execute("DELETE FROM planograms WHERE id = ?", (planogram_id,))
         conn.execute("DELETE FROM management_planograms WHERE id = ?", (planogram_id,))
         catalog_service.changed(conn)

@@ -131,7 +131,7 @@ TABLE_ORDER = [
     "management_reading_details", "management_capture_requests", "management_catalog_state",
     "management_products", "management_planograms", "management_stores",
     "management_shelf_types", "management_assignments", "management_instances",
-    "management_events", "management_training_labels",
+    "management_events", "management_training_labels", "management_plan_scope_state", "management_plan_scopes",
 ]
 
 

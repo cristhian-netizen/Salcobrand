@@ -52,7 +52,7 @@ def existing_request(key, fingerprint):
     return job
 
 
-def submit(point_id, images, meters, user, request_id, selection=None, manual_store=None, manual_override=False, geometry=None, by_type=False, manual_reference=False):
+def submit(point_id, images, meters, user, request_id, selection=None, manual_store=None, manual_override=False, geometry=None, by_type=False, manual_reference=False, reference_plan_id=None):
     if not re.fullmatch(r"[A-Za-z0-9_-]{16,100}", request_id or ""):
         raise HTTPException(400, "La captura necesita un identificador de solicitud válido.")
     key = hashlib.sha256((user["username"] + ":" + request_id).encode()).hexdigest()
@@ -66,10 +66,13 @@ def submit(point_id, images, meters, user, request_id, selection=None, manual_st
         values['by_type'] = True
     if selection:
         values['selection'] = selection
+    if reference_plan_id:values['reference_plan_id']=reference_plan_id
     fingerprint = hashlib.sha256(json.dumps(values, sort_keys=True).encode()).hexdigest()
     prior = existing_request(key, fingerprint)
     if prior:
         return public_job(prior)
+    import plan_assignments
+    plan_assignments.prepare()
     context = {} if manual_store else (infrastructure.capture_context(point_id) or {})
     context.update(selection or {})
     if manual_store:
@@ -114,11 +117,23 @@ def submit(point_id, images, meters, user, request_id, selection=None, manual_st
                     meters = context['width_cm'] / 100
                 point = db.get_point(point_id)
                 import client_identity
-                plan_id = point.get('planogram_id') if client_identity.public_identity(conn)['tenant']['modules']['planograms'] else None
+                plan_id=None
+                if client_identity.public_identity(conn)['tenant']['modules']['planograms']:
+                    reference_type=(infrastructure.capture_context(point_id) or {}).get('type_id','') if manual_reference else context.get('type_id','')
+                    if (selection or {}).get('category'):
+                        plan_id=plan_assignments.resolve(conn,point.get('store_id'),selection,reference_type,reference_plan_id)
+                    elif reference_plan_id:
+                        raise HTTPException(409,'Selecciona la subcategoría de la referencia antes de medir.')
+                    legacy_id=point.get('planogram_id')
+                    if not plan_id and legacy_id and not conn.execute('SELECT 1 FROM management_plan_scope_state WHERE plan_id=?',(legacy_id,)).fetchone():
+                        catalog_service.validate_assignment(legacy_id,point.get('store_id'),point_id)
+                        plan_id=legacy_id
                 plan_snapshot = db.get_planogram(plan_id) if plan_id else None
                 if plan_snapshot and plan_snapshot.get('category'):
-                    context.pop('subcategory', None)
-                    context.update(category=plan_snapshot['category'], subcategories=plan_snapshot.get('subcategories', []))
+                    context['planogramClassification']={'category':plan_snapshot['category'],'subcategories':plan_snapshot.get('subcategories',[])}
+                    if len(plan_snapshot.get('subcategories',[]))>1 or not (selection or {}).get('category'):
+                        context.pop('subcategory',None)
+                        context.update(category=plan_snapshot['category'],subcategories=plan_snapshot.get('subcategories',[]))
                 payload = {"image_paths": paths, "linear_meters": meters, "planogram_id": plan_id,
                            "plan_snapshot": plan_snapshot,
                            "infrastructure": context, "user": user["username"], "via": "app"}
@@ -144,12 +159,12 @@ def router(require_user, require_scan, authorize_point):
     api = APIRouter(prefix="/api", tags=["Captura y mediciones"])
 
     @api.get('/capture/planograms')
-    def planograms(store: str, category: str = '', subcategories: Optional[List[str]] = Query(None), user=Depends(require_scan)):
-        return JSONResponse(capture_selection.reference_plans(user, store, category, subcategories or []), headers={'Cache-Control':'no-store'})
+    def planograms(store: str, category: str = '', subcategories: Optional[List[str]] = Query(None), type_id: Optional[str] = None, user=Depends(require_scan)):
+        return JSONResponse(capture_selection.reference_plans(user, store, category, subcategories or [], type_id=type_id), headers={'Cache-Control':'no-store'})
 
     @api.get('/capture/planograms/{plan_id}')
-    def planogram_reference(plan_id: str, store: str, user=Depends(require_scan)):
-        return JSONResponse(capture_selection.reference_plans(user, store, plan_id=plan_id), headers={'Cache-Control':'no-store'})
+    def planogram_reference(plan_id: str, store: str, type_id: Optional[str] = None, user=Depends(require_scan)):
+        return JSONResponse(capture_selection.reference_plans(user, store, plan_id=plan_id, type_id=type_id), headers={'Cache-Control':'no-store'})
 
     @api.get('/capture/options')
     def options(user=Depends(require_scan)):
@@ -158,7 +173,7 @@ def router(require_user, require_scan, authorize_point):
     @api.post('/stores/{store_code}/analysis-jobs', status_code=202)
     async def manual(store_code: str, images: List[UploadFile] = File(...), linear_meters: Optional[float] = Form(None),
                      manual_override: bool = Form(False), reference_point_id: str = Form(''), levels: Optional[int] = Form(None), depths: Optional[List[float]] = Form(None),
-                     category: str = Form(''), subcategory: str = Form(''), subcategories: Optional[List[str]] = Form(None),
+                     category: str = Form(''), subcategory: str = Form(''), subcategories: Optional[List[str]] = Form(None), reference_plan_id: Optional[str] = Form(None),
                      request_id: str = Header(alias='Idempotency-Key'), user=Depends(require_scan)):
         scope = profiles.store_scope(user)
         if scope is not None and store_code not in scope:
@@ -184,7 +199,7 @@ def router(require_user, require_scan, authorize_point):
             point_id = reference_point_id
         else:
             point_id = await run_in_threadpool(capture_selection.manual_point, store_code, user, values, manual_override)
-        return await run_in_threadpool(submit, point_id, loaded, linear_meters, user, request_id, values, store_code, manual_override, dimensions, False, bool(reference_point_id))
+        return await run_in_threadpool(submit, point_id, loaded, linear_meters, user, request_id, values, store_code, manual_override, dimensions, False, bool(reference_point_id), reference_plan_id)
 
     @api.get("/capture/status")
     def status(user=Depends(require_user)):
@@ -194,7 +209,7 @@ def router(require_user, require_scan, authorize_point):
 
     @api.post("/points/{point_id}/analysis-jobs", status_code=202)
     async def create(point_id: str, images: List[UploadFile] = File(...), linear_meters: Optional[float] = Form(None), by_type: bool = Form(False),
-                     category: str = Form(''), subcategory: str = Form(''), subcategories: Optional[List[str]] = Form(None),
+                     category: str = Form(''), subcategory: str = Form(''), subcategories: Optional[List[str]] = Form(None), reference_plan_id: Optional[str] = Form(None),
                      request_id: str = Header(alias="Idempotency-Key"), user=Depends(require_scan)):
         authorize_point(point_id, user)
         if point_id.startswith(capture_selection.MANUAL_PREFIX):
@@ -205,7 +220,7 @@ def router(require_user, require_scan, authorize_point):
             loaded = await core.read_image_uploads(images, max_bytes_each=25*1024*1024, max_bytes_total=100*1024*1024)
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
-        return await run_in_threadpool(submit, point_id, loaded, linear_meters, user, request_id, capture_selection.selection(category, subcategory, subcategories), None, False, None, by_type)
+        return await run_in_threadpool(submit, point_id, loaded, linear_meters, user, request_id, capture_selection.selection(category, subcategory, subcategories), None, False, None, by_type, False, reference_plan_id)
 
     @api.get("/analysis-jobs")
     def active(user=Depends(require_user)):

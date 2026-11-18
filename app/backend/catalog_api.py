@@ -55,7 +55,7 @@ class PlanFields(Payload):
     category: str | None = None
     subcategories: List[str] | None = Field(default=None, max_length=1000)
     name: str
-    store_code: str
+    store_code: str | None = None
     status: str = "Activo"
     description: str = ""
     photo: str = ""
@@ -70,12 +70,34 @@ class PlanUpdate(PlanFields):
     version: StrictInt = Field(ge=0)
 
 
+class PlanAssignments(Payload):
+    stores: List[str] = Field(default_factory=list, max_length=10000)
+    type_id: str = Field(default='', max_length=150)
+    version: StrictInt = Field(ge=0)
+    replace_conflicts: bool = False
+
+
 def router(require_admin):
     api = APIRouter(prefix="/api/admin/catalog", dependencies=[Depends(require_admin)], tags=["Productos y Planogramas"])
 
     @api.get("")
     def state():
         return service.state()
+
+    @api.get('/planograms/{plan_id}/assignments')
+    def assignments(plan_id: str):
+        import plan_assignments
+        return plan_assignments.details(plan_id)
+
+    @api.post('/planograms/{plan_id}/assignments/preview')
+    def assignment_preview(plan_id: str, payload: PlanAssignments, user=Depends(require_admin)):
+        import plan_assignments
+        return plan_assignments.change(plan_id,payload.model_dump(),user['username'])
+
+    @api.put('/planograms/{plan_id}/assignments')
+    def assignment_save(plan_id: str, payload: PlanAssignments, user=Depends(require_admin)):
+        import plan_assignments
+        return plan_assignments.change(plan_id,payload.model_dump(),user['username'],True)
 
     @api.get("/products/{product_id}")
     def product_detail(product_id: str):

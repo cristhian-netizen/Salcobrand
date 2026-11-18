@@ -21,7 +21,7 @@ class CaptureCases:
         admin.get('/api/admin/stores')
         pdf=io.BytesIO();writer=PdfWriter();writer.add_blank_page(width=300,height=400);writer.add_blank_page(width=300,height=400);writer.write(pdf)
         body={**self.plan_fields(product),**classification,'photo':'','document':'data:application/pdf;base64,'+base64.b64encode(pdf.getvalue()).decode(),'document_name':'referencia.pdf'}
-        saved=admin.post('/api/admin/catalog/planograms',json=body);self.assertEqual(saved.status_code,201,saved.text);plan=saved.json()
+        plan=self.legacy_multi_plan(product,classification,**{k:body[k] for k in ('photo','document','document_name')})
         client=self.client('replenisher');path='/api/capture/planograms'
         query=[('store','L128'),('category',classification['category']),('subcategories','Desodorantes'),('subcategories','Higiene')]
         response=client.get(path,params=query);self.assertEqual(response.status_code,200,response.text)
@@ -36,7 +36,7 @@ class CaptureCases:
         self.assertEqual(client.get(path+'/'+plan['id'],params={'store':'L130'}).status_code,403)
         self.assertEqual(client.get(path+'/'+plan['id'],params={'store':'L129'}).status_code,404)
         self.assertEqual(client.get(path,params={'store':'L128','category':classification['category']}).json(),[])
-        retired=admin.patch('/api/admin/catalog/planograms/'+plan['id'],json={**body,'status':'Inactivo','version':1});self.assertEqual(retired.status_code,200,retired.text)
+        retired=admin.patch('/api/admin/catalog/planograms/'+plan['id'],json={**{k:v for k,v in body.items() if k not in ('category','subcategories')},'status':'Inactivo','version':1});self.assertEqual(retired.status_code,200,retired.text)
         self.assertEqual(client.get(path,params=query).json(),[])
         self.assertEqual(client.get(path+'/'+plan['id'],params={'store':'L128'}).status_code,404)
 
@@ -104,10 +104,11 @@ class CaptureCases:
     def test_capture_uses_all_planogram_subcategories_and_freezes_reference(self):
         product=self.create_product();classification=self.multi_classification()
         admin=self.client('admin');admin.get('/api/admin/stores')
-        plan=admin.post('/api/admin/catalog/planograms',json={**self.plan_fields(product),**classification}).json()
+        plan=self.legacy_multi_plan(product,classification)
         self.db.set_point_planogram('point-a',plan['id'])
+        self.client('replenisher').get('/api/capture/options').raise_for_status()
         point=next(p for p in self.client('analyst').get('/api/summary').json()['points'] if p['id']=='point-a')
-        self.assertEqual(point['planogram_classification'],classification)
+        self.assertNotIn('planogram_classification',point)  # Shared reference is selected by PDV/classification, not physical pointer.
         client=self.client('replenisher')
         response=client.post('/api/points/point-a/analysis-jobs',headers={'Idempotency-Key':'multi-subcategory-plan-001'},
                              data={'category':'Cuidado personal','subcategories':['Desodorantes']},files={'images':('photo.jpg',b'synthetic','image/jpeg')})

@@ -15,13 +15,24 @@ class CatalogCases:
         settings_service.save('catalog', {**catalog,'categories':categories,'ownBrands':current['state']['productParameters']['ownBrands']}, current['version'], 'admin')
         return {'category':'Cuidado personal','subcategories':['Desodorantes','Higiene']}
 
+    def legacy_multi_plan(self, product, classification, **extra):
+        # Seed the old representation, which new writes intentionally no longer accept.
+        admin=self.client('admin');admin.get('/api/admin/stores')
+        response=admin.post('/api/admin/catalog/planograms',json={**self.plan_fields(product),**extra})
+        self.assertEqual(response.status_code,201,response.text)
+        plan=response.json()
+        with self.db.get_conn() as conn:
+            row=conn.execute('SELECT data_json FROM management_planograms WHERE id=?',(plan['id'],)).fetchone()
+            meta=json.loads(row['data_json']);meta.update(classification)
+            conn.execute('UPDATE management_planograms SET data_json=? WHERE id=?',(json.dumps(meta),plan['id']))
+        return plan
+
     def test_planogram_multiple_subcategories_validation_roundtrip_and_history(self):
         product = self.create_product();classification = self.multi_classification()
         admin = self.client('admin');admin.get('/api/admin/stores')
         body = {**self.plan_fields(product), **classification}
-        response = admin.post('/api/admin/catalog/planograms',json=body)
-        self.assertEqual(response.status_code,201,response.text)
-        plan = response.json();path='/api/admin/catalog/planograms/'+plan['id']
+        self.assertEqual(admin.post('/api/admin/catalog/planograms',json=body).status_code,400)
+        plan = self.legacy_multi_plan(product,classification);path='/api/admin/catalog/planograms/'+plan['id']
         self.assertEqual(admin.get(path).json()['subcategories'],classification['subcategories'])
         self.db.set_point_planogram('point-a',plan['id'])
         reading = self.db.add_reading('point-a',self.analysis,[],planogram_id=plan['id'])

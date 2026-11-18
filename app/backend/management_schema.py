@@ -81,4 +81,15 @@ CREATE TABLE IF NOT EXISTS management_training_labels (
  data_json TEXT NOT NULL, crop_path TEXT NOT NULL, created_by TEXT NOT NULL, created_at TEXT NOT NULL,
  UNIQUE(reading_id,image_index,item_index)
 );
+CREATE TABLE IF NOT EXISTS management_plan_scope_state (
+ plan_id TEXT PRIMARY KEY REFERENCES planograms(id) ON DELETE CASCADE, initialized_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS management_plan_scopes (
+ plan_id TEXT NOT NULL REFERENCES planograms(id) ON DELETE CASCADE,
+ store_code TEXT NOT NULL REFERENCES management_stores(code) ON DELETE CASCADE,
+ category TEXT NOT NULL, subcategory TEXT NOT NULL, type_id TEXT NOT NULL DEFAULT '',
+ assigned_by TEXT NOT NULL, assigned_at TEXT NOT NULL,
+ PRIMARY KEY(plan_id,store_code,category,subcategory,type_id)
+);
+CREATE INDEX IF NOT EXISTS management_plan_scope_lookup ON management_plan_scopes(store_code,category,subcategory,type_id);
 """

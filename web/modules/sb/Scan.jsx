@@ -87,6 +87,7 @@ export default function Scan({ user, rest, go, notify }) {
   const [pointId, setPointId] = useState(rest[0] || "");
   const [location, setLocation] = useState({region: '', commune: '', query: ''});
   const [storeCode, setStoreCode] = useState('');
+  const [reference,setReference]=useState({query:'',id:'',loading:false,error:''});
   const [classification, setClassification] = useState({category: '', subcategories: []});
   const [shelfType, setShelfType] = useState('');
   const [manualOverride, setManualOverride] = useState(false);
@@ -126,18 +127,18 @@ export default function Scan({ user, rest, go, notify }) {
   const manualMode = !hasAssigned || manualOverride;
   const selectedType = shelfType;
   const selectedShelf = types.find(type => type.id === selectedType);
-  const resolution = capturePointForType(storePoints, selectedType, classification, enabled(user, 'planograms'));
+  const resolution = capturePointForType(storePoints, selectedType, classification, enabled(user, 'planograms')&&!points.data?.captureOptions.shared_plan_assignments);
   const selected = manualMode ? null : resolution.point;
   const categories = points.data?.captureOptions.categories || {};
   const referencePoint = selected || (manualOverride ? resolution.point : null);
-  const planClassification = enabled(user, 'planograms') ? referencePoint?.planogram_classification : null;
+  const planClassification = enabled(user, 'planograms')&&!points.data?.captureOptions.shared_plan_assignments ? referencePoint?.planogram_classification : null;
   const captureClassification = planClassification?.category ? planClassification : classification;
   const subcategories = categories[classification.category] || [];
   const classificationReady = (!Object.keys(categories).length || classification.category)
     && (!subcategories.length || classification.subcategories.length);
   const displayedMeters = manualMode ? meters : selectedShelf ? String(selectedShelf.width_cm / 100) : '';
   const manualReady = manualDepths.length > 0 && manualDepths.every(value => value !== '' && Number(value) > 0 && Number(value) <= 1000);
-  const captureReady = classificationReady && (manualMode ? selectedStore && manualReady : selected && selectedShelf);
+  const captureReady = classificationReady && (manualMode ? selectedStore && manualReady : selected && selectedShelf) && !reference.loading && !reference.error;
   const communes = [...(regionFor(regions, location.region)?.communes || [])].sort(byLocationName);
 
   useEffect(() => {
@@ -339,6 +340,9 @@ export default function Scan({ user, rest, go, notify }) {
     } else form.append('by_type', 'true');
     if (captureClassification.category) form.append('category', captureClassification.category);
     for (const subcategory of captureClassification.subcategories) form.append('subcategories', subcategory);
+    const referenceParams=new URLSearchParams({store:selectedStore,category:classification.category,type_id:selectedType||''});
+    for(const sub of classification.subcategories||[])referenceParams.append('subcategories',sub);
+    if(reference.query===referenceParams.toString()&&reference.id)form.append('reference_plan_id',reference.id);
     try {
       const current = await api(
         manualMode ? '/api/stores/' + encodeURIComponent(selectedStore) + '/analysis-jobs'
@@ -517,12 +521,12 @@ export default function Scan({ user, rest, go, notify }) {
             <CategorySelection categories={categories} value={classification} disabled={busy} onChange={value => {
               setClassification(value); requestId.current = null;
             }}/>
-            {enabled(user,'planograms') && <CapturePlanograms store={selectedStore} classification={classification} preferredPlan={referencePoint?.planogram_id}/>}
+            {enabled(user,'planograms') && <CapturePlanograms store={selectedStore} classification={classification} typeId={selectedType||''} onReference={setReference} preferredPlan={referencePoint?.planogram_id}/>}
             {planClassification?.category && <p className="sb-hint full">La comparación del tipo seleccionado utiliza el planograma completo.</p>}
             <div className="full scan-type-picker">
               <label>Tipo de góndola<select value={selectedType} disabled={busy || !selectedStore || manualMode || !types.length} onChange={event => {
-                const next = capturePointForType(storePoints,event.target.value,classification,enabled(user,'planograms')).point;
-                if (!classification.category && next?.planogram_classification?.category) setClassification(next.planogram_classification);
+                const next = capturePointForType(storePoints,event.target.value,classification,enabled(user,'planograms')&&!points.data?.captureOptions.shared_plan_assignments).point;
+                if (!points.data?.captureOptions.shared_plan_assignments && !classification.category && next?.planogram_classification?.category) setClassification(next.planogram_classification);
                 setShelfType(event.target.value); setPointId(''); setMeters(''); requestId.current = null;
               }}>
                 <option value="">{hasAssigned ? 'Selecciona un tipo de góndola' : 'Sin tipos asociados a este PDV'}</option>

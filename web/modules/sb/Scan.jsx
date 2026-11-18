@@ -413,7 +413,7 @@ export default function Scan({ user, rest, go, notify }) {
           <button
             className="action"
             type="button"
-            onClick={() => go("mediciones/" + encodeURIComponent(pointId))}
+            onClick={() => go("mediciones")}
           >
             Ver historial
           </button>

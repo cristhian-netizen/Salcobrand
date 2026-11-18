@@ -7,10 +7,10 @@ import {orderRegions} from '../../lib/locations.mjs';
 import { can } from "../../lib/profiles.mjs";
 import { useApi, Header, Card, Loading, Empty, ErrorBox, Pill } from "./ui";
 
-const INITIAL = { region: "", commune: "", store: "", point: "", from: "", to: "", status: "" };
+const INITIAL = { region: "", commune: "", store: "", from: "", to: "", status: "" };
 
-export default function Measurements({ user, go, rest = [] }) {
-  const [filters, setFilters] = useState({...INITIAL, point:rest[0] || ''});
+export default function Measurements({ user, go }) {
+  const [filters, setFilters] = useState(INITIAL);
   const [sort, setSort] = useState(null);
   const sortFields = ["id","store_name","date","time","score","status","note","captured_by"];
   const [offset, setOffset] = useState(0);
@@ -36,8 +36,7 @@ export default function Measurements({ user, go, rest = [] }) {
     setFilters((previous) => ({
       ...previous,
       [name]: value,
-      ...(name === "store" ? { point: "" } : {}),
-      ...(name === "region" ? {commune:"",store:"",point:""} : name === "commune" ? {store:"",point:""} : {}),
+      ...(name === "region" ? {commune:"",store:""} : name === "commune" ? {store:""} : {}),
     }));
     setOffset(0);
   }
@@ -96,22 +95,6 @@ export default function Measurements({ user, go, rest = [] }) {
                 {s.code} · {s.name}
               </option>
             ))}
-          </select>
-        </label>
-        <label>
-          Góndola
-          <select
-            value={filters.point}
-            onChange={(e) => change("point", e.target.value)}
-          >
-            <option value="">Todas las góndolas</option>
-            {(data?.points || [])
-              .filter((p) => (!filters.store || p.store_id === filters.store) && (data?.stores || []).some(s=>s.code===p.store_id&&(!filters.region||s.region===filters.region)&&(!filters.commune||s.commune===filters.commune)))
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
           </select>
         </label>
         <label>

@@ -1,5 +1,6 @@
 "use client";
 import SortableTable from '../tables/SortableTable';
+import HomeReadingDetail from '../home/HomeReadingDetail';
 
 import { useState } from "react";
 import { api, download, fmt } from "../../lib/sb";
@@ -14,6 +15,7 @@ export default function Measurements({ user, go }) {
   const [sort, setSort] = useState(null);
   const sortFields = ["id","store_name","date","time","score","status","note","captured_by"];
   const [offset, setOffset] = useState(0);
+  const [selectedReading,setSelectedReading] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const invalid = filters.from && filters.to && filters.from > filters.to;
@@ -195,11 +197,7 @@ export default function Measurements({ user, go }) {
                         <td>
                           <button
                             type="button"
-                            onClick={() =>
-                              go(
-                                `gondolas/${encodeURIComponent(row.point_id)}/lectura/${row.id}`,
-                              )
-                            }
+                            onClick={() => setSelectedReading(row)}
                           >
                             Ver medición
                           </button>
@@ -235,6 +233,7 @@ export default function Measurements({ user, go }) {
           </Card>
         )
       )}
+      {selectedReading && <HomeReadingDetail row={selectedReading} user={user} go={go} onClose={()=>{setSelectedReading(null);reload();}}/>}
     </section>
   );
 }

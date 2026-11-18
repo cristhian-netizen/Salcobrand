@@ -288,8 +288,8 @@
 #nv .ct-subcategories legend { padding: 0 6px; font-weight: 600; }
 #nv .ct-subcategory-options { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 6px; margin-top: 8px; }
 #nv .ct-subcategory-options label { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: flex-start; gap: 6px; width: auto; max-width: 100%; margin: 0; padding: 5px 8px; font-size: 13px; border: 1px solid #dbe3ec; border-radius: 7px; cursor: pointer; }
-#nv .ct-subcategory-options input[type=checkbox] { flex: 0 0 18px; width: 18px; height: 18px; min-height: 0; margin: 0; accent-color: #197f86; }
-#nv .ct-subcategory-options label:has(input:checked) { border-color: #197f86; background: #eef9f8; }
+#nv .ct-subcategory-options input[type=checkbox] { flex: 0 0 18px; width: 18px; height: 18px; min-height: 0; margin: 0; accent-color: var(--nv-primary); }
+#nv .ct-subcategory-options label:has(input:checked) { border-color: var(--nv-primary); background: var(--nv-primary-soft); }
 #nv .ct-subcategories:disabled .ct-subcategory-options label { cursor: default; }
 
 #nv .scan-type-picker { display: flex; align-items: flex-end; gap: 12px; }
@@ -344,3 +344,7 @@
 #nv .nv-page > * > section:not(.nv-plain) { margin-block: var(--nv-section-gap); }
 #nv :is(.dashboard-grid, .sb-grid-2, .sb-metrics, .home-shortcuts) { gap: var(--nv-section-gap); }
 #nv :is(.dashboard-grid, .sb-grid-2) > .sb-card { margin-block: 0; }
+
+#nv .reading-actions { margin-block: var(--nv-section-gap); }
+#nv .reading-summary .sb-metric small { display: block; }
+@media (max-width: 640px) { #nv .reading-summary .sb-score { flex-wrap: wrap; gap: 8px; } }

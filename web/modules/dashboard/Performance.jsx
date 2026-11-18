@@ -24,7 +24,7 @@ export default function Performance({ data, exportFile, onOpen, busy }) {
       <Metric label="Rechazadas" value={fmt.num(totals.rejected)} hint={totals.measurements ? `${fmt.pct(100 * totals.rejected / totals.measurements)} del total` : 'Sin mediciones'} />
     </div>
     <div className="dashboard-grid">
-      <TrendChart title="Análisis de góndolas por mes" rows={data.months} field="count" color="#2563eb" />
+      <TrendChart title="Análisis de góndolas por mes" rows={data.months} field="count" color="var(--nv-primary)" />
       <TrendChart title="Puntaje promedio por mes" rows={data.months} field="score" color="#168252" percent />
       <TrendChart title="Mediciones rechazadas por mes" rows={data.months} field="rejected" color="#c73737" />
       <TrendChart title="Tasa de rechazo mensual (%)" rows={data.months} field="rejectionRate" color="#a66b00" percent />

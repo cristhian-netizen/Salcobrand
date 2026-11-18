@@ -120,3 +120,19 @@ editar esos productos, el formulario solicita elegir su display. La API y las
 plantillas anteriores siguen aceptando sus valores para mantener compatibilidad.
 Las nuevas plantillas exportan «Tipo de display» y «Precio por kg/litro/unidad
 (CLP)»; la importación acepta también los encabezados anteriores.
+
+
+## Paleta Salcobrand y detalle de mediciones
+
+La paleta usa azul #0074C8 en acciones y navegación activa, celeste #06A7E2
+como apoyo, magenta #C90188 en destacados, superficies blancas, fondo #F5F5F5
+y textos #333333. El verde de Neuravisión se conserva en su marca y los colores
+semánticos de estado siguen representando éxito, advertencia y rechazo.
+La identidad del cliente se actualiza mediante la consola interna: primaryColor,
+sidebarColor y colores de tipografía; no se modifica la conexión del modelo.
+
+El detalle compartido abre con las cuatro métricas de exhibición, planograma,
+caras e incertidumbre; después presenta hallazgos, fotos y tablas. La revisión
+queda al final y mantiene sus permisos originales. Mediciones abre el mismo
+modal que Inicio/Alertas/Dashboards, sin perder los filtros al cerrarlo. Los
+enlaces directos anteriores siguen usando el mismo detalle compartido.

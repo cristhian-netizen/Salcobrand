@@ -48,6 +48,7 @@ export default function MeasurementReview({ reading, user, onSaved }) {
   }
   return (
     <Card
+      className="measurement-review"
       title="Estado de la medición"
       subtitle="Solo las mediciones aprobadas se consideran en el desempeño."
     >

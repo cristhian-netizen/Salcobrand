@@ -4,23 +4,25 @@
 
 :root {
   --nv-font: var(--nv-font-inter, 'Inter'), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --nv-bg: #f5f6f8;
+  --nv-bg: #f5f5f5;
   --nv-surface: #ffffff;
-  --nv-surface-2: #f9fafb;
-  --nv-surface-3: #f2f4f7;
+  --nv-surface-2: #f5f9fc;
+  --nv-surface-3: #edf3f8;
   --nv-border: #e6e8ec;
   --nv-border-strong: #d0d5dd;
-  --nv-text: #101828;
-  --nv-text-secondary: #344054;
-  --nv-text-muted: #667085;
+  --nv-text: #333333;
+  --nv-text-secondary: #4b5563;
+  --nv-text-muted: #5d6875;
   --nv-text-subtle: #98a2b3;
-  --nv-primary: #087e85;
+  --nv-primary: #0074c8;
   --nv-on-primary: #ffffff;
   --nv-primary-hover: color-mix(in srgb, var(--nv-primary) 86%, #000);
   --nv-primary-soft: color-mix(in srgb, var(--nv-primary) 8%, #fff);
   --nv-primary-ring: color-mix(in srgb, var(--nv-primary) 24%, transparent);
-  --nv-accent: #b1e225;
-  --nv-chart-2: #6172f3;
+  --nv-accent: #06a7e2;
+  --nv-highlight: #c90188;
+  --nv-brand-accent: #b1e225;
+  --nv-chart-2: #06a7e2;
   --nv-success: #067647;
   --nv-success-soft: #ecfdf3;
   --nv-success-border: #abefc6;
@@ -31,8 +33,8 @@
   --nv-danger: #d92d20;
   --nv-danger-soft: #fef3f2;
   --nv-danger-border: #fecdca;
-  --nv-sidebar-bg: #0f1b2d;
-  --nv-sidebar-fg: #ffffff;
+  --nv-sidebar-bg: #ffffff;
+  --nv-sidebar-fg: #333333;
   --nv-radius-sm: 8px;
   --nv-radius: 10px;
   --nv-radius-lg: 14px;
@@ -107,7 +109,7 @@ body {
 .nv-mark {
   display: inline-grid; place-items: center; flex: none;
   width: 30px; height: 30px; border-radius: 9px;
-  background: var(--nv-accent); color: #0b0f14;
+  background: var(--nv-brand-accent); color: #0b0f14;
   font-size: 18px; font-weight: 800; line-height: 1; letter-spacing: -.06em;
 }
 #nv .nv-brand-name { font-size: 16px; font-weight: 700; letter-spacing: -.03em; }
@@ -116,7 +118,7 @@ body {
 #nv .nv-client-logo img { display: block; width: 112px; height: 112px; max-width: 100%; object-fit: contain; }
 #nv .nv-sidebar nav { display: grid; gap: 14px; }
 #nv .nv-nav-section { display: grid; gap: 1px; }
-#nv .nv-nav-group { margin: 0 0 4px; padding: 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .02em; opacity: .5; }
+#nv .nv-nav-group { margin: 0 0 4px; padding: 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .02em; opacity: .8; }
 #nv .nv-sidebar nav button, #nv .nv-logout {
   position: relative;
   display: flex; align-items: center; gap: 10px;
@@ -128,22 +130,22 @@ body {
   transition: background .15s, opacity .15s;
 }
 #nv .nv-sidebar nav button .nv-icon, #nv .nv-logout .nv-icon { flex: none; opacity: .9; }
-#nv .nv-sidebar nav button:hover, #nv .nv-logout:hover { opacity: 1; background: color-mix(in srgb, var(--nv-sidebar-fg) 7%, transparent); }
-#nv .nv-sidebar nav button[aria-current=page] { opacity: 1; font-weight: 600; background: color-mix(in srgb, var(--nv-sidebar-fg) 11%, transparent); }
+#nv .nv-sidebar nav button:hover, #nv .nv-logout:hover { opacity: 1; color: var(--nv-primary); background: var(--nv-primary-soft); }
+#nv .nv-sidebar nav button[aria-current=page] { opacity: 1; font-weight: 600; color: var(--nv-primary); background: var(--nv-primary-soft); }
 #nv .nv-sidebar nav button[aria-current=page]::before {
   content: ''; position: absolute; left: -12px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0;
-  background: var(--nv-accent);
+  background: var(--nv-primary);
 }
-#nv .nv-sidebar :is(button):focus-visible { outline: 2px solid var(--nv-accent); outline-offset: 1px; }
+#nv .nv-sidebar :is(button):focus-visible { outline: 2px solid var(--nv-primary); outline-offset: 1px; }
 #nv .nv-sidebar-footer { margin-top: auto; padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--nv-sidebar-fg) 10%, transparent); display: grid; gap: 4px; }
 #nv .nv-user { display: flex; align-items: center; gap: 10px; padding: 6px 10px; min-width: 0; }
 #nv .nv-user strong { display: block; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#nv .nv-user small { display: block; font-size: 11.5px; opacity: .6; }
+#nv .nv-user small { display: block; font-size: 11.5px; opacity: .8; }
 .nv-avatar {
   display: inline-grid; place-items: center; flex: none;
   width: 30px; height: 30px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--nv-accent), #5fd3b6);
-  color: #0b0f14; font-size: 12px; font-weight: 700;
+  background: var(--nv-primary-soft);
+  color: var(--nv-primary); font-size: 12px; font-weight: 700;
 }
 
 /* ---------- Top bar ---------- */
@@ -206,7 +208,7 @@ body {
 #nv .nv-page > * > small:first-child,
 #nv .nv-page > * > :first-child > small:first-child,
 #nv .nv-page > * > :first-child > :first-child > small:first-child {
-  display: block; margin: 0 0 2px; color: var(--nv-text-muted);
+  display: block; margin: 0 0 2px; color: var(--nv-highlight);
   font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
 }
 #nv main :is(.head, .heading) h1 { margin-top: 2px; }

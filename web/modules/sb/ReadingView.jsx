@@ -39,22 +39,7 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo}) {
     try { await api(`/api/readings/${reading.id}`, {method: 'DELETE'}); onDeleted?.(); } catch (e) { setError(e.message); } finally { setBusy(false); }
   }
   return <>
-    {error && <div className="sb-error" role="alert">{error}</div>}
-    {can(user, 'read') && <div className="sb-actions"><button type="button" disabled={busy} onClick={async () => {
-      setBusy(true); setError('');
-      try { await download(`/api/readings/${reading.id}/report.xlsx`, `Neuravision_Medicion_${reading.id}.xlsx`); }
-      catch (exception) { setError(exception.message); } finally { setBusy(false); }
-    }}>Descargar Excel de esta medición</button></div>}
-    {reading.infrastructure?.category && <p className="sb-hint">{reading.infrastructure.category} · {reading.infrastructure.subcategories?.join(', ') || reading.infrastructure.subcategory || 'Todas las subcategorías'}{reading.infrastructure.captureMode === 'manual' ? ` · ${reading.linear_meters == null ? 'Ancho no informado' : 'Ancho manual '+reading.linear_meters+' m'}` : ''}</p>}
-    {reading.infrastructure?.captureMode === 'manual' && reading.infrastructure.depths?.length > 0 && <p className="sb-hint">{reading.infrastructure.depths.length} niveles · {reading.infrastructure.depths.map((depth,index) => `Nivel ${index+1}: ${depth} cm de profundidad`).join(' · ')}</p>}
-    <MeasurementReview key={reading.id} reading={{...reading, review}} user={user} onSaved={setReview}/>
-    <ManualDetails reading={reading} user={user} reviewVersion={review?.version || 0} onReviewChanged={setReview}/>
-    <Card title="Capacidad máxima por dimensiones" subtitle={`Margen adicional de profundidad ${reading.capacity?.dimensionMarginPct ?? '—'} %. La capacidad teórica no confirma existencias ni unidades ocultas.`}>
-      {reading.capacity?.products?.length ? <div className="sb-table"><SortableTable><thead><tr><th>Producto</th><th>Nivel / posición</th><th>Profundidad cm</th><th>Espesor cm</th><th>Máximo por cara</th><th>Máximo total</th></tr></thead><tbody>
-        {reading.capacity.products.map((item,index) => <tr key={index}><td>{item.product}<small>{item.matchReason}</small></td><td>{item.level} / {item.position}</td><td>{item.depthCm ?? '—'}</td><td>{item.thicknessCm ?? '—'}</td><td>{item.unitsPerFacing ?? '—'}</td><td>{item.maximumUnits ?? '—'}</td></tr>)}
-      </tbody></SortableTable></div> : <p className="sb-hint">Esta captura no tiene profundidades por nivel registradas.</p>}
-    </Card>
-    <div className="sb-metrics">
+    <div className="sb-metrics reading-summary" aria-label="Métricas de la medición">
       <article className="sb-metric"><span>Puntaje de exhibición</span>
         <div className="sb-score" style={{marginTop: 8}}><div className="ring" style={{'--p': s.overall_score ?? 0, '--c': s.grade_color || 'var(--nv-primary)'}}><span>{s.overall_score ?? '—'}</span></div>
           <div><strong style={{fontSize: 20, margin: 0}}>{s.grade || 'Sin dato'}</strong><small>Stock {s.stock_score ?? '—'} · Espacio {s.space_score ?? '—'} · Orden {s.organization_score ?? '—'}</small></div></div>
@@ -64,7 +49,7 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo}) {
       <Metric label="Detecciones inciertas" value={fmt.num(reading.needs_review)} hint={c ? `Impacto estimado ${clp(c.impact_clp)}` : 'Recortes dudosos del motor'}/>
     </div>
     {s.findings?.length > 0 && <Card title="Hallazgos"><ul className="sb-findings">{s.findings.map((f, i) => <li key={i}>{f}</li>)}</ul></Card>}
-    <Card title={`Fotos (${reading.image_urls?.length || 0})`} subtitle="Verde: correcto · Naranjo: bajo lo esperado o sin identificar · Rojo: falta · Azul: fuera de planograma.">
+    <Card className="measurement-photos" title={`Fotos (${reading.image_urls?.length || 0})`} subtitle="Verde: correcto · Naranjo: bajo lo esperado o sin identificar · Rojo: falta · Azul: fuera de planograma.">
       <div className="sb-photos">{(reading.image_urls || []).map((url, i) => <Photo key={url} url={url} index={i} engineImage={images[i]} products={products}/>)}</div>
     </Card>
     <div className="sb-tabs" role="group" aria-label="Detalle">
@@ -93,9 +78,26 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo}) {
           <td className="sb-num">{item.deficit}</td><td className="sb-num">{clp(item.deficit_value_clp)}</td><td><StatusPill status={item.status}/></td></tr>)}
       </tbody></SortableTable></div> : <Empty>{c ? 'No hay posiciones por reponer en esta lectura.' : 'Sin planograma no se puede calcular reposición.'}</Empty>}
     </Card>}
+    {reading.infrastructure?.category && <p className="sb-hint">{reading.infrastructure.category} · {reading.infrastructure.subcategories?.join(', ') || reading.infrastructure.subcategory || 'Todas las subcategorías'}{reading.infrastructure.captureMode === 'manual' ? ` · ${reading.linear_meters == null ? 'Ancho no informado' : 'Ancho manual '+reading.linear_meters+' m'}` : ''}</p>}
+    {reading.infrastructure?.captureMode === 'manual' && reading.infrastructure.depths?.length > 0 && <p className="sb-hint">{reading.infrastructure.depths.length} niveles · {reading.infrastructure.depths.map((depth,index) => `Nivel ${index+1}: ${depth} cm de profundidad`).join(' · ')}</p>}
+    <ManualDetails reading={reading} user={user} reviewVersion={review?.version || 0} onReviewChanged={setReview}/>
+    <Card title="Capacidad máxima por dimensiones" subtitle={`Margen adicional de profundidad ${reading.capacity?.dimensionMarginPct ?? '—'} %. La capacidad teórica no confirma existencias ni unidades ocultas.`}>
+      {reading.capacity?.products?.length ? <div className="sb-table"><SortableTable><thead><tr><th>Producto</th><th>Nivel / posición</th><th>Profundidad cm</th><th>Espesor cm</th><th>Máximo por cara</th><th>Máximo total</th></tr></thead><tbody>
+        {reading.capacity.products.map((item,index) => <tr key={index}><td>{item.product}<small>{item.matchReason}</small></td><td>{item.level} / {item.position}</td><td>{item.depthCm ?? '—'}</td><td>{item.thicknessCm ?? '—'}</td><td>{item.unitsPerFacing ?? '—'}</td><td>{item.maximumUnits ?? '—'}</td></tr>)}
+      </tbody></SortableTable></div> : <p className="sb-hint">Esta captura no tiene profundidades por nivel registradas.</p>}
+    </Card>
+    <div className="reading-actions">
+    {error && <div className="sb-error" role="alert">{error}</div>}
+    {can(user, 'read') && <div className="sb-actions"><button type="button" disabled={busy} onClick={async () => {
+      setBusy(true); setError('');
+      try { await download(`/api/readings/${reading.id}/report.xlsx`, `Neuravision_Medicion_${reading.id}.xlsx`); }
+      catch (exception) { setError(exception.message); } finally { setBusy(false); }
+    }}>Descargar Excel de esta medición</button></div>}
     <div className="sb-actions" style={{justifyContent: 'space-between'}}>
       <span className="sb-hint">Lectura #{reading.id} · {fmt.dateTime(reading.created_at)}{reading.engine ? ` · motor ${reading.engine.version} (${Math.round((reading.engine.elapsed_ms || 0) / 1000)} s)` : ''}</span>
       {can(user, 'manage') && <button className="remove" type="button" disabled={busy} onClick={remove}>Eliminar lectura</button>}
     </div>
+    </div>
+    <MeasurementReview key={reading.id} reading={{...reading, review}} user={user} onSaved={setReview}/>
   </>;
 }

@@ -187,15 +187,15 @@ export default function Products({ notify }) {
                       {p.category}
                       <small>{p.subcategory}</small>
                     </td>
-                    <td>
+                    <td data-sort-value={p.quantity}>
                       {p.quantity} {p.saleUnit}
                       <small>{p.productType}</small>
                     </td>
-                    <td>{p.volume.toLocaleString('es-CL')} cm³</td>
-                    <td>
+                    <td data-sort-value={p.volume}>{p.volume.toLocaleString('es-CL')} cm³</td>
+                    <td data-sort-value={p.price}>
                       {p.price == null ? '—' : p.price.toLocaleString('es-CL')}
                     </td>
-                    <td>
+                    <td data-sort-value={p.price == null ? '' : p.price*1000/p.quantity}>
                       {p.price == null
                         ? '—'
                         : ((p.price * 1000) / p.quantity).toLocaleString(

@@ -65,6 +65,8 @@
 #nv .sb-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
 #nv .sb-head p { margin: 4px 0 0; }
 #nv .sb-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+#nv main .sb-actions > button { margin: 0; }
+#nv .sb-actions + .sb-actions { margin-block-start: 12px; }
 #nv .sb-toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; padding: 14px 16px; margin-bottom: 16px;
   background: var(--nv-surface); border: 1px solid var(--nv-border); border-radius: var(--nv-radius-lg); box-shadow: var(--nv-shadow-xs); }
 #nv .sb-toolbar label { display: grid; gap: 6px; flex: 1 1 180px; min-width: 160px; }

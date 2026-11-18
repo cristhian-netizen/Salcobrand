@@ -184,8 +184,6 @@ export default function CatalogSettings({
             >
               Añadir marca / submarca
             </button>
-          </div>
-          <div className="sb-actions">
             <button
               type="button"
               onClick={() =>

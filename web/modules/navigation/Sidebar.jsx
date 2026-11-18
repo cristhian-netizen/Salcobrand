@@ -3,23 +3,22 @@ import {sessionUrl} from '../../lib/tab-session.mjs';
 
 import Icon from './icons';
 import {ROLE_NAMES} from '../../lib/sb';
-import {profileOf, scopeLabel} from '../../lib/profiles.mjs';
+import {profileOf} from '../../lib/profiles.mjs';
 import {enabled} from '../identity/identity.mjs';
 
 import {MODULES, GROUPS, allowed} from './modules.mjs';
 export {allowed,labelOf} from './modules.mjs';
 
 export default function Sidebar({user, current, onSelect, onLogout, open = false, onClose}) {
-  const scope = scopeLabel(user);
+  const clientName = user.tenant?.name || 'Salcobrand';
+  const isSalcobrand = user.tenant?.id === 'salcobrand' || clientName.trim().toLocaleLowerCase('es') === 'salcobrand';
+  const clientLogo = user.tenant?.logo || (isSalcobrand ? '/branding/salcobrand-logo.jpg' : null);
   return <aside className="nv-sidebar" data-open={open ? 'true' : undefined} aria-label="Navegación">
     <div className="nv-sidebar-top">
       <div className="nv-brand"><span className="nv-mark" aria-hidden="true">n</span><span className="nv-brand-name">neuravision</span></div>
       <button className="nv-icon-button nv-sidebar-close" type="button" onClick={onClose} aria-label="Cerrar menú"><Icon name="close"/></button>
     </div>
-    <div className="nv-tenant">
-      {user.tenant?.logo ? <img src={sessionUrl(user.tenant.logo)} alt="Logo del cliente"/> : <span className="nv-tenant-initial" aria-hidden="true">{(user.tenant?.name || 'Salcobrand').slice(0,1)}</span>}
-      <div className="nv-tenant-info"><strong>{user.tenant?.name || 'Salcobrand'}</strong><small>{scope}</small></div>
-    </div>
+    {clientLogo && <div className="nv-client-logo"><img src={sessionUrl(clientLogo)} alt={isSalcobrand ? 'Farmacias Salcobrand' : clientName} width="112" height="112"/></div>}
     <nav aria-label="Principal">{GROUPS.map(([group, ids]) => {
       const visible = ids.filter(id => allowed(id, user.role) && (id !== 'planogramas' || enabled(user, 'planograms')));
       return visible.length ? <div className="nv-nav-section" key={group}>

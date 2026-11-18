@@ -112,17 +112,8 @@ body {
 }
 #nv .nv-brand-name { font-size: 16px; font-weight: 700; letter-spacing: -.03em; }
 #nv .nv-sidebar-close { display: none; color: inherit; }
-#nv .nv-tenant {
-  display: flex; align-items: center; gap: 10px; min-width: 0;
-  padding: 10px; border-radius: 12px;
-  background: color-mix(in srgb, var(--nv-sidebar-fg) 6%, transparent);
-  border: 1px solid color-mix(in srgb, var(--nv-sidebar-fg) 9%, transparent);
-}
-#nv .nv-tenant img, #nv .nv-tenant-initial { flex: none; width: 34px; height: 34px; border-radius: 9px; object-fit: contain; background: #fff; }
-#nv .nv-tenant-initial { display: grid; place-items: center; color: var(--nv-text); font-weight: 700; font-size: 14px; }
-#nv .nv-tenant-info { min-width: 0; }
-#nv .nv-tenant strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
-#nv .nv-tenant small { display: block; margin-top: 1px; font-size: 11px; opacity: .6; }
+#nv .nv-client-logo { display: flex; justify-content: center; flex: 0 0 auto; padding-inline: 8px; }
+#nv .nv-client-logo img { display: block; width: 112px; height: 112px; max-width: 100%; object-fit: contain; }
 #nv .nv-sidebar nav { display: grid; gap: 14px; }
 #nv .nv-nav-section { display: grid; gap: 1px; }
 #nv .nv-nav-group { margin: 0 0 4px; padding: 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .02em; opacity: .5; }

@@ -348,3 +348,6 @@
 #nv .reading-actions { margin-block: var(--nv-section-gap); }
 #nv .reading-summary .sb-metric small { display: block; }
 @media (max-width: 640px) { #nv .reading-summary .sb-score { flex-wrap: wrap; gap: 8px; } }
+
+#nv .sb-crop .shelf-photo-button { width: 100%; cursor: zoom-in; }
+#nv .sb-crop .shelf-photo-button img { width: 100%; height: 170px; }

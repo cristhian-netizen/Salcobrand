@@ -1,11 +1,12 @@
 'use client';
-import {sessionUrl} from '../../lib/tab-session.mjs';
+import ShelfPhoto from '../management/ShelfPhoto';
 import {useState} from 'react';
 import {api, fmt, download} from '../../lib/sb';
 import {useApi, Header, Card, Loading, Empty, ErrorBox, StatusPill} from './ui';
 
 function CropCard({payload, item, onDone}) {
   const suggestions = [...new Set([...(item.text_top3 || []), ...(item.visual_top3 || [])].map(s => s.title).filter(Boolean))].slice(0, 4);
+  const titles = [...(payload.titles || [])].sort((a, b) => a.localeCompare(b, 'es', {sensitivity: 'base', numeric: true}));
   const [title, setTitle] = useState(suggestions[0] || '');
   const [facings, setFacings] = useState(item.facings ?? 1);
   const [busy, setBusy] = useState(false);
@@ -18,12 +19,12 @@ function CropCard({payload, item, onDone}) {
     } catch (e) { setError(e.message); setBusy(false); }
   }
   return <article className="sb-crop">
-    <img src={sessionUrl(item.crop_url)} alt={`Recorte nivel ${item.level}, posición ${item.position}`} loading="lazy"/>
+    <ShelfPhoto photo={item.crop_url} name={`${item.product || 'Producto'} · nivel ${item.level}, posición ${item.position}`}/>
     <div><b>{item.product}</b> <StatusPill status={item.status}/></div>
     {item.ocr && <div className="ocr">Texto leído: {item.ocr}</div>}
     {suggestions.length > 0 && <div className="suggest">{suggestions.map(s => <button key={s} type="button" disabled={busy} onClick={() => confirm(s)} title="Confirmar como este producto">{s}</button>)}</div>}
     <label>Otro producto del planograma<select value={title} onChange={e => setTitle(e.target.value)} disabled={busy}>
-      <option value="">Elige…</option>{(payload.titles || []).map(t => <option key={t} value={t}>{t}</option>)}
+      <option value="">Elige…</option>{titles.map(t => <option key={t} value={t}>{t}</option>)}
     </select></label>
     <div className="row">
       <label>Caras<input type="number" min="0" value={facings} onChange={e => setFacings(e.target.value)} disabled={busy}/></label>

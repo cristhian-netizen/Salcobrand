@@ -26,3 +26,5 @@ export const GROUPS = [['Verificación interna', ['revision']], ['General', ['in
 export const labelOf = id => MODULES.find(m => m[0] === id)?.[1] || id;
 export const allowed = (id, role) => !!MODULES.find(m => m[0] === id)?.[3].includes(profileOf(role));
 
+
+export const visibleInSidebar = (id, role) => allowed(id, role) && !(id === 'apis' && profileOf(role) === 'admin');

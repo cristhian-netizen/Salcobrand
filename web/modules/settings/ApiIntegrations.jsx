@@ -77,17 +77,18 @@ function IntegrationCard({item, canEdit, onSaved}) {
   </Card>;
 }
 
-export default function ApiIntegrations({notify}) {
+export default function ApiIntegrations({notify, embedded = false}) {
   const {data, error, loading, reload, setData} = useApi(() => api('/api/admin/integrations'), []);
   function saved(item, message) {
     if (item) setData({...data, integrations: data.integrations.map(i => i.id === item.id ? item : i)});
     else reload();
     if (message) notify?.(message);
   }
-  return <section>
-    <Header eyebrow="Administración" title="APIs" subtitle="Claves y valores de conexión de servicios externos. Se guardan cifradas en el servidor y nunca se envían al navegador.">
-      <button type="button" onClick={reload} disabled={loading}>Actualizar</button>
-    </Header>
+  const description = 'Claves y valores de conexión de servicios externos. Se guardan cifradas en el servidor y nunca se envían al navegador.';
+  const refreshButton = <button type="button" onClick={reload} disabled={loading}>Actualizar</button>;
+  return <section aria-label="Configuración de APIs">
+    {embedded ? <div className="sb-head"><div><h2>APIs</h2><p>{description}</p></div><div className="sb-actions">{refreshButton}</div></div>
+      : <Header eyebrow="Administración" title="APIs" subtitle={description}>{refreshButton}</Header>}
     <ErrorBox error={error} onRetry={reload}/>
     {loading && !data ? <Loading text="Cargando APIs…"/> : data?.integrations.map(item =>
       <IntegrationCard key={item.id + ':' + item.version} item={item} canEdit={data.can_edit} onSaved={saved}/>)}

@@ -402,3 +402,5 @@
 #nv .score-breakdown[open] > .score-breakdown-summary { border-bottom: 1px solid var(--nv-border); }
 #nv .score-breakdown > .score-breakdown-summary:focus-visible { outline: 2px solid var(--nv-primary); outline-offset: -4px; border-radius: var(--nv-radius-lg); }
 @media (max-width: 640px) { #nv .reading-score-text { flex-basis: 100%; } }
+
+#nv .settings-sections { display: flex; width: fit-content; max-width: 100%; flex-wrap: wrap; gap: 6px; }

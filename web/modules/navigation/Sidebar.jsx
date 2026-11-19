@@ -6,7 +6,7 @@ import {ROLE_NAMES} from '../../lib/sb';
 import {profileOf} from '../../lib/profiles.mjs';
 import {enabled} from '../identity/identity.mjs';
 
-import {MODULES, GROUPS, allowed} from './modules.mjs';
+import {MODULES, GROUPS, visibleInSidebar} from './modules.mjs';
 export {allowed,labelOf} from './modules.mjs';
 
 export default function Sidebar({user, current, onSelect, onLogout, open = false, onClose}) {
@@ -20,7 +20,7 @@ export default function Sidebar({user, current, onSelect, onLogout, open = false
     </div>
     {clientLogo && <div className="nv-client-logo"><img src={sessionUrl(clientLogo)} alt={isSalcobrand ? 'Farmacias Salcobrand' : clientName} width="112" height="112"/></div>}
     <nav aria-label="Principal">{GROUPS.map(([group, ids]) => {
-      const visible = ids.filter(id => allowed(id, user.role) && (id !== 'planogramas' || enabled(user, 'planograms')));
+      const visible = ids.filter(id => visibleInSidebar(id, user.role) && (id !== 'planogramas' || enabled(user, 'planograms')));
       return visible.length ? <div className="nv-nav-section" key={group}>
         <p className="nv-nav-group">{group}</p>
         {visible.map(id => { const [, label, icon] = MODULES.find(m => m[0] === id); return <button key={id} type="button" aria-current={current === id ? 'page' : undefined} onClick={() => onSelect(id)}><Icon name={icon}/>{label}</button>; })}

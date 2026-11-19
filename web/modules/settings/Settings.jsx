@@ -6,6 +6,7 @@ import CatalogSettings from './CatalogSettings';
 import PdvTypesSettings from './PdvTypesSettings';
 import AnalysisSettings from './AnalysisSettings';
 import AlertSettings from './AlertSettings';
+import ApiIntegrations from './ApiIntegrations';
 import ClassificationTransfer from './ClassificationTransfer';
 
 export default function Settings({ notify, rest=[] }) {
@@ -13,7 +14,7 @@ export default function Settings({ notify, rest=[] }) {
     () => api('/api/admin/settings'),
     [],
   );
-  const [tab, setTab] = useState(rest[0] === 'alertas' ? 'alerts' : 'catalogs');
+  const [tab, setTab] = useState(rest[0] === 'apis' ? 'apis' : rest[0] === 'alertas' ? 'alerts' : 'catalogs');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [failure, setFailure] = useState('');
@@ -65,9 +66,9 @@ export default function Settings({ notify, rest=[] }) {
         title="Configuración"
         subtitle="Catálogos de la operación y parámetros de análisis."
       >
-        <button type="button" disabled={busy} onClick={refresh}>
+        {tab !== 'apis' && <button type="button" disabled={busy} onClick={refresh}>
           Recargar valores guardados
-        </button>
+        </button>}
       </Header>
       <div ref={alert} tabIndex={-1}>
         <ErrorBox error={failure || error} onRetry={refresh} />
@@ -78,7 +79,7 @@ export default function Settings({ notify, rest=[] }) {
         </p>
       )}
       <div
-        className="sb-tabs"
+        className="sb-tabs settings-sections"
         role="group"
         aria-label="Secciones de configuración"
       >
@@ -97,6 +98,7 @@ export default function Settings({ notify, rest=[] }) {
           Parámetros de análisis
         </button>
         <button type="button" aria-pressed={tab === 'alerts'} onClick={()=>setTab('alerts')}>Alertas administrativas</button>
+        <button type="button" aria-pressed={tab === 'apis'} onClick={()=>setTab('apis')}>APIs</button>
       </div>
       {loading && !data ? (
         <Loading text="Cargando configuración…" />
@@ -121,6 +123,7 @@ export default function Settings({ notify, rest=[] }) {
           </div>
         )
       )}
+      {tab === 'apis' && <ApiIntegrations notify={notify} embedded/>}
     </section>
   );
 }

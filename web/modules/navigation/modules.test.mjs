@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {GROUPS,allowed} from './modules.mjs';
-const visible=role=>GROUPS.flatMap(([,ids])=>ids.filter(id=>allowed(id,role)));
+import {GROUPS,allowed,visibleInSidebar} from './modules.mjs';
+const visible=role=>GROUPS.flatMap(([,ids])=>ids.filter(id=>visibleInSidebar(id,role)));
 test('customer sidebar preserves business modules and hides internal verification',()=>{
  for(const role of ['admin','analyst','replenisher','viewer']){
   const ids=visible(role);
@@ -12,9 +12,9 @@ test('customer sidebar preserves business modules and hides internal verificatio
  assert(visible('analyst').includes('mediciones'));assert(visible('viewer').includes('uso-analisis'));
  assert.deepEqual(visible('local-neura'),['revision']);
 });
-test('APIs closes Administración for admin and Superusuario only',()=>{
+test('APIs moves into admin settings while viewer retains read-only navigation',()=>{
  const admin=GROUPS.find(([name])=>name==='Administración')[1];
  assert.equal(admin.at(-1),'apis');
- assert.equal(visible('admin').at(-1),'apis');assert.equal(visible('viewer').at(-1),'apis');
+ assert(!visible('admin').includes('apis'));assert(allowed('apis','admin'));assert.equal(visible('viewer').at(-1),'apis');
  for(const role of ['analyst','replenisher','local-neura'])assert(!allowed('apis',role),role);
 });

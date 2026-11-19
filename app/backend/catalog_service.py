@@ -103,6 +103,8 @@ def write_product(conn, values, actor, product_id=None):
     else:
         conn.execute("INSERT INTO management_products (id, sku, name, data_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
                      (product_id, data["sku"], data["name"], json.dumps(data), now, now))
+    import kilby_catalog
+    kilby_catalog.mark_put(conn, product_id, data["sku"], before["sku"] if before else None)
     # Photos are excluded from audit payloads.
     _audit(conn, actor, "product.update" if before else "product.create", product_id,
            {"sku": before["sku"], "version": before["version"]} if before else None,
@@ -115,6 +117,8 @@ def save_product(values, actor, product_id=None):
         lock_catalog(conn)
         result = write_product(conn, values, actor, product_id)
         changed(conn)
+    import kilby_catalog
+    kilby_catalog.drain_soon()
     return result
 
 
@@ -145,10 +149,13 @@ def delete_products(selected, actor):
                 blocked.update(r["name"] for r in refs)
         if blocked:
             raise ManagementError("Los productos están referenciados en estos registros: " + ", ".join(sorted(blocked)) + ".", 409)
+        import kilby_catalog
         for product in rows:
             conn.execute("DELETE FROM management_products WHERE id = ?", (product["id"],))
+            kilby_catalog.mark_delete(conn, product["sku"])
             _audit(conn, actor, "product.delete", product["id"], {"sku": product["sku"], "name": product["name"]}, None)
         changed(conn)
+    kilby_catalog.drain_soon()
     return {"deleted": [r["id"] for r in rows]}
 
 

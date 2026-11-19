@@ -38,7 +38,9 @@ def restore_snapshot():
 
 
 def main():
-    required = ("DATABASE_URL", "SESSION_SECRET", "REGISTRATION_CODE", "NEURAVISION_REMOTE_URL")
+    backend = os.environ.get("NEURAVISION_ANALYSIS_BACKEND", "remote").strip().lower()
+    # kilby: the key is entered in Administración → APIs (or NEURAVISION_API_KEY); the remote URL is not needed.
+    required = ("DATABASE_URL", "SESSION_SECRET", "REGISTRATION_CODE") + (("NEURAVISION_REMOTE_URL",) if backend == "remote" else ())
     missing = [name for name in required if not os.environ.get(name)]
     if missing:
         raise RuntimeError("Missing deployment variables: " + ", ".join(missing))

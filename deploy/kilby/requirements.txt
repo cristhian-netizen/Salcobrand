@@ -8,6 +8,7 @@ pillow-heif>=0.18,<2
 openpyxl>=3.1,<4
 pypdf>=5,<7
 httpx>=0.28,<1
+cryptography>=43          # Administración → APIs: keys encrypted at rest (AES-GCM)
 tzdata>=2024.1
 psycopg2-binary>=2.9,<3
 boto3>=1.34,<2

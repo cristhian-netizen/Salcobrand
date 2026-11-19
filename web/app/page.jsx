@@ -23,11 +23,12 @@ import Infrastructure from '../modules/management/Infrastructure';
 import Settings from '../modules/settings/Settings';
 import Dashboard from '../modules/dashboard/Dashboard';
 import AnalysisUsage from '../modules/usage/AnalysisUsage';
+import ApiIntegrations from '../modules/settings/ApiIntegrations';
 import ClientConsole from '../modules/identity/ClientConsole';
 import {identityStyle, enabled} from '../modules/identity/identity.mjs';
 
 const VIEWS = {'uso-analisis': AnalysisUsage, inicio: Home, escanear: Scan, mediciones: Measurements, gondolas: Gondolas, revision: Review, alertas: Alerts, planogramas: Planograms,
-  reportes: Reports, dashboards: Dashboard, enlaces: CaptureLinks, usuarios: Users, cuenta: Account, ayuda: Help, pdv: Stores, infraestructura: Infrastructure, productos: Products, configuracion: Settings};
+  reportes: Reports, dashboards: Dashboard, enlaces: CaptureLinks, usuarios: Users, cuenta: Account, ayuda: Help, pdv: Stores, infraestructura: Infrastructure, productos: Products, configuracion: Settings, apis: ApiIntegrations};
 
 function parseHash() {
   const parts = (typeof window === 'undefined' ? '' : window.location.hash).replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);

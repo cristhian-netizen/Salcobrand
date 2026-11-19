@@ -92,4 +92,17 @@ CREATE TABLE IF NOT EXISTS management_plan_scopes (
  PRIMARY KEY(plan_id,store_code,category,subcategory,type_id)
 );
 CREATE INDEX IF NOT EXISTS management_plan_scope_lookup ON management_plan_scopes(store_code,category,subcategory,type_id);
+CREATE TABLE IF NOT EXISTS management_integrations (
+ id TEXT PRIMARY KEY, values_json TEXT NOT NULL DEFAULT '{}', secrets_json TEXT NOT NULL DEFAULT '{}', test_json TEXT,
+ version INTEGER NOT NULL DEFAULT 0, updated_by TEXT, updated_at TEXT
+);
+CREATE TABLE IF NOT EXISTS management_kilby_products (
+ sku TEXT PRIMARY KEY, product_id TEXT, pending TEXT, revision TEXT, synced_fingerprint TEXT, synced_photo TEXT,
+ attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS management_kilby_products_pending ON management_kilby_products(pending, updated_at);
+CREATE TABLE IF NOT EXISTS management_kilby_trainings (
+ id TEXT PRIMARY KEY, catalog TEXT NOT NULL, status TEXT NOT NULL, data_json TEXT NOT NULL,
+ started_by TEXT NOT NULL, started_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
 """

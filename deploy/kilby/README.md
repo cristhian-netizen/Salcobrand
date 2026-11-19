@@ -50,6 +50,25 @@ PDV-001 y sus estructuras, las cinco lecturas, fotos y zoom, planogramas,
 configuración y descargas. Registrar el conteo de cada tabla y probar una captura
 con el proveedor antes de conectar el dominio definitivo.
 
+## Neuravision en Kilby (análisis)
+
+Con `NEURAVISION_ANALYSIS_BACKEND=kilby` el análisis usa la API de Neuravision en Kilby
+(`https://ai.kilby.neuramorphic.ai/v1/neuravision`) en vez del motor remoto con usuario y
+contraseña. Kilby mide y factura cada foto analizada al espacio de trabajo: la app no envía
+telemetría propia. La clave `kai_…` la ingresa un Administrador en **Administración → APIs**
+(se guarda cifrada; nunca vuelve al navegador) o se define como variable secreta
+`NEURAVISION_API_KEY`. Sin clave el análisis no se ejecuta.
+
+Variables: `KILBY_NEURAVISION_URL` (opcional), `KILBY_NEURAVISION_CATALOG` (solo si el espacio
+tiene más de un catálogo), `KILBY_NEURAVISION_TIMEOUT_S` (600) e `INTEGRATIONS_SECRET_KEY`
+(recomendada, 32+ caracteres aleatorios; si falta, el cifrado deriva de `SESSION_SECRET` y rotar
+`SESSION_SECRET` obliga a reingresar las claves). Volver al motor anterior: cambiar
+`NEURAVISION_ANALYSIS_BACKEND` a `remote` y redesplegar; no hay cambio automático entre motores.
+
+«Entrenar en Kilby» (Revisión para entrenamiento) depende de la API de catálogos y
+entrenamientos de Kilby, que aún no está desplegada, y de una clave con el permiso
+«Manage catalogs and trainings».
+
 ## Operación
 
 Solicitar un respaldo PostgreSQL antes de un cambio de versión. Los archivos del

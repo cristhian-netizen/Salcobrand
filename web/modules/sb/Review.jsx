@@ -3,6 +3,7 @@ import ShelfPhoto from '../management/ShelfPhoto';
 import {useState} from 'react';
 import {api, fmt, download} from '../../lib/sb';
 import {useApi, Header, Card, Loading, Empty, ErrorBox, StatusPill} from './ui';
+import KilbyTraining from './KilbyTraining';
 
 function CropCard({payload, item, onDone}) {
   const suggestions = [...new Set([...(item.text_top3 || []), ...(item.visual_top3 || [])].map(s => s.title).filter(Boolean))].slice(0, 4);
@@ -48,6 +49,7 @@ export default function Review({go, notify}) {
       <button type="button" onClick={() => download('/api/internal/training/labels.jsonl','Neuravision_Etiquetas_Entrenamiento.jsonl').catch(error=>notify(error.message))}>Exportar etiquetas</button>
     </Header>
     <ErrorBox error={error} onRetry={reload}/>
+    <KilbyTraining notify={notify}/>
     {loading && !data ? <Loading text="Buscando recortes por revisar…"/> : !total ? <Card><Empty>No hay productos pendientes de verificación en las lecturas consultadas.</Empty></Card>
       : data.map(payload => <Card key={payload.reading_id} title={`${payload.point_id} · lectura #${payload.reading_id}`} subtitle={`${fmt.dateTime(payload.created_at)} · ${payload.items.length} por revisar`}
         actions={<button className="link" type="button" onClick={() => go(`gondolas/${encodeURIComponent(payload.point_id)}/lectura/${payload.reading_id}`)}>Ver lectura</button>}>

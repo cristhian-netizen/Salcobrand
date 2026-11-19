@@ -1,6 +1,6 @@
 'use client';
 import ShelfPhoto from '../management/ShelfPhoto';
-import {useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {api, fmt, download} from '../../lib/sb';
 import {useApi, Header, Card, Loading, Empty, ErrorBox, StatusPill} from './ui';
 import KilbyTraining from './KilbyTraining';
@@ -14,6 +14,12 @@ function CropCard({payload, item, onDone}) {
   const [facings, setFacings] = useState(item.facings ?? 1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const touched = useRef(false);
+  useEffect(() => {
+    // The AI suggestion lands after this card mounted: pre-select it in the dropdown unless the
+    // person already chose something by hand.
+    if (!touched.current && suggestionState(item).kind === 'ok') setTitle(preselect(item, ''));
+  }, [item.suggestion]);
   const options = title && !titles.includes(title) ? [title, ...titles] : titles;
   async function confirm(chosen) {
     setBusy(true); setError('');
@@ -29,7 +35,7 @@ function CropCard({payload, item, onDone}) {
     {ai.kind === 'ok' && <div className="ai-suggest">IA sugiere: <b>{ai.title}</b> · {ai.pct} %{item.suggestion?.ocr_text ? ` · lee «${item.suggestion.ocr_text}»` : ''}</div>}
     {ai.kind === 'sin-sugerencia' && <div className="ai-suggest none">IA sin sugerencia{item.suggestion?.ocr_text ? ` · lee «${item.suggestion.ocr_text}»` : ''}</div>}
     {suggestions.length > 0 && <div className="suggest">{suggestions.map(s => <button key={s} type="button" disabled={busy} onClick={() => confirm(s)} title="Confirmar como este producto">{s}</button>)}</div>}
-    <label>Otro producto del planograma<select value={title} onChange={e => setTitle(e.target.value)} disabled={busy}>
+    <label>Otro producto del planograma<select value={title} onChange={e => { touched.current = true; setTitle(e.target.value); }} disabled={busy}>
       <option value="">Elige…</option>{options.map(t => <option key={t} value={t}>{t}</option>)}
     </select></label>
     <div className="row">
@@ -45,18 +51,30 @@ export default function Review({go, notify}) {
   const {data, error, loading, reload, setData} = useApi(() => api('/api/review/pending'), []);
   const kilby = useApi(() => api('/api/internal/training/kilby', {timeout: 60000}), []);
   const geminiOn = !!kilby.data?.gemini?.configured;
-  const [suggesting, setSuggesting] = useState(0);
+  const [suggesting, setSuggesting] = useState(null); // {id, done, total} while running
   function done(payload, item) {
     setData((data || []).map(p => p === payload ? {...p, items: p.items.filter(i => i !== item)} : p).filter(p => p.items.length));
     notify('Etiqueta de entrenamiento guardada.');
   }
   async function suggest(payload) {
-    setSuggesting(payload.reading_id);
+    const total = payload.items.length;
+    setSuggesting({id: payload.reading_id, done: 0, total});
+    const sum = {sugeridos: 0, sin_sugerencia: 0, en_cache: 0, errores: 0, error: null};
     try {
-      const result = await api(`/api/internal/training/suggest/${payload.reading_id}`, {method: 'POST', timeout: 180000});
-      setData(applySuggestions(data, payload.reading_id, result.suggestions));
-      notify(suggestSummary(result));
-    } catch (e) { notify(e.message); } finally { setSuggesting(0); }
+      let current = data;
+      for (let done = 0; ;) {
+        const result = await api(`/api/internal/training/suggest/${payload.reading_id}?limit=20`, {method: 'POST', timeout: 120000});
+        for (const k of ['sugeridos', 'sin_sugerencia', 'en_cache', 'errores']) sum[k] += result[k] || 0;
+        sum.error = sum.error || result.error;
+        current = applySuggestions(current, payload.reading_id, result.suggestions);
+        setData(current);
+        done = Math.min(total, total - (result.restantes || 0));
+        setSuggesting({id: payload.reading_id, done, total});
+        const progressed = (result.sugeridos || 0) + (result.sin_sugerencia || 0) + (result.en_cache || 0) > 0;
+        if (!result.restantes || !progressed) break;
+      }
+      notify(suggestSummary(sum));
+    } catch (e) { notify(e.message); } finally { setSuggesting(null); }
   }
   const total = (data || []).reduce((n, p) => n + p.items.length, 0);
   return <section>
@@ -69,9 +87,9 @@ export default function Review({go, notify}) {
     {loading && !data ? <Loading text="Buscando recortes por revisar…"/> : !total ? <Card><Empty>No hay productos pendientes de verificación en las lecturas consultadas.</Empty></Card>
       : data.map(payload => <Card key={payload.reading_id} title={`${payload.point_id} · lectura #${payload.reading_id}`} subtitle={`${fmt.dateTime(payload.created_at)} · ${payload.items.length} por revisar`}
         actions={<>
-          {geminiOn && <button type="button" disabled={suggesting === payload.reading_id} onClick={() => suggest(payload)}
+          {geminiOn && <button type="button" disabled={!!suggesting} onClick={() => suggest(payload)}
             title="Gemini sugiere un candidato por recorte; tú confirmas o corriges.">
-            {suggesting === payload.reading_id ? 'Sugiriendo…' : `Sugerir con IA (${payload.items.length} pendientes)`}</button>}
+            {suggesting?.id === payload.reading_id ? `Sugiriendo… ${suggesting.done}/${suggesting.total}` : `Sugerir con IA (${payload.items.length} pendientes)`}</button>}
           <button className="link" type="button" onClick={() => go(`gondolas/${encodeURIComponent(payload.point_id)}/lectura/${payload.reading_id}`)}>Ver lectura</button>
         </>}>
         <div className="sb-crops">{payload.items.map(item => <CropCard key={`${item.image_index}-${item.item_index}${item.suggestion ? '-ia' : ''}`} payload={payload} item={item} onDone={i => done(payload, i)}/>)}</div>

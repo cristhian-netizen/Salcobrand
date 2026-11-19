@@ -258,9 +258,12 @@ def _store(reading_id, image_index, item_index, title, sku, confidence, read_tex
 
 # ---------------------------------------------------------------------------- suggestions for a reading
 
-def suggest(reading, items, titles, actor):
+def suggest(reading, items, titles, actor, limit=None):
     """Suggestions for the reading's pending review items. Stored ones are returned without calling Gemini.
-    GeminiError("missing_key") without a key; per-item failures are counted and reported in Spanish."""
+    `limit` caps how many NEW crops go to Gemini in this call (long readings are processed in batches: one
+    HTTP request per batch keeps each call seconds long instead of minutes); `restantes` in the answer says
+    how many pending crops still have no suggestion after this batch. GeminiError("missing_key") without a
+    key; per-item failures are counted and reported in Spanish."""
     import core
 
     key = api_key()
@@ -269,6 +272,7 @@ def suggest(reading, items, titles, actor):
     counts = {"sugeridos": 0, "sin_sugerencia": 0, "en_cache": 0, "errores": 0}
     stored = stored_for(reading["id"])
     results, errors, work = [], [], []
+    skipped_by_limit = 0
     for item in items:
         pair = (item["image_index"], item["item_index"])
         if pair in stored:
@@ -278,6 +282,9 @@ def suggest(reading, items, titles, actor):
         candidates = candidates_for(item, titles)
         if not candidates:
             counts["sin_sugerencia"] += 1
+            continue
+        if limit is not None and len(work) >= limit:
+            skipped_by_limit += 1
             continue
         try:
             crop = core.crop_jpeg(reading, item["image_index"], item["item_index"])
@@ -314,7 +321,8 @@ def suggest(reading, items, titles, actor):
     results += [{**fresh[pair], "cached": False} for pair, _, _ in work if pair in fresh]
     if errors:
         log.warning("gemini: %d de %d recortes fallaron en la lectura %s", counts["errores"], len(items), reading["id"])
-    return {"reading_id": reading["id"], **counts, "error": errors[0] if errors else None, "suggestions": results}
+    return {"reading_id": reading["id"], **counts, "restantes": skipped_by_limit,
+            "error": errors[0] if errors else None, "suggestions": results}
 
 
 def _safely(fn, entry):

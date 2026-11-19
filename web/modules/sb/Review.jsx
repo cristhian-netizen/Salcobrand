@@ -29,7 +29,7 @@ function CropCard({payload, item, onDone}) {
     } catch (e) { setError(e.message); setBusy(false); }
   }
   return <article className="sb-crop">
-    <ShelfPhoto photo={item.crop_url} name={`${item.product || 'Producto'} · nivel ${item.level}, posición ${item.position}`}/>
+    <ShelfPhoto photo={item.crop_url} thumb={768} name={`${item.product || 'Producto'} · nivel ${item.level}, posición ${item.position}`}/>
     <div><b>{item.product}</b> <StatusPill status={item.status}/></div>
     {item.ocr && <div className="ocr">Texto leído: {item.ocr}</div>}
     {ai.kind === 'ok' && <div className="ai-suggest">IA sugiere: <b>{ai.title}</b> · {ai.pct} %{item.suggestion?.ocr_text ? ` · lee «${item.suggestion.ocr_text}»` : ''}</div>}

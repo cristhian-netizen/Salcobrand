@@ -3,7 +3,7 @@
 // product's category, then one training per catalog. The tabs pick the catalog the counters and actions refer to.
 import {useEffect, useState} from 'react';
 import {api, fmt} from '../../lib/sb';
-import {useApi, Card, Loading, ErrorBox, Pill} from './ui';
+import {Card, Loading, ErrorBox, Pill} from './ui';
 
 const pct = v => (typeof v === 'number' ? `${(v * 100).toLocaleString('es-CL', {maximumFractionDigits: 1})} %` : '—');
 const STATUS = {queued: 'En cola', running: 'Entrenando', done: 'Terminado', failed: 'Falló'};
@@ -21,8 +21,8 @@ function Training({training, onPublish, busy}) {
   </tr>;
 }
 
-export default function KilbyTraining({notify}) {
-  const state = useApi(() => api('/api/internal/training/kilby', {timeout: 60000}), []);
+export default function KilbyTraining({notify, state}) {
+  // Revisión loads /api/internal/training/kilby once and shares it: this card and the IA button read the same answer.
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState('');
   const [chosen, setChosen] = useState('');

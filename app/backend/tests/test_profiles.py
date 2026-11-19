@@ -34,12 +34,14 @@ from brand_settings_cases import BrandSettingsCases
 from shared_plan_cases import SharedPlanCases
 from email_access_cases import EmailAccessCases
 from kilby_cases import KilbyCases
+from gemini_cases import GeminiCases
+from image_cache_cases import ImageCacheCases
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
 
-class ProfileHTTPTests(KilbyCases, EmailAccessCases, SharedPlanCases, BrandSettingsCases, PortalImprovementsCases, SessionCases, ConsoleCases, UsageCases, PeopleCases, StoreExcelCases, AlertCases, DashboardCases, DetailCases, HomeCases, SettingsCases, ReportCases, CaptureCases, CatalogCases, InfrastructureCases, unittest.TestCase):
+class ProfileHTTPTests(GeminiCases, ImageCacheCases, KilbyCases, EmailAccessCases, SharedPlanCases, BrandSettingsCases, PortalImprovementsCases, SessionCases, ConsoleCases, UsageCases, PeopleCases, StoreExcelCases, AlertCases, DashboardCases, DetailCases, HomeCases, SettingsCases, ReportCases, CaptureCases, CatalogCases, InfrastructureCases, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory(prefix="salcobrand-profile-tests-")
@@ -101,7 +103,7 @@ class ProfileHTTPTests(KilbyCases, EmailAccessCases, SharedPlanCases, BrandSetti
 
     def setUp(self):
         with self.db.get_conn() as conn:
-            for table in ("management_integrations", "management_kilby_products", "management_kilby_trainings", "management_plan_scopes", "management_plan_scope_state", "management_training_labels", "management_clients", "management_people", "management_reading_alerts", "management_reading_details", "management_settings", "management_reading_reviews", "management_capture_requests", "management_products", "management_planograms", "management_events", "management_instances", "management_assignments", "management_shelf_types", "management_stores", "users", "readings", "points", "api_jobs", "stock_actions", "supplier_stockouts", "planograms", "planogram_items"):
+            for table in ("management_integrations", "management_kilby_products", "management_kilby_trainings", "management_plan_scopes", "management_plan_scope_state", "management_training_labels", "management_training_suggestions", "management_clients", "management_people", "management_reading_alerts", "management_reading_details", "management_settings", "management_reading_reviews", "management_capture_requests", "management_products", "management_planograms", "management_events", "management_instances", "management_assignments", "management_shelf_types", "management_stores", "users", "readings", "points", "api_jobs", "stock_actions", "supplier_stockouts", "planograms", "planogram_items"):
                 conn.execute(f"DELETE FROM {table}")
         for name, role, stores in [("admin", "admin", []), ("analyst", "analyst", ["L128", "L129"]),
                                    ("replenisher", "replenisher", ["L128", "L129"]), ("viewer", "viewer", []),
@@ -188,7 +190,10 @@ class ProfileHTTPTests(KilbyCases, EmailAccessCases, SharedPlanCases, BrandSetti
         self.assertEqual(own.get(f'/api/readings/{self.other["id"]}/crops/0/0.jpg').status_code, 403)
         response = own.get(f'/api/readings/{self.own["id"]}/crops/0/0.jpg')
         self.assertEqual(response.status_code, 200)
-        self.assertIn("no-store", response.headers["cache-control"])
+        # Crops of a stored reading never change: the browser may keep them (private; auth still runs here).
+        self.assertIn("private", response.headers["cache-control"])
+        self.assertIn("immutable", response.headers["cache-control"])
+        self.assertTrue(response.headers["etag"])
         external = self.client(None)
         self.assertEqual(external.get("/uploads/point-a/own.jpg", headers={"X-API-Key": "isolated-client-key"}).status_code, 200)
         self.assertEqual(external.get("/uploads/point-a/own.jpg", headers={"X-API-Key": "wrong"}).status_code, 401)

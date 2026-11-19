@@ -1,7 +1,7 @@
 ﻿"""Provider-only training verification, isolated from production readings."""
 import json
 import uuid
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 import auth
@@ -17,6 +17,10 @@ def review_payload(reading):
     with db.get_conn() as conn:
         labelled = {(r['image_index'],r['item_index']) for r in conn.execute('SELECT image_index,item_index FROM management_training_labels WHERE reading_id=?',(reading['id'],)).fetchall()}
     payload['items'] = [item for item in payload['items'] if (item['image_index'],item['item_index']) not in labelled]
+    if payload['items']:
+        import gemini_prelabel
+        stored = gemini_prelabel.stored_for(reading['id'])
+        payload['items'] = [{**item,'suggestion':stored.get((item['image_index'],item['item_index']))} for item in payload['items']]
     return payload
 
 
@@ -102,6 +106,21 @@ def router(require_training, require_internal):
             _audit(conn,user['username'],'training.account',username,None,{'role':'local-neura'})
         return {'username':username,'role':'local-neura','created':True}
 
+    @api.post('/suggest/{reading_id}')
+    def suggest(reading_id:int,user=Depends(require_training)):
+        """Gemini pre-labels the reading's pending crops. Stored suggestions are reused: pressing twice is free.
+        The label itself keeps being the human confirmation (POST /api/readings/{id}/confirm, unchanged)."""
+        import gemini_prelabel
+        reading=db.get_reading(reading_id)
+        if not reading:
+            raise HTTPException(404,'Lectura no encontrada')
+        payload=review_payload(reading)
+        try:
+            return gemini_prelabel.suggest(reading,payload['items'],payload.get('titles') or [],user['username'])
+        except gemini_prelabel.GeminiError as exc:
+            status={'missing_key':409,'rate_limit':429,'invalid_key':409}.get(exc.code,502)
+            raise HTTPException(status,exc.message_es)
+
     @api.get('/labels.jsonl')
     def export(user=Depends(require_training)):
         with db.get_conn() as conn:
@@ -110,12 +129,13 @@ def router(require_training, require_internal):
         return Response(content,media_type='application/x-ndjson',headers={'Cache-Control':'no-store','Content-Disposition':'attachment; filename="Neuravision_Etiquetas_Entrenamiento.jsonl"'})
 
     @api.get('/labels/{label_id}/crop.jpg')
-    def crop(label_id:str,user=Depends(require_training)):
+    def crop(label_id:str,request:Request,user=Depends(require_training)):
         with db.get_conn() as conn:
             row=conn.execute('SELECT crop_path FROM management_training_labels WHERE id=?',(label_id,)).fetchone()
         content=storage.get(row['crop_path']) if row else None
         if content is None:raise HTTPException(404,'Recorte no disponible.')
-        return Response(content,media_type='image/jpeg',headers={'Cache-Control':'private, no-store'})
+        import image_cache
+        return image_cache.response(request,content,'image/jpeg',immutable=True)
 
     # Entrenar en Kilby. Depends on Kilby's Neuravision dataset API (contract 2026-11-18, not deployed yet).
     def kilby_call(action,*args):

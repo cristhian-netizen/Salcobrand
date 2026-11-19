@@ -178,6 +178,37 @@ class KilbyCases:
         self.assertEqual(state['posts'], posts_before)  # recovered from Kilby's job list, never sent again
         self.assertEqual(recovered['engine']['kilby']['job_id'], 'vjob_late')
 
+    def test_compliance_matches_by_exact_code_before_names(self):
+        import db
+        planogram = {"id": "pg-test", "name": "Desodorantes", "items": [
+            {"id": 1, "title": "REXONA M CLINICAL CREMA CLEAN 48G", "band": 1, "position_in_section": 1,
+             "expected_facings": 2, "internal_code": "575530", "barcode": "779999", "price_clp": 4990, "tag": None, "section_label": "", "planogram_item_id": 1},
+            {"id": 2, "title": "DOVE M AER CLIN CARE 96H", "band": 1, "position_in_section": 2,
+             "expected_facings": 1, "internal_code": "640001", "barcode": "", "price_clp": None, "tag": None, "section_label": "", "planogram_item_id": 2},
+            {"id": 3, "title": "NIVEA DEO SP HIDROF D PROT", "band": 2, "position_in_section": 1,
+             "expected_facings": 1, "internal_code": "", "barcode": "88877766", "price_clp": None, "tag": None, "section_label": "", "planogram_item_id": 3},
+        ]}
+        products = [
+            # Web-style name shares no tokens with the SAP title, band reported differently: only the code can match it.
+            {"product": "Desodorante Antitranspirante En Crema Scent X48", "brand": "", "sku": "575530",
+             "facings": 2, "shelf_level": 3, "match_status": "match", "confidence": 0.9},
+            # Barcode match, name useless.
+            {"product": "Spray Corporal Proteccion", "brand": "", "sku": "88877766",
+             "facings": 1, "shelf_level": 2, "match_status": "match", "confidence": 0.9},
+            # No code: falls back to the name pass.
+            {"product": "Dove M Aer Clin Care 96h", "brand": "Dove", "sku": "",
+             "facings": 1, "shelf_level": 1, "match_status": "match", "confidence": 0.9},
+        ]
+        c = db.compute_planogram_compliance(None, products, planogram=planogram)
+        self.assertIsNotNone(c)
+        self.assertEqual(c["compliance_pct"], 100.0)
+        statuses = {ann["planogram_status"] for ann in c["product_annotations"]}
+        self.assertNotIn("fuera_de_planograma", statuses)
+        # Leading zeros and int/str differences do not break the code match.
+        products[0]["sku"] = "0575530"
+        c2 = db.compute_planogram_compliance(None, products, planogram=planogram)
+        self.assertEqual(c2["compliance_pct"], 100.0)
+
     def test_kilby_catalog_follows_the_planogram_category(self):
         import kilby_model
         for category, slug in (('Salud Sexual', 'salud-sexual'), ('Desodorantes', 'desodorantes'),

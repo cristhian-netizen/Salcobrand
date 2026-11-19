@@ -378,8 +378,10 @@ def overview():
         local = conn.execute("SELECT COUNT(*) AS n FROM management_products").fetchone()["n"]
         trainings = [r["id"] for r in conn.execute("SELECT id FROM management_kilby_trainings ORDER BY started_at DESC LIMIT 5").fetchall()]
     to_send, skipped = labels()
+    import gemini_prelabel
     result = {"enabled": enabled(), "products": {"local": local, "synced": counts.get("synced", 0), "pending": counts.get("pending", 0),
               "stuck": counts.get("stuck", 0), "errors": errors}, "labels": {"ready": len(to_send), "skipped": skipped},
+              "gemini": {"configured": gemini_prelabel.configured(), "model": gemini_prelabel.MODEL},
               "catalog": None, "default_catalog": None, "catalogs": [], "versions": [], "trainings": [], "error": None}
     try:
         with client() as kilby:

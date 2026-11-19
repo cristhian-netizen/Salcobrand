@@ -37,7 +37,7 @@ function IntegrationCard({item, canEdit, onSaved}) {
     setValues(blank); setProbe(null); onSaved(result, 'Configuración de APIs guardada.');
   }); };
   const remove = field => run(async () => {
-    if (!window.confirm(`¿Quitar «${field.label}»? ${field.name === 'api_key' ? 'Sin clave el análisis no se ejecuta.' : ''}`)) return;
+    if (!window.confirm(`¿Quitar «${field.label}»? ${item.id === 'neuravision' && field.name === 'api_key' ? 'Sin clave el análisis no se ejecuta.' : item.id === 'gemini' ? 'Sin clave desaparece «Sugerir con IA» en Revisión.' : ''}`)) return;
     const result = await api(`/api/admin/integrations/${item.id}`, {method: 'PUT', body: {version: item.version, values: {}, remove: [field.name]}});
     onSaved(result, `«${field.label}» quitada.`);
   });
@@ -63,7 +63,7 @@ function IntegrationCard({item, canEdit, onSaved}) {
         {item.fields.map(field => <label key={field.name}>
           {field.secret ? (field.configured ? `Reemplazar ${field.label.toLowerCase()}` : field.label) : field.label}
           <input type={field.secret ? 'password' : 'text'} autoComplete={field.secret ? 'new-password' : 'off'} spellCheck={false}
-            maxLength={300} value={values[field.name]} placeholder={field.secret ? 'kai_…' : (field.value || '')}
+            maxLength={300} value={values[field.name]} placeholder={field.placeholder || (field.secret ? '' : field.value || '')}
             onChange={e => setValues({...values, [field.name]: e.target.value})}/>
           {field.help && <small>{field.help}</small>}
         </label>)}

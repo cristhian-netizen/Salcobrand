@@ -81,6 +81,12 @@ CREATE TABLE IF NOT EXISTS management_training_labels (
  data_json TEXT NOT NULL, crop_path TEXT NOT NULL, created_by TEXT NOT NULL, created_at TEXT NOT NULL,
  UNIQUE(reading_id,image_index,item_index)
 );
+CREATE TABLE IF NOT EXISTS management_training_suggestions (
+ reading_id BIGINT NOT NULL, image_index INTEGER NOT NULL, item_index INTEGER NOT NULL,
+ title TEXT, sku TEXT NOT NULL DEFAULT '', confidence DOUBLE PRECISION, ocr_text TEXT NOT NULL DEFAULT '',
+ model TEXT NOT NULL, created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+ PRIMARY KEY(reading_id, image_index, item_index)
+);
 CREATE TABLE IF NOT EXISTS management_plan_scope_state (
  plan_id TEXT PRIMARY KEY REFERENCES planograms(id) ON DELETE CASCADE, initialized_at TEXT NOT NULL
 );

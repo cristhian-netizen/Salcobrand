@@ -17,6 +17,10 @@ def review_payload(reading):
     with db.get_conn() as conn:
         labelled = {(r['image_index'],r['item_index']) for r in conn.execute('SELECT image_index,item_index FROM management_training_labels WHERE reading_id=?',(reading['id'],)).fetchall()}
     payload['items'] = [item for item in payload['items'] if (item['image_index'],item['item_index']) not in labelled]
+    if payload['items']:
+        import gemini_prelabel
+        stored = gemini_prelabel.stored_for(reading['id'])
+        payload['items'] = [{**item,'suggestion':stored.get((item['image_index'],item['item_index']))} for item in payload['items']]
     return payload
 
 
@@ -101,6 +105,21 @@ def router(require_training, require_internal):
             db.create_user(username,hashed,salt,role='local-neura',conn=conn)
             _audit(conn,user['username'],'training.account',username,None,{'role':'local-neura'})
         return {'username':username,'role':'local-neura','created':True}
+
+    @api.post('/suggest/{reading_id}')
+    def suggest(reading_id:int,user=Depends(require_training)):
+        """Gemini pre-labels the reading's pending crops. Stored suggestions are reused: pressing twice is free.
+        The label itself keeps being the human confirmation (POST /api/readings/{id}/confirm, unchanged)."""
+        import gemini_prelabel
+        reading=db.get_reading(reading_id)
+        if not reading:
+            raise HTTPException(404,'Lectura no encontrada')
+        payload=review_payload(reading)
+        try:
+            return gemini_prelabel.suggest(reading,payload['items'],payload.get('titles') or [],user['username'])
+        except gemini_prelabel.GeminiError as exc:
+            status={'missing_key':409,'rate_limit':429,'invalid_key':409}.get(exc.code,502)
+            raise HTTPException(status,exc.message_es)
 
     @api.get('/labels.jsonl')
     def export(user=Depends(require_training)):

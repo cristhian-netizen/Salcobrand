@@ -33,6 +33,7 @@ class Field:
     pattern: str = r"[^\x00-\x1f]{1,200}"
     env: str = ""
     help: str = ""
+    placeholder: str = ""
 
 
 @dataclass(frozen=True)
@@ -50,15 +51,28 @@ INTEGRATIONS: Dict[str, Integration] = {
         description="Análisis de góndolas con Neuravision en Kilby. Sin esta clave el análisis no se ejecuta y Kilby no registra uso.",
         fields=(
             Field("api_key", "Clave de API", secret=True, pattern=r"kai_[A-Za-z0-9_-]{16,196}", env="NEURAVISION_API_KEY",
-                  help="La clave que entrega Kilby al activar Neuravision (panel de Kilby → Neuravision → Create key). Empieza con kai_."),
+                  help="La clave que entrega Kilby al activar Neuravision (panel de Kilby → Neuravision → Create key). Empieza con kai_.",
+                  placeholder="kai_…"),
             Field("catalog", "Catálogo", pattern=r"[a-z0-9][a-z0-9-]{0,39}", env="KILBY_NEURAVISION_CATALOG",
                   help="Slug del catálogo en Kilby (por ejemplo salud-sexual). Obligatorio solo si el espacio tiene más de un catálogo."),
             Field("dataset_key", "Clave para catálogo y entrenamientos (opcional)", secret=True, pattern=r"kai_[A-Za-z0-9_-]{16,196}",
                   env="NEURAVISION_DATASET_KEY",
                   help="Clave de Kilby con el permiso «Manage catalogs and trainings» (solo un administrador del espacio de Kilby puede crearla). "
-                       "Si se omite, se usa la clave de API, que entonces necesita ese permiso para sincronizar productos y entrenar."),
+                       "Si se omite, se usa la clave de API, que entonces necesita ese permiso para sincronizar productos y entrenar.",
+                  placeholder="kai_…"),
         ),
         docs_url="https://kilby.neuramorphic.ai/docs/neuravision",
+    ),
+    "gemini": Integration(
+        id="gemini", label="Gemini (pre-etiquetado)",
+        description="Sugerencias de producto con Gemini en Revisión para entrenamiento. Solo pre-selecciona candidatos: "
+                    "cada etiqueta sigue siendo la confirmación de una persona. Sin clave, el botón «Sugerir con IA» no aparece.",
+        fields=(
+            Field("api_key", "Clave de API", secret=True, pattern=r"[A-Za-z0-9._-]{20,200}", env="GEMINI_API_KEY",
+                  help="Clave de Google AI Studio (aistudio.google.com → Get API key). Se usa únicamente para sugerir "
+                       "productos sobre los recortes de la revisión interna."),
+        ),
+        docs_url="https://aistudio.google.com/apikey",
     ),
 }
 
@@ -167,7 +181,8 @@ def field_states(integration_id: str, state: dict = None) -> list:
     result = []
     for spec in item.fields:
         env_set = bool(spec.env and os.environ.get(spec.env, "").strip())
-        out = {"name": spec.name, "label": spec.label, "secret": spec.secret, "help": spec.help, "env": spec.env or None}
+        out = {"name": spec.name, "label": spec.label, "secret": spec.secret, "help": spec.help, "env": spec.env or None,
+               "placeholder": spec.placeholder}
         if spec.secret:
             entry = state["secrets"].get(spec.name)
             readable = bool(entry) and _decrypt(integration_id, spec.name, entry) is not None
@@ -272,6 +287,9 @@ def test(integration_id: str, actor: str, candidate: Optional[dict] = None) -> d
             result = {"ok": False, "code": "missing_key", "message": kilby_model.kn.message_es("missing_key")}
         else:
             result = kilby_model.check_connection(key)
+    elif integration_id == "gemini":
+        import gemini_prelabel
+        result = gemini_prelabel.check_connection(given.get("api_key") or secret(integration_id, "api_key"))
     else:  # pragma: no cover - every integration declares its test here
         raise ManagementError("Esta integración no tiene prueba de conexión.", 404)
     result = {**result, "at": db.now_iso(), "by": actor, "candidate": bool(candidate)}

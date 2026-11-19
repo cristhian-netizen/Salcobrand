@@ -14,6 +14,12 @@ INDICATORS = {
     'cp': ('Cumplimiento (%)', 'higher', 80, 95),
     'oos': ('Ausencias recientes (cantidad)', 'lower', 3, 0),
 }
+STANDARDS_FACTORS = {
+    'stock': 'Disponibilidad (quiebres de stock)',
+    'space': 'Espacio en góndola',
+    'price': 'Rótulos de precio',
+    'organization': 'Organización por categoría',
+}
 DEFAULTS = {
     'pdvTypes': list(STORE_TYPES),
     'catalog': {'brands': [], 'categories': {}, 'exclusive': {}, 'brandClassifications': {}},
@@ -22,6 +28,8 @@ DEFAULTS = {
     'kpiParameters': {**{key: {'warn': warn, 'good': good, 'direction': direction}
                          for key, (_, direction, warn, good) in INDICATORS.items()}, 'freshDays': 7},
     'alertParameters': {'reviewDays': 7, 'noMeasurementDays': 7},
+    # Shelf-score weights in percent; the historical values of db.STANDARDS_WEIGHTS are the defaults.
+    'standardsWeights': {key: round(weight * 100) for key, weight in db.STANDARDS_WEIGHTS.items()},
     'catalogConfigured': False,
 }
 
@@ -58,6 +66,7 @@ def read(conn=None):
     row = conn.execute('SELECT * FROM management_settings WHERE id = 1').fetchone()
     state = json.loads(row['data_json'])
     state.setdefault('alertParameters', copy.deepcopy(DEFAULTS['alertParameters']))
+    state.setdefault('standardsWeights', copy.deepcopy(DEFAULTS['standardsWeights']))
     if not state['catalogConfigured']:
         # Existing API-created products remain editable before classification is configured.
         for product in product_references(conn):
@@ -165,6 +174,14 @@ def save(section, value, version, actor):
             if not isinstance(value, dict) or set(value) != {'reviewDays', 'noMeasurementDays'}:
                 raise ManagementError('Completa los dos plazos de alertas.')
             state['alertParameters'] = {key: integer(value[key], 'Plazo de alertas (días)', 1, 365) for key in ('reviewDays', 'noMeasurementDays')}
+        elif section == 'standards':
+            if not isinstance(value, dict) or set(value) != set(STANDARDS_FACTORS):
+                raise ManagementError('Completa los cuatro factores del puntaje de góndola.')
+            weights = {key: integer(value[key], 'Peso de ' + label.lower() + ' (%)', 0, 100)
+                       for key, label in STANDARDS_FACTORS.items()}
+            if sum(weights.values()) != 100:
+                raise ManagementError('Los pesos del puntaje de góndola deben sumar exactamente 100 %.')
+            state['standardsWeights'] = weights
         elif section == 'score':
             if not isinstance(value, dict) or set(value) != {'redMax', 'yellowMax'}:
                 raise ManagementError('Indica los límites rojo y amarillo.')
@@ -218,7 +235,8 @@ def display_parameters():
     with db.get_conn() as conn:
         row = conn.execute('SELECT data_json FROM management_settings WHERE id = 1').fetchone()
     state = json.loads(row['data_json']) if row else DEFAULTS
-    return {key: state[key] for key in ('scoreParameters', 'kpiParameters', 'productParameters')}
+    return {key: state.get(key, DEFAULTS[key])
+            for key in ('scoreParameters', 'kpiParameters', 'productParameters', 'standardsWeights')}
 
 
 def score_band(score, parameters=None):

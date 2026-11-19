@@ -178,6 +178,116 @@ class KilbyCases:
         self.assertEqual(state['posts'], posts_before)  # recovered from Kilby's job list, never sent again
         self.assertEqual(recovered['engine']['kilby']['job_id'], 'vjob_late')
 
+    def test_kilby_catalog_follows_the_planogram_category(self):
+        import kilby_model
+        for category, slug in (('Salud Sexual', 'salud-sexual'), ('Desodorantes', 'desodorantes'),
+                               ('Óptica / Visión 20', 'optica-vision-20'), ('', None), ('¡¿?!', None)):
+            self.assertEqual(kilby_model.catalog_slug(category), slug, category)
+        posts = []
+        def handler(request):
+            if request.method == 'POST':
+                posts.append(request.content)
+                return httpx.Response(200, json={'id': 'vjob_cat%d' % len(posts), 'status': 'done', 'photos': 1, 'catalog': 'desodorantes',
+                                                 'billed': True, 'result_available': True, 'result': RESULT})
+            return httpx.Response(200, json={'id': 'vjob_cat1', 'status': 'done', 'photos': 1, 'billed': True, 'result_available': True, 'result': RESULT})
+        self.kilby(handler)
+        self.save_key(catalog='salud-sexual')
+        self.db.create_job('cat-plan', 'app', 'point-a', {'user': 'analyst'})
+        analysis = kilby_model.analyze('point-a', [(b'\xff\xd8\xffx', 'image/jpeg')], job_id='cat-plan',
+                                       plan_snapshot={'id': 'plan-1', 'category': 'Desodorantes', 'items': []})
+        self.assertIn(b'name="catalog"\r\n\r\ndesodorantes', posts[0])
+        self.assertIn('desodorantes', analysis['notes'])
+        self.assertIn('desodorantes', self.db.get_job('cat-plan')['payload']['kilby_catalog_note'])
+        # The category selected at capture (no planogram) also drives the catalog.
+        self.db.create_job('cat-context', 'app', 'point-a', {'user': 'analyst', 'infrastructure': {'category': 'Desodorantes'}})
+        kilby_model.analyze('point-a', [(b'\xff\xd8\xffx', 'image/jpeg')], job_id='cat-context')
+        self.assertIn(b'name="catalog"\r\n\r\ndesodorantes', posts[1])
+        # Without a category the configured catalog is sent and no note is added.
+        self.db.create_job('cat-none', 'app', 'point-a', {'user': 'analyst'})
+        plain = kilby_model.analyze('point-a', [(b'\xff\xd8\xffx', 'image/jpeg')], job_id='cat-none')
+        self.assertIn(b'name="catalog"\r\n\r\nsalud-sexual', posts[2])
+        self.assertEqual(plain['notes'], '')
+
+    def test_kilby_unknown_category_catalog_falls_back_to_the_configured_one(self):
+        import kilby_model
+        state = {'posts': [], 'mode': 'fallback'}
+        def handler(request):
+            if request.method != 'POST':
+                return httpx.Response(500)
+            state['posts'].append(request.content)
+            if state['mode'] == 'refuse-all' or b'name="catalog"\r\n\r\ndesodorantes' in request.content:
+                return httpx.Response(404, json={'error': {'type': 'invalid_request_error', 'code': 'catalog_not_found', 'message': 'no catalog'}})
+            return httpx.Response(200, json={'id': 'vjob_fb', 'status': 'done', 'photos': 1, 'catalog': 'salud-sexual',
+                                             'billed': True, 'result_available': True, 'result': RESULT})
+        self.kilby(handler)
+        self.save_key(catalog='salud-sexual')
+        self.db.create_job('fallback', 'app', 'point-a', {'user': 'analyst'})
+        analysis = kilby_model.analyze('point-a', [(b'\xff\xd8\xffx', 'image/jpeg')], job_id='fallback',
+                                       plan_snapshot={'id': 'plan-1', 'category': 'Desodorantes', 'items': []})
+        self.assertEqual(len(state['posts']), 2)  # one retry, with the configured catalog
+        self.assertIn(b'name="catalog"\r\n\r\nsalud-sexual', state['posts'][1])
+        self.assertIn('no existe en Kilby', analysis['notes'])
+        self.assertIn('salud-sexual', analysis['notes'])
+        payload = self.db.get_job('fallback')['payload']
+        self.assertEqual(payload['kilby_job_id'], 'vjob_fb')
+        self.assertNotIn('remote_final_failed', payload)
+        # When the derived catalog IS the configured one there is nothing to fall back to: the error surfaces.
+        state['mode'] = 'refuse-all'
+        self.save_key(catalog='desodorantes')
+        self.db.create_job('fallback-same', 'app', 'point-a', {'user': 'analyst'})
+        with self.assertRaises(ValueError) as caught:
+            kilby_model.analyze('point-a', [(b'\xff\xd8\xffx', 'image/jpeg')], job_id='fallback-same',
+                                plan_snapshot={'id': 'plan-1', 'category': 'Desodorantes', 'items': []})
+        self.assertIn('catálogo', str(caught.exception))
+        self.assertEqual(len(state['posts']), 3)  # no retry when derived == configured
+        self.assertTrue(self.db.get_job('fallback-same')['payload']['remote_final_failed'])
+
+    def test_kilby_review_crops_are_fetched_once_and_cached_on_disk(self):
+        import tempfile
+        from pathlib import Path
+        import kilby_model
+        isolated = tempfile.TemporaryDirectory(prefix='kilby-crops-test-')
+        self.addCleanup(isolated.cleanup)
+        data_dir = patch.object(self.db, 'DATA_DIR', Path(isolated.name))
+        data_dir.start(); self.addCleanup(data_dir.stop)
+        crop_calls = []
+        def handler(request):
+            path = request.url.path
+            if '/crops/' not in path:
+                return httpx.Response(500)
+            crop_calls.append(path)
+            if path == '/v1/neuravision/jobs/vjob_crops/crops/0/1.jpg':
+                return httpx.Response(200, content=b'\xff\xd8\xffcrop-bytes', headers={'Content-Type': 'image/jpeg'})
+            if path == '/v1/neuravision/jobs/vjob_crops/crops/0/9.jpg':
+                return httpx.Response(404, json={'error': {'type': 'invalid_request_error', 'code': 'not_found', 'message': 'no crop'}})
+            return httpx.Response(409, json={'error': {'type': 'invalid_request_error', 'code': 'job_not_done', 'message': 'still running'}})
+        self.kilby(handler)
+        self.save_key()
+        created = self.db.add_reading('point-a', {**self.analysis, 'engine': {'images': [], 'kilby': {'job_id': 'vjob_crops'}}}, [])
+        reading = self.db.get_reading(created['id'])
+        self.assertEqual(kilby_model.reading_kilby_job(reading), 'vjob_crops')
+        self.assertIsNone(kilby_model.reading_kilby_job(self.db.get_reading(self.own['id'])))  # remote readings keep local crops
+        self.assertEqual(kilby_model.crop_jpeg(reading, 0, 1), b'\xff\xd8\xffcrop-bytes')
+        cached = self.db.DATA_DIR / 'kilby-crops' / 'vjob_crops' / '0-1.jpg'
+        self.assertEqual(cached.read_bytes(), b'\xff\xd8\xffcrop-bytes')
+        self.assertEqual(kilby_model.crop_jpeg(reading, 0, 1), b'\xff\xd8\xffcrop-bytes')
+        self.assertEqual(crop_calls, ['/v1/neuravision/jobs/vjob_crops/crops/0/1.jpg'])  # second read came from disk
+        with self.assertRaises(LookupError):
+            kilby_model.crop_jpeg(reading, 0, 9)
+        with self.assertRaises(LookupError) as caught:
+            kilby_model.crop_jpeg(reading, 1, 0)
+        self.assertIn('proceso', str(caught.exception))  # job_not_done keeps its Spanish reason
+        # The review route serves these crops through core.crop_jpeg's Kilby branch (core is stubbed in this harness).
+        self.addCleanup(self.main._crop_cached.cache_clear)
+        self.main._crop_cached.cache_clear()
+        with patch.object(self.core, 'crop_jpeg', side_effect=kilby_model.crop_jpeg):
+            response = self.client('analyst').get(f"/api/readings/{reading['id']}/crops/0/1.jpg")
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(response.content, b'\xff\xd8\xffcrop-bytes')
+            self.assertEqual(response.headers['content-type'], 'image/jpeg')
+            missing = self.client('analyst').get(f"/api/readings/{reading['id']}/crops/0/9.jpg")
+            self.assertEqual(missing.status_code, 404)
+
     def test_kilby_ids_fit_the_gateway_rules(self):
         import kilby_model
         self.assertEqual(kilby_model.kilby_id('SB-INF-3F05DC9DAFCC4199'), 'SB-INF-3F05DC9DAFCC4199')

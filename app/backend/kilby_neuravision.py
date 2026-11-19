@@ -6,6 +6,7 @@ Two calls, authenticated with a workspace key (``kai_...``):
   when the workspace has several catalogs, ``catalog``. Answers a job (202), or the finished job (200) when ``wait``
   seconds were enough.
 - ``GET {base}/neuravision/jobs/{id}``: the job; ``result`` when it is ``done``.
+- ``GET {base}/neuravision/jobs/{id}/crops/{image}/{item}.jpg``: JPEG crop of one detected item of a finished job.
 
 Kilby meters and bills every analyzed photo of the workspace: this client sends no usage telemetry of its own.
 
@@ -16,9 +17,9 @@ Guarantees:
   connection breaks after the photos were sent, ``AmbiguousSubmitError`` is raised instead of resending them.
 - ``Retry-After`` is respected (capped), otherwise exponential backoff with jitter.
 
-Dataset API (catalogs, products, labels, trainings, versions): see the methods after ``check``. It depends on Kilby's
-Neuravision dataset API (contract of 2026-11-18, not deployed yet) and on a key with the "Manage catalogs and
-trainings" permission, which only a Kilby workspace admin can create.
+Dataset API (catalogs, products, labels, trainings, versions): see the methods after ``check``. Kilby deployed it on
+2026-11-19 (contract of 2026-11-18). It needs a key with the "Manage catalogs and trainings" permission, which only
+a Kilby workspace admin can create (a new checkbox when creating the key in Kilby's panel).
 
 Dependencies: httpx only. Python 3.9+.
 """
@@ -79,6 +80,7 @@ MESSAGES_ES: Dict[str, str] = {
     "timeout": "El motor tardó demasiado en recibir las fotos. No se cobró. Inténtalo nuevamente.",
     "unavailable": "Kilby no pudo atender la solicitud en este momento. Inténtalo nuevamente.",
     "not_found": "Kilby no tiene ese análisis en este espacio.",
+    "job_not_done": "El análisis todavía está en proceso en Kilby. Los recortes quedan disponibles cuando termina.",
     # Dataset API (catalogs, products, labels, trainings)
     "dataset_not_allowed": "La clave no tiene el permiso «Manage catalogs and trainings». Un administrador del espacio de Kilby debe crear una clave con ese permiso e ingresarla en Administración → APIs.",
     "training_quota": "El plan de Kilby no tiene entrenamientos disponibles por ahora (Starter: 1 al mes; Growth: 1 por semana y catálogo).",
@@ -385,6 +387,18 @@ class KilbyNeuravision:
             raise InvalidRequestError("not a job id", code="invalid_request")
         return Job.from_json(self._json(self._send("GET", "/neuravision/jobs/" + job_id, idempotent=True)))
 
+    def crop(self, job_id: str, image_index: int, item_index: int) -> bytes:
+        """JPEG crop of one detected item of a finished job (any Neuravision key of the workspace, no dataset
+        permission needed). 404 ``not_found`` for a foreign job or an index out of range, 409 ``job_not_done``
+        while the job is queued or running. Rate limit: 4x the key's requests per minute, at most 600 a minute."""
+        if not isinstance(job_id, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", job_id):
+            raise InvalidRequestError("not a job id", code="invalid_request")
+        for label, value in (("image_index", image_index), ("item_index", item_index)):
+            if type(value) is not int or value < 0:
+                raise InvalidRequestError(f"{label}: a non-negative integer", code="invalid_request", param=label)
+        response = self._send("GET", f"/neuravision/jobs/{job_id}/crops/{image_index}/{item_index}.jpg", idempotent=True)
+        return response.content
+
     def jobs(self, limit: int = 20) -> List[Job]:
         data = self._json(self._send("GET", "/neuravision/jobs", idempotent=True, params={"limit": max(1, min(int(limit), 100))}))
         return [Job.from_json(item) for item in data.get("data") or []]
@@ -440,7 +454,7 @@ class KilbyNeuravision:
         return ConnectionCheck(False, True, None, "unexpected", "Kilby respondió algo inesperado a la prueba de conexión.")
 
     # ------------------------------------------------------------------ dataset API
-    # Depends on Kilby's Neuravision dataset API (contract 2026-11-18, NOT deployed yet). The key needs the
+    # Kilby's Neuravision dataset API (contract 2026-11-18, deployed 2026-11-19). The key needs the
     # "Manage catalogs and trainings" permission (403 dataset_not_allowed otherwise). Kilby never calls this app:
     # the app pushes its product master and its confirmed crops, then launches trainings.
 

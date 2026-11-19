@@ -149,8 +149,9 @@ def router(require_admin):
         encoded = "data:application/pdf;base64," + base64.b64encode(content).decode()
         from fastapi.concurrency import run_in_threadpool
         validated = await run_in_threadpool(service.document_reference, encoded, 1)
+        detected = await run_in_threadpool(service.detected_positions, content)
         return {"document": validated["content"], "document_pages": validated["pages"], "document_page": 1,
-                "document_name": (file.filename or "planograma.pdf")[:200], "photo": ""}
+                "document_name": (file.filename or "planograma.pdf")[:200], "photo": "", "detected": detected}
 
     @api.patch("/planograms/{plan_id}")
     def update_plan(plan_id: str, payload: PlanUpdate, user=Depends(require_admin)):

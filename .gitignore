@@ -6,4 +6,5 @@ app/data.db
 app/secret.key
 app/registration_code
 app/uploads/
+app/kilby-crops/
 .local/

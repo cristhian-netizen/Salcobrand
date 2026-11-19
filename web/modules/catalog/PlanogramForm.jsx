@@ -4,6 +4,7 @@ import SortableTable from '../tables/SortableTable';
 import { useState } from 'react';
 import { SaveForm, StatusField, enc, sortByName } from '../management/shared';
 import ReferenceField from './ReferenceField';
+import { detectedRows, cleanRow } from './detected-positions.mjs';
 import {subcategoryOptions} from '../settings/catalog.mjs';
 import { api } from '../../lib/sb';
 import { useApi, Loading, ErrorBox } from '../sb/ui';
@@ -94,7 +95,7 @@ function PlanogramForm({ plan, catalog, onSaved, onClose }) {
       ].map((k) => [k, form[k]]),
     );
     result.positionRows = form.positionRows.map((r) => ({
-      ...r,
+      ...cleanRow(r),
       level: Number(r.level),
       position: Number(r.position),
       faces: Number(r.faces),
@@ -135,6 +136,53 @@ function PlanogramForm({ plan, catalog, onSaved, onClose }) {
         onChange={(value) => setForm((current) => ({ ...current, ...value }))}
         onBusy={setProcessing}
       />
+      {form.detected && (
+        <div className="full ct-detected">
+          {form.detected.positionRows?.length ? (
+            <>
+              <p className="sb-hint">
+                Estructura detectada en el PDF: {form.detected.bands} nivel
+                {form.detected.bands === 1 ? '' : 'es'} ·{' '}
+                {form.detected.positionRows.length} posiciones (
+                {form.detected.matched} con producto del maestro,{' '}
+                {form.detected.unmatched} por asignar).
+                {form.positionRows.length
+                  ? ` Al usarlas se reemplazan las ${form.positionRows.length} filas actuales.`
+                  : ''}
+              </p>
+              <div className="sb-actions">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm((current) => ({
+                      ...current,
+                      positionRows: detectedRows(current.detected),
+                      position_mode: 'products',
+                      detected: null,
+                    }))
+                  }
+                >
+                  Usar posiciones detectadas
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm((current) => ({ ...current, detected: null }))
+                  }
+                >
+                  Descartar detección
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="sb-hint">
+              No se detectaron posiciones de productos en el PDF (formato
+              distinto al planograma de Salcobrand o PDF escaneado). Puedes
+              cargar las posiciones manualmente.
+            </p>
+          )}
+        </div>
+      )}
       <fieldset className="full ct-distribution">
         <legend>Posiciones de productos</legend>
         <p className="sb-hint">
@@ -224,6 +272,9 @@ function PlanogramForm({ plan, catalog, onSaved, onClose }) {
                         </option>
                       ))}
                     </select>
+                    {row.detected_title && !row.productId && (
+                      <small>Detectado en el PDF: {row.detected_title}</small>
+                    )}
                   </td>
                   <td>
                     <input

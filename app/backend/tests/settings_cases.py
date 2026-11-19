@@ -25,6 +25,35 @@ class SettingsCases:
             self.assertEqual(self.configure('score', {'redMax': 40, 'yellowMax': 80}, username=user).status_code, expected)
             self.assertEqual(self.client(user).get('/api/display-settings').status_code, 401 if user is None else 200)
 
+    def test_shelf_score_weights_are_configurable_and_rescore_existing_readings(self):
+        initial = self.configuration()
+        self.assertEqual(initial['state']['standardsWeights'], {'stock': 35, 'space': 25, 'price': 20, 'organization': 20})
+        for user in (None, 'replenisher', 'analyst', 'viewer'):
+            response = self.configure('standards', {'stock': 25, 'space': 25, 'price': 25, 'organization': 25}, username=user)
+            self.assertEqual(response.status_code, 401 if user is None else 403, user)
+        rejected = self.configure('standards', {'stock': 50, 'space': 30, 'price': 30, 'organization': 0})  # sums 110
+        self.assertEqual(rejected.status_code, 400)
+        self.assertIn('sumar exactamente 100', rejected.json()['detail'])
+        for bad in ({'stock': 100, 'space': 0, 'price': 0},                       # missing factor
+                    {'stock': 101, 'space': 0, 'price': 0, 'organization': -1},   # out of range
+                    {'stock': 35.5, 'space': 24.5, 'price': 20, 'organization': 20}):  # not integers
+            self.assertEqual(self.configure('standards', bad).status_code, 400, bad)
+        analysis = {'products': [
+            {'product': 'A', 'facings': 1, 'shelf_level': 1, 'category': 'X', 'out_of_stock': True},
+            {'product': 'B', 'facings': 1, 'shelf_level': 1, 'category': 'X', 'out_of_stock': False}],
+            'total_facings': 2, 'shelf_levels_detected': 1, 'empty_space_pct': 10}
+        reading = self.db.add_reading('point-a', analysis, [])
+        before = self.db.get_reading(reading['id'])['standards']
+        # stock 50, space 80, organization 100 with the default weights 35/25/20: (50*35+80*25+100*20)/80 = 72
+        self.assertEqual((before['stock_score'], before['space_score'], before['organization_score']), (50, 80, 100))
+        self.assertEqual(before['overall_score'], 72)
+        saved = self.configure('standards', {'stock': 100, 'space': 0, 'price': 0, 'organization': 0})
+        self.assertEqual(saved.status_code, 200, saved.text)
+        self.assertEqual(saved.json()['state']['standardsWeights']['stock'], 100)
+        # The score is computed when a reading is shown, so the same stored reading re-scores with the new weights.
+        self.assertEqual(self.db.get_reading(reading['id'])['standards']['overall_score'], 50)
+        self.assertEqual(self.client('viewer').get('/api/display-settings').json()['standardsWeights']['stock'], 100)
+
     def test_configured_pdv_type_is_usable_and_protected_when_referenced(self):
         initial = self.configuration()
         response = self.configure('pdv-types', initial['state']['pdvTypes'] + ['Farmacia comunitaria'])

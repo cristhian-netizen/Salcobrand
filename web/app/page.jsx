@@ -6,6 +6,7 @@ import Icon from '../modules/navigation/icons';
 import {auth, subscribeSession, hasPendingMutation, ROLE_NAMES} from '../lib/sb';
 import {scopeLabel, can} from '../lib/profiles.mjs';
 import Home from '../modules/sb/Home';
+import HomeSkeleton from '../modules/home/HomeSkeleton';
 import Scan from '../modules/sb/Scan';
 import Gondolas from '../modules/sb/Gondolas';
 import Measurements from '../modules/sb/Measurements';
@@ -38,12 +39,14 @@ function parseHash() {
 export default function Page() {
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
+  const [homeEntry, setHomeEntry] = useState(false);
   const [route, setRoute] = useState({view: 'inicio', rest: []});
   const [navOpen, setNavOpen] = useState(false);
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
     setRoute(parseHash());
+    setHomeEntry(window.location.hash.replace(/\/$/, '') === '#/inicio');
     const onHash = () => { setRoute(parseHash()); setNavOpen(false); };
     window.addEventListener('hashchange', onHash);
     auth.me().then(setUser).catch(() => setUser(null)).finally(() => setChecking(false));
@@ -67,6 +70,7 @@ export default function Page() {
 
   const toast = notice && <div className="nv-toast" role="status"><span>{notice}</span><button type="button" onClick={() => setNotice('')}>Cerrar</button></div>;
 
+  if (checking && homeEntry) return <HomeSkeleton fullPage/>;
   if (checking) return <div className="nv-splash" role="status"><span className="nv-spinner" aria-hidden="true"/>Cargando…</div>;
   if (!user) return <>{toast}<Login onLogin={async (u, p) => { await auth.login(u, p); setUser(await auth.me()); }}/></>;
   if (user.internal && user.role !== 'local-neura' && (!user.portal_access || route.view === 'consola')) return <ClientConsole user={user} onLogout={logout} onPortal={user.portal_access ? () => go('inicio') : undefined}/>;

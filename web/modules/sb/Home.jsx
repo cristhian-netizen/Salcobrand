@@ -2,8 +2,9 @@
 import { useEffect, useState } from 'react';
 import { profileOf, scopeLabel } from '../../lib/profiles.mjs';
 import { api } from '../../lib/sb';
-import { useApi, Header, Loading, ErrorBox } from './ui';
+import { useApi, Header, ErrorBox } from './ui';
 import AdminHome from '../home/AdminHome';
+import HomeSkeleton from '../home/HomeSkeleton';
 import FieldHome from '../home/FieldHome';
 import ViewerHome from '../home/ViewerHome';
 import HomeReadingDetail from '../home/HomeReadingDetail';
@@ -35,7 +36,7 @@ function OperationalHome({ user, go }) {
       {role === 'viewer' && <button type="button" className="action" onClick={() => go('dashboards')}>Ver dashboards</button>}
     </Header>
     <ErrorBox error={error} onRetry={reload} />
-    {loading && !data && <Loading text="Cargando inicio…" />}
+    {loading && !data && <HomeSkeleton role={role} />}
     {data && (role === 'viewer'
       ? <ViewerHome data={data} go={go} onOpen={setSelected} />
       : <FieldHome data={data} role={role} onOpen={setSelected} />)}

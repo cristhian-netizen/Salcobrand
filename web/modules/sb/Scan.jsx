@@ -51,9 +51,15 @@ async function prepare(file) {
     canvas
       .getContext("2d")
       .drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", 0.85),
-    );
+    // Keep the 3000 px side and lower only the JPEG quality until ~1.4 MB, so six photos fit in Kilby's
+    // 9 MB per analysis without losing resolution.
+    let blob = null;
+    for (const quality of [0.85, 0.78, 0.72, 0.66, 0.62]) {
+      blob = await new Promise((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", quality),
+      );
+      if (!blob || blob.size <= 1.4 * 1024 * 1024) break;
+    }
     if (!blob) throw Error("No se pudo preparar la fotografía.");
     return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", {
       type: "image/jpeg",

@@ -293,6 +293,15 @@
     return { blob: out, width: w, height: h, quality: q };
   }
   function qualityOpts() { return Settings.get("lowData", false) ? QUALITY.low : QUALITY.normal; }
+  async function improveResolution(track) {
+    // Some phones open a small video mode (1280x720 / 1600x1200) even when more was asked for; the engine needs
+    // ~3000 px to read labels, so ask again before falling back to that stream.
+    if (!track || !track.getSettings || !track.applyConstraints) return;
+    const before = track.getSettings(), area = (s) => (s.width || 0) * (s.height || 0);
+    if (Math.max(before.width || 0, before.height || 0) >= 2560) return;
+    try { await track.applyConstraints({ width: { ideal: 3264 }, height: { ideal: 2448 } }); } catch (e) { return; }
+    if (area(track.getSettings()) < area(before)) { try { await track.applyConstraints({ width: { ideal: before.width }, height: { ideal: before.height } }); } catch (e) { /* keep whatever the camera gives */ } }
+  }
 
   // ─── cola de envío (IndexedDB) ───────────────────────────────────────────
   const Queue = {
@@ -753,7 +762,7 @@
   }
 
   const Cam = {
-    stream: null, point: null, liveTimer: null, busy: false,
+    stream: null, point: null, liveTimer: null, busy: false, ic: null, photoOpts: null,
     el() { return $("#cam"); },
     async open(point) {
       this.point = point;
@@ -772,6 +781,18 @@
         await video.play().catch(() => {});
         clearInterval(this.liveTimer);
         this.liveTimer = setInterval(() => this.probe(), 700);
+        const track = this.stream.getVideoTracks()[0];
+        await improveResolution(track);
+        // Full-resolution photos (ImageCapture) when the device offers them: the live video stream is often much
+        // smaller (e.g. 1600x1200) than what the sensor can give, and shoot() falls back to that stream otherwise.
+        this.ic = null; this.photoOpts = null;
+        if ("ImageCapture" in window) {
+          try {
+            this.ic = new ImageCapture(track);
+            const pc = await Promise.race([this.ic.getPhotoCapabilities(), new Promise((r) => setTimeout(() => r(null), 2500))]);
+            if (pc && pc.imageWidth && pc.imageWidth.max && pc.imageHeight && pc.imageHeight.max) this.photoOpts = { imageWidth: pc.imageWidth.max, imageHeight: pc.imageHeight.max };
+          } catch (e) { this.ic = null; }
+        }
       } catch (e) {
         this.showError(e && e.name === "NotAllowedError" ? "Permiso de cámara denegado. Puedes usar la cámara del teléfono." : "No se pudo abrir la cámara (" + (e && (e.message || e.name) || "error") + ").");
       }
@@ -783,6 +804,7 @@
     close() {
       clearInterval(this.liveTimer); this.liveTimer = null;
       if (this.stream) { this.stream.getTracks().forEach((t) => t.stop()); this.stream = null; }
+      this.ic = null; this.photoOpts = null;
       $("#cameraVideo").srcObject = null;
       this.el().hidden = true;
       document.body.style.overflow = "";
@@ -818,6 +840,17 @@
       $("#camDone").textContent = photos.length ? `Listo (${photos.length})` : "Listo";
       $("#shutterBtn").disabled = photos.length >= MAX_PHOTOS;
     },
+    async photoBlob() {
+      // ImageCapture.takePhoto gives the sensor's photo resolution; null (after a short wait) falls back to the
+      // video frame so the shutter never hangs on devices with a broken takePhoto.
+      if (!this.ic) return null;
+      const limit = () => new Promise((r) => setTimeout(() => r(null), 4000));
+      try { return await Promise.race([this.ic.takePhoto(this.photoOpts || undefined), limit()]); }
+      catch (e) {
+        try { return await Promise.race([this.ic.takePhoto(), limit()]); }
+        catch (e2) { this.ic = null; return null; }
+      }
+    },
     async shoot() {
       const v = $("#cameraVideo");
       if (this.busy) return;
@@ -825,12 +858,18 @@
       if (draft(this.point.id).length >= MAX_PHOTOS) { this.msg(`Máximo ${MAX_PHOTOS} fotos`); return; }
       this.busy = true;
       const flash = $("#camFlash"); flash.classList.remove("on"); void flash.offsetWidth; flash.classList.add("on");
-      const c = document.createElement("canvas");
-      c.width = v.videoWidth; c.height = v.videoHeight;
-      c.getContext("2d").drawImage(v, 0, 0);
-      const src = { source: c, width: c.width, height: c.height, close() {} };
+      let src = null;
+      const blob = await this.photoBlob();
+      if (blob && blob.size) { try { src = await decodeImage(blob); } catch (e) { src = null; } }
+      if (!src) {
+        const c = document.createElement("canvas");
+        c.width = v.videoWidth; c.height = v.videoHeight;
+        c.getContext("2d").drawImage(v, 0, 0);
+        src = { source: c, width: c.width, height: c.height, close() {} };
+      }
       try {
         const ph = await acceptImage(this.point, src, null, `foto-${Date.now()}.jpg`);
+        src.close();
         this.renderThumbs();
         this.msg(`Foto ${draft(this.point.id).length}/${MAX_PHOTOS} · ${fmtBytes(ph.blob.size)}`, true);
         if (draft(this.point.id).length >= MAX_PHOTOS) setTimeout(() => this.close(), 900);
@@ -841,8 +880,9 @@
             this.msg(null);
             try { const ph = await acceptImage(this.point, src, null, `foto-${Date.now()}.jpg`, true); this.renderThumbs(); this.msg(`Foto agregada · ${fmtBytes(ph.blob.size)}`, true); }
             catch (ex) { this.msg(ex.message); }
+            finally { src.close(); }
           });
-        } else this.msg(e.message || "No se pudo capturar la foto");
+        } else { src.close(); this.msg(e.message || "No se pudo capturar la foto"); }
       } finally { this.busy = false; }
     },
   };

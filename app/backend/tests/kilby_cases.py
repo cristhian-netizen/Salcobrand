@@ -180,6 +180,28 @@ class KilbyCases:
         self.assertEqual(state['posts'], posts_before)  # recovered from Kilby's job list, never sent again
         self.assertEqual(recovered['engine']['kilby']['job_id'], 'vjob_late')
 
+    def test_no_identificable_resolves_without_label_or_foreign(self):
+        import kilby_catalog
+        trainer = self.trainer()
+        products = [{'product': 'Producto X', 'facings': 1, 'needs_review': True, 'image_index': 0, 'item_index': 0, 'shelf_level': 1},
+                    {'product': 'Producto Y', 'facings': 1, 'needs_review': True, 'image_index': 0, 'item_index': 1, 'shelf_level': 1}]
+        reading = self.db.add_reading('point-a', {**self.analysis, 'products': products,
+                                                  'engine': {'images': [], 'kilby': {'job_id': 'vjob_nid'}}}, [])
+        r = trainer.post(f"/api/readings/{reading['id']}/confirm", json={
+            'image_index': 0, 'item_index': 0, 'title': None, 'verdict': 'no_identificable', 'reason': 'al_reves'})
+        self.assertEqual(r.status_code, 200, r.text)
+        # Same click again: idempotent. The crop stays out of the labels and out of the foreign count.
+        again = trainer.post(f"/api/readings/{reading['id']}/confirm", json={
+            'image_index': 0, 'item_index': 0, 'title': None, 'verdict': 'no_identificable', 'reason': 'al_reves'})
+        self.assertEqual(again.status_code, 200, again.text)
+        labels, skipped = kilby_catalog.labels()
+        self.assertEqual([l for l in labels if l['job_id'] == 'vjob_nid'], [])
+        self.assertEqual(skipped.get('no_identificable'), 1)
+        self.assertEqual(skipped.get('ajeno'), 0)
+        bad = trainer.post(f"/api/readings/{reading['id']}/confirm", json={
+            'image_index': 0, 'item_index': 1, 'title': None, 'verdict': 'no_identificable', 'reason': 'banana'})
+        self.assertEqual(bad.status_code, 400)
+
     def test_compliance_matches_by_exact_code_before_names(self):
         import db
         planogram = {"id": "pg-test", "name": "Desodorantes", "items": [
@@ -382,7 +404,7 @@ class KilbyCases:
                              (label_id, reading['id'], int(label_id[1]), json.dumps({'title': title}), '_training/' + label_id, 'local-neura', self.db.now_iso()))
         labels, skipped = kilby_catalog.labels()
         self.assertEqual(labels, [{'job_id': 'vjob_ok', 'image_index': 0, 'item_index': 1, 'sku': product['sku'], 'catalog': None}])
-        self.assertEqual(skipped, {'sin_job_kilby': 1, 'sin_sku': 1, 'ajeno': 1})
+        self.assertEqual(skipped, {'sin_job_kilby': 1, 'sin_sku': 1, 'ajeno': 1, 'no_identificable': 0})
         labels, _ = kilby_catalog.labels(default='salud-sexual')  # readings without a recorded catalog count as the configured one
         self.assertEqual(labels[0]['catalog'], 'salud-sexual')
 
@@ -536,7 +558,7 @@ class KilbyCases:
         self.assertEqual(first.status_code, 202, first.text)
         self.assertEqual((first.json()['catalog'], started), ('desodorantes', ['desodorantes']))
         self.assertEqual(uploads, {'desodorantes': json.dumps({'job_id': 'vjob_deo', 'image_index': 0, 'item_index': 0, 'sku': product['sku']}, ensure_ascii=False) + '\n'})
-        self.assertEqual(first.json()['labels'], {'sent': 1, 'skipped_here': {'sin_job_kilby': 0, 'sin_sku': 0, 'ajeno': 0, 'otro_catalogo': 1},
+        self.assertEqual(first.json()['labels'], {'sent': 1, 'skipped_here': {'sin_job_kilby': 0, 'sin_sku': 0, 'ajeno': 0, 'no_identificable': 0, 'otro_catalogo': 1},
                                                   'accepted': 1, 'skipped_by_kilby': 0})
         second = trainer.post('/api/internal/training/kilby/trainings', json={'catalog': 'salud-sexual'})
         self.assertEqual(second.status_code, 202, second.text)

@@ -284,7 +284,7 @@ def labels(default=None):
     """(labels for Kilby, skipped counts). A label needs the reading's Kilby job id and the verified product's SKU.
     Each label carries the catalog its reading was analyzed with (stored by kilby_model in engine_json); readings
     that did not record one (analyzed before multi-catalog) count as `default`."""
-    skipped = {"sin_job_kilby": 0, "sin_sku": 0, "ajeno": 0}
+    skipped = {"sin_job_kilby": 0, "sin_sku": 0, "ajeno": 0, "no_identificable": 0}
     with db.get_conn() as conn:
         rows = conn.execute("SELECT reading_id, image_index, item_index, data_json FROM management_training_labels ORDER BY created_at, id").fetchall()
         by_name = {}
@@ -294,6 +294,9 @@ def labels(default=None):
         for row in rows:
             data = json.loads(row["data_json"])
             title = (data.get("title") or "").strip()
+            if data.get("verdict") == "no_identificable":
+                skipped["no_identificable"] += 1
+                continue
             if not title:
                 skipped["ajeno"] += 1
                 continue

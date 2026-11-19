@@ -21,10 +21,10 @@ function CropCard({payload, item, onDone}) {
     if (!touched.current && suggestionState(item).kind === 'ok') setTitle(preselect(item, ''));
   }, [item.suggestion]);
   const options = title && !titles.includes(title) ? [title, ...titles] : titles;
-  async function confirm(chosen) {
+  async function confirm(chosen, verdict, reason) {
     setBusy(true); setError('');
     try {
-      await api(`/api/readings/${payload.reading_id}/confirm`, {method: 'POST', body: {image_index: item.image_index, item_index: item.item_index, title: chosen, facings: Number.isFinite(Number(facings)) ? Number(facings) : null}});
+      await api(`/api/readings/${payload.reading_id}/confirm`, {method: 'POST', body: {image_index: item.image_index, item_index: item.item_index, title: chosen, facings: Number.isFinite(Number(facings)) ? Number(facings) : null, verdict: verdict || null, reason: reason || null}});
       onDone(item);
     } catch (e) { setError(e.message); setBusy(false); }
   }
@@ -42,7 +42,19 @@ function CropCard({payload, item, onDone}) {
       <label>Caras<input type="number" min="0" value={facings} onChange={e => setFacings(e.target.value)} disabled={busy}/></label>
       <div style={{display: 'grid', alignContent: 'end'}}><button type="button" disabled={busy || !title} onClick={() => confirm(title)}>Confirmar</button></div>
     </div>
-    <button className="link" type="button" disabled={busy} onClick={() => confirm(null)}>No es del planograma</button>
+    <div className="row">
+      <button className="link" type="button" disabled={busy} onClick={() => confirm(null)}>No es del planograma</button>
+      <label className="link-select" title="Se detectó la unidad pero el envase no se distingue. No crea etiqueta y no cuenta como producto ajeno; el motivo queda registrado.">No identificable:
+        <select value="" disabled={busy} onChange={e => e.target.value && confirm(null, 'no_identificable', e.target.value)}>
+          <option value="">motivo…</option>
+          <option value="al_reves">Al revés / de espaldas</option>
+          <option value="tapado">Tapado u oculto</option>
+          <option value="borroso">Foto borrosa o reflejo</option>
+          <option value="no_producto">No es un producto</option>
+          <option value="otro">Otro</option>
+        </select>
+      </label>
+    </div>
     {error && <div className="sb-error" role="alert">{error}</div>}
   </article>;
 }

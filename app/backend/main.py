@@ -96,6 +96,8 @@ class ConfirmPayload(BaseModel):
     item_index: int
     title: Optional[str] = None      # título del planograma confirmado; None/"" = fuera de planograma
     facings: Optional[int] = None
+    verdict: Optional[str] = None    # 'no_identificable' = detectado pero el envase no se distingue
+    reason: Optional[str] = None     # con ese verdict: al_reves | tapado | borroso | no_producto | otro
 
 
 class StockActionPayload(BaseModel):
@@ -1076,7 +1078,12 @@ def api_reading_confirm(reading_id: int, payload: ConfirmPayload, user: dict = D
     if not r:
         raise HTTPException(status_code=404, detail="Lectura no encontrada")
     try:
-        return training_api.save_label(r, payload.image_index, payload.item_index, payload.title, payload.facings, user['username'])
+        if payload.verdict not in (None, '', 'no_identificable'):
+            raise HTTPException(status_code=400, detail="verdict debe ser 'no_identificable' o nulo")
+        if payload.verdict == 'no_identificable' and payload.reason not in ('al_reves', 'tapado', 'borroso', 'no_producto', 'otro'):
+            raise HTTPException(status_code=400, detail="reason debe ser al_reves, tapado, borroso, no_producto u otro")
+        return training_api.save_label(r, payload.image_index, payload.item_index, payload.title, payload.facings, user['username'],
+                                       verdict=payload.verdict or None, reason=payload.reason if payload.verdict else None)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

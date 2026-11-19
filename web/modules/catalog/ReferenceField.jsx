@@ -63,6 +63,7 @@ export default function ReferenceField({
           document_name: '',
           document_page: 1,
           document_pages: 0,
+          detected: null,
         });
       }
     } catch (e) {
@@ -135,6 +136,7 @@ export default function ReferenceField({
               document_name: '',
               document_page: 1,
               document_pages: 0,
+              detected: null,
             })
           }
         >

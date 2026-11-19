@@ -162,14 +162,75 @@ class CatalogCases:
         self.assertEqual(self.db.get_reading(reading['id'])['compliance'],before)
         self.assertIsNone(self.db.get_point('point-a')['planogram_id'])
 
+    def planogram_pdf(self, lines, width=612, height=792):
+        """One-page text PDF in Salcobrand's planogram layout, built by hand so the fixture lives in the test."""
+        parts = ['BT /F1 10 Tf']
+        y = height - 40
+        for line in lines:
+            safe = line.replace('\\', r'\\').replace('(', r'\(').replace(')', r'\)')
+            parts.append(f'1 0 0 1 40 {y} Tm ({safe}) Tj')
+            y -= 14
+        stream = '\n'.join(parts + ['ET']).encode('latin-1')
+        objects = [b'<< /Type /Catalog /Pages 2 0 R >>', b'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+                   f'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {width} {height}] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>'.encode(),
+                   b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+                   b'<< /Length ' + str(len(stream)).encode() + b' >>\nstream\n' + stream + b'\nendstream']
+        output = io.BytesIO();output.write(b'%PDF-1.4\n');offsets = []
+        for number, body in enumerate(objects, 1):
+            offsets.append(output.tell())
+            output.write(f'{number} 0 obj\n'.encode() + body + b'\nendobj\n')
+        xref = output.tell()
+        output.write(f'xref\n0 {len(objects) + 1}\n0000000000 65535 f \n'.encode())
+        for offset in offsets:
+            output.write(f'{offset:010d} 00000 n \n'.encode())
+        output.write(f'trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n'.encode())
+        return output.getvalue()
+
+    def test_reference_pdf_detects_zones_and_matches_master(self):
+        matched_by_sku = self.create_product(sku='123456', barcode='7801234567890')
+        matched_by_barcode = self.create_product(sku='OTRA-REF', name='Spray intenso', barcode='7809876543210')
+        admin = self.client('admin')
+        content = self.planogram_pdf([
+            'DESODORANTES PRUEBA', '120 cm', 'planograma_prueba.plnx',
+            '1/2',
+            '1 DESODORANTE ROLL ON CLASICO 123456 7801234567890 2 TOP',
+            '2 DESODORANTE SPRAY INTENSO 50 ML 654321 7809876543210 1',
+            '1/1',
+            '1 TALCO DESCONOCIDO EXTRA 999888 7800000111222 3 LANZAMIENTO',
+        ])
+        response = admin.post('/api/admin/catalog/reference', files={'file': ('desodorantes.pdf', content, 'application/pdf')})
+        self.assertEqual(response.status_code, 200, response.text)
+        detected = response.json()['detected']
+        self.assertEqual((detected['name'], detected['module_cm'], detected['bands']), ('planograma_prueba', 120, 2))
+        self.assertEqual((detected['matched'], detected['unmatched']), (2, 1))
+        rows = detected['positionRows']
+        self.assertEqual([(r['level'], r['position'], r['faces']) for r in rows], [(2, 1, 2), (2, 2, 1), (1, 1, 3)])
+        self.assertEqual((rows[0]['productId'], rows[0]['sku'], rows[0]['barcode']), (matched_by_sku['id'], '123456', '7801234567890'))
+        self.assertEqual(rows[0]['detected_title'], 'DESODORANTE ROLL ON CLASICO')
+        self.assertEqual((rows[1]['productId'], rows[1]['sku']), (matched_by_barcode['id'], 'OTRA-REF'))  # matched by barcode, canonical SKU
+        self.assertEqual((rows[2]['productId'], rows[2]['sku'], rows[2]['detected_title']), ('', '999888', 'TALCO DESCONOCIDO EXTRA'))
+        # Matched rows can be saved as detected (after review); unmatched rows still need a person to pick a product.
+        admin.get('/api/admin/stores')
+        keys = ('level', 'position', 'faces', 'productId', 'sku', 'barcode')
+        fields = {**self.plan_fields(matched_by_sku), 'position_mode': 'products',
+                  'positionRows': [{**{key: rows[0][key] for key in keys}, 'legacy_item_id': None, 'legacy_title': ''}]}
+        saved = admin.post('/api/admin/catalog/planograms', json=fields)
+        self.assertEqual(saved.status_code, 201, saved.text)
+        item = saved.json()['items'][0]
+        self.assertEqual((item['band'], item['position_in_section'], item['expected_facings'], item['internal_code']), (2, 1, 2, '123456'))
+        unmatched = {**self.plan_fields(matched_by_sku), 'name': 'Con fila sin producto', 'position_mode': 'products',
+                     'positionRows': [{**{key: rows[2][key] for key in keys}, 'legacy_item_id': None, 'legacy_title': ''}]}
+        self.assertEqual(admin.post('/api/admin/catalog/planograms', json=unmatched).status_code, 400)
+
     def test_pdf_reference_page_navigation_and_validation(self):
         admin=self.client('admin');writer=PdfWriter();writer.add_blank_page(width=100,height=100);writer.add_blank_page(width=100,height=100)
         output=io.BytesIO();writer.write(output)
         reference=admin.post('/api/admin/catalog/reference',files={'file':('ref.pdf',output.getvalue(),'application/pdf')})
         self.assertEqual(reference.status_code,200,reference.text)
         self.assertEqual(reference.json()['document_pages'],2)
+        self.assertEqual(reference.json()['detected']['positionRows'],[])  # blank pages: nothing detected, upload still works
         product=self.create_product();admin.get('/api/admin/stores')
-        fields=self.plan_fields(product);fields.update({key:value for key,value in reference.json().items() if key!='document_pages'})
+        fields=self.plan_fields(product);fields.update({key:value for key,value in reference.json().items() if key not in ('document_pages','detected')})
         fields['document_page']=2
         saved=admin.post('/api/admin/catalog/planograms',json=fields)
         self.assertEqual(saved.status_code,201,saved.text)

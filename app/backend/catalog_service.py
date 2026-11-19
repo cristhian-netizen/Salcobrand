@@ -245,6 +245,34 @@ def legacy_items(raw):
     return result
 
 
+def detected_positions(content):
+    """Zones and positions auto-detected in an uploaded planogram PDF (Salcobrand's text format), matched against
+    the product master by internal code (SKU) or barcode. Only a proposal for review in the editor: nothing is
+    saved and the manual rows are never replaced without the person confirming it in the form."""
+    import planogram_pdf
+    try:
+        parsed = planogram_pdf.parse_pdf_bytes(content)
+    except Exception:  # scanned or foreign PDF: the upload still works, there is just nothing detected
+        parsed = {"name": "", "module_cm": None, "bands": 0, "items": []}
+    with db.get_conn() as conn:
+        master = products(conn)
+    by_sku = {p["sku"].casefold(): p for p in master}
+    by_barcode = {p["barcode"]: p for p in master if p.get("barcode")}
+    rows, matched = [], 0
+    for item in parsed["items"]:
+        sku = item.get("internal_code") or ""
+        barcode = item.get("barcode") or ""
+        product = by_sku.get(sku.casefold()) or (by_barcode.get(barcode) if barcode else None)
+        if product:
+            matched += 1
+        rows.append({"level": item["band"] or 1, "position": item["position_in_section"], "faces": item["expected_facings"] or 1,
+                     "productId": product["id"] if product else "", "legacy_item_id": None, "legacy_title": "",
+                     "sku": product["sku"] if product else sku, "barcode": product["barcode"] if product else barcode,
+                     "detected_title": item["title"]})
+    return {"name": parsed["name"], "module_cm": parsed["module_cm"], "bands": parsed["bands"],
+            "positionRows": rows, "matched": matched, "unmatched": len(rows) - matched}
+
+
 def document_reference(value, page):
     if not value:
         return {"content": "", "pages": 0}

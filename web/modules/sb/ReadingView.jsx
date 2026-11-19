@@ -70,10 +70,19 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo, show
     </div>
     {tab === 'productos' && <Card body={false} title="Productos detectados" actions={can(user, 'train') && reading.needs_review > 0 && <button type="button" onClick={onConfirmGo}>Revisar {reading.needs_review} recortes</button>}>
       {products.length ? <div className="sb-table"><SortableTable><thead><tr><th>Producto</th><th>Nivel / pos.</th><th className="sb-num">Caras</th><th>Estado</th><th className="sb-num">Confianza</th></tr></thead><tbody>
-        {products.map((p, i) => <tr key={i}><td><b>{p.product}</b><small>{[p.brand, p.category].filter(Boolean).join(' · ')}</small></td>
+        {products.map((p, i) => {
+          // El motor titula los sin-match con su texto OCR (útil para revisión); para el analista
+          // ese texto no es un nombre: la fila dice "producto no identificado" y el OCR va de nota.
+          const unmatched = p.match_status === 'unmatched';
+          const title = unmatched ? 'producto no identificado' : p.product;
+          const note = unmatched
+            ? (p.product && p.product !== 'producto no identificado' ? `texto leído: ${p.product}` : '')
+            : [p.brand, p.category].filter(Boolean).join(' · ');
+          return <tr key={i}><td><b>{title}</b>{note && <small>{note}</small>}</td>
           <td>{p.shelf_level} / {p.position_index}</td><td className="sb-num">{p.facings}</td>
           <td><StatusPill status={p.planogram_status || p.match_status}/>{p.needs_review && <> <Pill kind="warn">Confianza limitada</Pill></>}</td>
-          <td className="sb-num">{typeof p.confidence === 'number' ? Math.round(p.confidence * 100) + ' %' : '—'}</td></tr>)}
+          <td className="sb-num">{typeof p.confidence === 'number' ? Math.round(p.confidence * 100) + ' %' : '—'}</td></tr>;
+        })}
       </tbody></SortableTable></div> : <Empty>El motor no detectó productos en esta lectura.</Empty>}
     </Card>}
     {tab === 'planograma' && (c ? <Card body={false} title={c.planogram_name} subtitle={`${c.items?.length || 0} posiciones · ${c.items_missing_price || 0} sin precio`}>
@@ -105,7 +114,7 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo, show
       catch (exception) { setError(exception.message); } finally { setBusy(false); }
     }}>Descargar Excel de esta medición</button></div>}
     <div className="sb-actions" style={{justifyContent: 'space-between'}}>
-      <span className="sb-hint">Lectura #{reading.id} · {fmt.dateTime(reading.created_at)}{reading.engine ? ` · motor ${reading.engine.version} (${Math.round((reading.engine.elapsed_ms || 0) / 1000)} s)` : ''}</span>
+      <span className="sb-hint">Lectura #{reading.id} · {fmt.dateTime(reading.created_at)}{reading.engine?.version ? ` · motor ${reading.engine.version} (${Math.round((reading.engine.elapsed_ms || 0) / 1000)} s)` : reading.engine?.elapsed_ms ? ` · motor (${Math.round(reading.engine.elapsed_ms / 1000)} s)` : ''}</span>
       {can(user, 'manage') && <button className="remove" type="button" disabled={busy} onClick={remove}>Eliminar lectura</button>}
     </div>
     </div>

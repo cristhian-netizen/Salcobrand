@@ -80,6 +80,21 @@ de claves externas. Sus claves y contadores son temporales. El portal usa las
 cuentas persistidas en PostgreSQL. La migración de clientes externos de la API v1
 requiere configurar su almacenamiento persistente y verificar sus consumidores.
 
+### Reinicio de datos operacionales (una sola vez)
+
+Para partir el piloto con fotos reales: definir `MAINTENANCE_WIPE_OPERATIONAL=<token>`
+(cualquier texto nuevo, por ejemplo `piloto-fotos-reales-2026-11-19`) y redesplegar la API.
+Al arrancar, si el token difiere del registrado en `meta.operational_wipe_token`, se borran
+en una transacción las mediciones y todo lo derivado (lecturas con sus detalles/revisiones/
+alertas, trabajos de análisis, acciones de stock, quiebres de proveedor, shadow runs, fotos
+por enlace y sus solicitudes, etiquetas y sugerencias de entrenamiento, entrenamientos Kilby)
+y se vacían `uploads/`, `kilby-crops/` y `thumbs/` del disco de datos. Los maestros no se
+tocan: cuentas/personas, locales y PDV, infraestructura, productos y sus fotos, planogramas,
+configuración, integraciones, enlaces de captura, estado de sincronización con Kilby, ámbitos
+de planograma y el registro de actividad. El token queda registrado, así que reinicios y
+redespliegues con el mismo valor no vuelven a borrar; conviene retirar la variable después.
+El conteo por tabla queda en el log con prefijo `[maintenance]`.
+
 
 ## Planogramas compartidos entre PDV
 

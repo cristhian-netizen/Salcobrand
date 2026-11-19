@@ -36,12 +36,13 @@ from email_access_cases import EmailAccessCases
 from kilby_cases import KilbyCases
 from gemini_cases import GeminiCases
 from image_cache_cases import ImageCacheCases
+from maintenance_cases import MaintenanceCases
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
 
-class ProfileHTTPTests(GeminiCases, ImageCacheCases, KilbyCases, EmailAccessCases, SharedPlanCases, BrandSettingsCases, PortalImprovementsCases, SessionCases, ConsoleCases, UsageCases, PeopleCases, StoreExcelCases, AlertCases, DashboardCases, DetailCases, HomeCases, SettingsCases, ReportCases, CaptureCases, CatalogCases, InfrastructureCases, unittest.TestCase):
+class ProfileHTTPTests(MaintenanceCases, GeminiCases, ImageCacheCases, KilbyCases, EmailAccessCases, SharedPlanCases, BrandSettingsCases, PortalImprovementsCases, SessionCases, ConsoleCases, UsageCases, PeopleCases, StoreExcelCases, AlertCases, DashboardCases, DetailCases, HomeCases, SettingsCases, ReportCases, CaptureCases, CatalogCases, InfrastructureCases, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory(prefix="salcobrand-profile-tests-")

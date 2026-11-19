@@ -26,3 +26,12 @@ export function dimensionsLabel(image) {
   return image && Number.isFinite(image.width) && Number.isFinite(image.height)
     ? `${image.width} × ${image.height} px` : null;
 }
+
+// [pill kind, label] of a dataset capture link: the backend stores facts
+// (revoked_at/expires_at/photos), the Spanish label is derived in ONE place.
+export function linkStatus(link, now = Date.now()) {
+  if (link.revoked_at) return ['', 'Revocado'];
+  if (new Date(link.expires_at).valueOf() <= now) return ['', 'Vencido'];
+  if ((link.photos ?? 0) >= link.max_photos) return ['warn', 'Lleno'];
+  return ['ok', 'Activo'];
+}

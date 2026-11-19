@@ -70,6 +70,8 @@ class MaintenanceCases:
             conn.execute("INSERT INTO management_planograms (id,data_json,updated_at) VALUES ('mp-1','{}',?)", (now,))
             conn.execute("INSERT INTO management_dataset_images (id,category,store_id,path,bytes,mime,created_by,created_at) "
                          "VALUES ('ds-keep','salud-sexual','L128','dataset/salud-sexual/ds-keep.heic',12,'image/heic','local-neura',?)", (now,))
+            conn.execute("INSERT INTO management_dataset_links (id,token_hash,category,category_name,store_id,max_photos,expires_at,created_by,created_at) "
+                         "VALUES ('dl-keep','hash-keep','salud-sexual','Salud sexual','L128',500,'2199-01-01T00:00:00+00:00','local-neura',?)", (now,))
 
     def table_counts(self, tables):
         with self.db.get_conn() as conn:
@@ -101,6 +103,8 @@ class MaintenanceCases:
             self.assertEqual(conn.execute("SELECT secrets_json FROM management_integrations WHERE id='kilby'")
                              .fetchone()["secrets_json"], '{"api_key":"encrypted"}')
             self.assertEqual(conn.execute("SELECT active FROM capture_links WHERE token='L128-keep'").fetchone()["active"], 1)
+            # Shared dataset capture links keep working after a wipe, exactly like capture_links.
+            self.assertEqual(conn.execute("SELECT token_hash FROM management_dataset_links WHERE id='dl-keep'").fetchone()["token_hash"], "hash-keep")
         self.assertEqual(self.meta_value(maintenance.TOKEN_KEY), first)
         self.assertIn("[maintenance] operational wipe: ", output.getvalue())
         self.assertIn("readings=3", output.getvalue())  # the counts per table are logged
@@ -180,6 +184,9 @@ class MaintenanceCases:
         # Dataset sweeps are valuable raw data: the table is KEEP and the files folder is never wiped.
         self.assertIn("management_dataset_images", maintenance.KEEP_TABLES)
         self.assertNotIn("dataset", maintenance.WIPE_DIRS)
+        # The anonymous capture links are KEEP like capture_links: a URL already shared by
+        # WhatsApp must survive the one-shot wipe, and the photos it attributes are KEEP rows.
+        self.assertIn("management_dataset_links", maintenance.KEEP_TABLES)
 
     def test_wipe_runs_the_postgres_statements_in_one_transaction(self):
         """The Postgres layer gets the advisory lock, the sequence resets and the meta upsert in

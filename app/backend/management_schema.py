@@ -117,4 +117,10 @@ CREATE TABLE IF NOT EXISTS management_dataset_images (
  created_by TEXT NOT NULL, created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS management_dataset_category ON management_dataset_images(category, created_at);
+CREATE TABLE IF NOT EXISTS management_dataset_links (
+ id TEXT PRIMARY KEY, token_hash TEXT NOT NULL UNIQUE, category TEXT NOT NULL,
+ category_name TEXT NOT NULL DEFAULT '', store_id TEXT, max_photos INTEGER NOT NULL,
+ expires_at TEXT NOT NULL, revoked_at TEXT, created_by TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS management_dataset_images_author ON management_dataset_images(created_by);
 """

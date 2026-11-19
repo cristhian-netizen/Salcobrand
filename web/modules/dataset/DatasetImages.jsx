@@ -4,11 +4,11 @@
 // so iPhone/Samsung hand over HEIC/JPEG at sensor resolution and the server stores it verbatim.
 // Zero analysis: these uploads never touch the readings/engine pipeline.
 import {useRef, useState} from 'react';
-import {api} from '../../lib/sb';
-import {useApi, Header, Card, Loading, Empty, ErrorBox} from '../sb/ui';
+import {api, fmt} from '../../lib/sb';
+import {useApi, Header, Card, Loading, Empty, ErrorBox, Pill, Modal} from '../sb/ui';
 import Img from '../common/Img';
 import {imageUrl} from '../../lib/images.mjs';
-import {fmtMB, progressLabel, categorySummary, totalsOf, dimensionsLabel} from './dataset.mjs';
+import {fmtMB, progressLabel, categorySummary, totalsOf, dimensionsLabel, linkStatus} from './dataset.mjs';
 
 const enc = encodeURIComponent;
 
@@ -21,6 +21,9 @@ export default function DatasetImages({notify}) {
   const [progress, setProgress] = useState(null); // {done, total, bytes} while originals upload sequentially
   const cameraInput = useRef(null);
   const galleryInput = useRef(null);
+  const links = useApi(() => api('/api/admin/dataset/links'), []);
+  const [creatingLink, setCreatingLink] = useState(false);
+  const [createdUrl, setCreatedUrl] = useState(''); // the full URL exists only in this one response
 
   const cats = categories.data?.categories || [];
   const current = cats.find(c => c.slug === selected);
@@ -69,6 +72,15 @@ export default function DatasetImages({notify}) {
     } catch (e) { notify(e.message); }
   }
 
+  async function revokeLink(link) {
+    if (!window.confirm('¿Revocar este enlace? Quien lo tenga ya no podrá subir fotos y no se puede deshacer. Las fotos ya enviadas se conservan.')) return;
+    try {
+      await api('/api/admin/dataset/links/' + enc(link.id) + '/revocar', {method: 'POST'});
+      links.reload();
+      notify('Enlace revocado.');
+    } catch (e) { notify(e.message); }
+  }
+
   return <section>
     <Header eyebrow="Verificación interna" title="Dataset images"
       subtitle="Barrido nacional de fotos por categoría activa. Cada foto se guarda tal cual la entrega el teléfono: sin comprimir, sin redimensionar y sin ningún análisis.">
@@ -114,7 +126,67 @@ export default function DatasetImages({notify}) {
             </figcaption>
           </figure>)}</div>}
     </Card>}
+    <Card title="Enlaces de captura" subtitle="Enlaces sin usuario para que personal en terreno sume fotos a este mismo barrido desde su teléfono. Cada enlace fija la categoría y vence solo."
+      actions={<button className="action" type="button" disabled={!cats.some(c => c.active !== false)} onClick={() => setCreatingLink(true)}>Nuevo enlace</button>}>
+      <ErrorBox error={links.error} onRetry={links.reload}/>
+      {links.loading && !links.data ? <Loading text="Cargando enlaces…"/>
+        : !(links.data?.links || []).length ? <Empty>No hay enlaces de captura. Crea uno y compártelo por WhatsApp.</Empty>
+          : <div className="sb-table"><table><thead><tr><th>Categoría</th><th>PDV</th><th className="sb-num">Fotos</th><th>Vence</th><th>Estado</th><th></th></tr></thead><tbody>
+            {(links.data?.links || []).map(link => {
+              const [kind, label] = linkStatus(link);
+              return <tr key={link.id}>
+                <td><b>{link.category_name}</b><small>Creado {fmt.date(link.created_at)}</small></td>
+                <td>{link.store_id || '—'}</td>
+                <td className="sb-num">{link.photos} / {link.max_photos}</td>
+                <td>{fmt.date(link.expires_at)}</td>
+                <td><Pill kind={kind}>{label}</Pill></td>
+                <td className="sb-actions">{!link.revoked_at && <button type="button" onClick={() => revokeLink(link)}>Revocar</button>}</td>
+              </tr>;
+            })}
+          </tbody></table></div>}
+    </Card>
+    {creatingLink && <CreateLink cats={cats.filter(c => c.active !== false)} stores={stores.data || []}
+      onClose={() => setCreatingLink(false)}
+      onCreated={link => { setCreatingLink(false); setCreatedUrl(link.url); links.reload(); }}/>}
+    {createdUrl && <Modal title="Enlace creado" onClose={() => setCreatedUrl('')}>
+      {/* The server kept only a hash: this is the ONLY moment the URL can be copied. */}
+      <p>Comparte este enlace por WhatsApp con quien tomará las fotos. Por seguridad no se volverá a mostrar: cópialo ahora.</p>
+      <p className="sb-dataset-link-url"><code>{createdUrl}</code></p>
+      <div className="sb-actions">
+        <button type="button" onClick={() => setCreatedUrl('')}>Cerrar</button>
+        <button className="action" type="button" onClick={() => navigator.clipboard?.writeText(createdUrl).then(() => notify('Enlace copiado.'))}>Copiar enlace</button>
+      </div>
+    </Modal>}
     <input ref={cameraInput} type="file" accept="image/*" capture="environment" multiple hidden onChange={e => send(e.target)}/>
     <input ref={galleryInput} type="file" accept="image/*" multiple hidden onChange={e => send(e.target)}/>
   </section>;
+}
+
+function CreateLink({cats, stores, onClose, onCreated}) {
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  async function submit(e) {
+    e.preventDefault(); setBusy(true); setError('');
+    const f = new FormData(e.currentTarget);
+    const body = {category: String(f.get('category')), days: Number(f.get('days')) || 14, max_photos: Number(f.get('max_photos')) || 500};
+    const store = String(f.get('store_id') || '').trim();
+    if (store) body.store_id = store;
+    try { onCreated(await api('/api/admin/dataset/links', {method: 'POST', body})); }
+    catch (err) { setError(err.message); setBusy(false); }
+  }
+  return <Modal title="Nuevo enlace de captura" onClose={onClose}>
+    {error && <div className="sb-error" role="alert">{error}</div>}
+    <form className="sb-form" onSubmit={submit}>
+      <label>Categoría<select name="category" required defaultValue={cats[0]?.slug}>
+        {cats.map(c => <option key={c.slug} value={c.slug}>{c.name}</option>)}
+      </select></label>
+      <label>PDV de origen (opcional)<select name="store_id" defaultValue="">
+        <option value="">—</option>
+        {stores.map(s => <option key={s.code} value={s.code}>{s.code} · {s.name}</option>)}
+      </select></label>
+      <label>Vence en (días)<input name="days" type="number" min="1" max="60" defaultValue="14"/></label>
+      <label>Máximo de fotos<input name="max_photos" type="number" min="1" max="5000" defaultValue="500"/></label>
+      <div className="sb-actions"><button type="button" onClick={onClose}>Cancelar</button><button disabled={busy}>{busy ? 'Creando…' : 'Crear enlace'}</button></div>
+    </form>
+  </Modal>;
 }

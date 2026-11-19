@@ -50,6 +50,9 @@ KEEP_TABLES = (
     "management_kilby_products",
     # Dataset sweeps are valuable raw data (original nationwide photos): rows and files survive.
     "management_dataset_images",
+    # Dataset capture links are kept like capture_links: shared URLs must survive a wipe, and the
+    # photos they attribute (created_by = "link:<id-prefix>") are KEEP rows themselves.
+    "management_dataset_links",
 )
 # pgcompat.SERIAL_TABLES minus planogram_items (kept): the ids of wiped tables restart from 1,
 # the same way migrate_from_sqlite leaves the sequences of the rows it copies.

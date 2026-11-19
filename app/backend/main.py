@@ -264,6 +264,9 @@ import training_api
 app.include_router(training_api.router(require_training, require_internal))
 import dataset_api
 app.include_router(dataset_api.router(require_training, require_training_image))
+import dataset_links
+app.include_router(dataset_links.admin_router(require_training))
+app.include_router(dataset_links.public_router())  # token-only: fotos de terreno sin cuenta
 app.include_router(catalog_api.router(require_admin))
 
 

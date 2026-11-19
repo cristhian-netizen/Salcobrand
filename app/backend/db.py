@@ -1462,9 +1462,12 @@ def compute_planogram_compliance(planogram_id: str, products: list, planogram: d
     Compara los productos detectados por la IA contra las posiciones esperadas del
     planograma asignado a este punto. Algoritmo:
 
-    1. Cada producto detectado se compara (similitud de tokens del nombre/marca) contra
-       las posiciones del planograma, priorizando las de su mismo nivel/banda detectado.
-    2. Se asigna en forma greedy (mayor puntaje primero) 1 producto <-> 1 posición.
+    1. Primero por CÓDIGO EXACTO: el sku que entrega el análisis (Kilby/engine) contra el
+       código interno o el código de barras de la posición. Un calce por código vale 1.0 y
+       no depende del nombre ni de la banda.
+    2. Lo que queda se compara por similitud de tokens del nombre/marca contra las
+       posiciones libres, priorizando las de su mismo nivel/banda detectado, y se asigna
+       en forma greedy (mayor puntaje primero) 1 producto <-> 1 posición.
     3. Cada posición asignada compara caras detectadas vs. esperadas -> ok / low / missing.
     4. Un "quiebre" (hueco vacío marcado por la IA) fuerza caras detectadas = 0 aunque
        la IA haya reportado un número, porque el hueco es evidencia directa de faltante.
@@ -1486,8 +1489,38 @@ def compute_planogram_compliance(planogram_id: str, products: list, planogram: d
         name = f"{p.get('product') or ''} {p.get('brand') or ''}"
         prod_tokens.append(_tokenize(name))
 
+    matched_item_for_product = {}
+    matched_product_for_item = {}
+    best_score_for_product = {}
+
+    # Paso 1: código exacto (sku del análisis vs código interno / código de barras de la posición).
+    def _norm_code(value):
+        text = str(value or "").strip()
+        return text.lstrip("0") or text if text else ""
+
+    items_by_code = {}
+    for ii, it in enumerate(items):
+        for raw in (it.get("internal_code"), it.get("barcode")):
+            code = _norm_code(raw)
+            if code:
+                items_by_code.setdefault(code, []).append(ii)
+    for pi, p in enumerate(products):
+        for raw in (p.get("sku"), p.get("barcode")):
+            code = _norm_code(raw)
+            if not code or pi in matched_item_for_product:
+                continue
+            for ii in items_by_code.get(code, ()):
+                if ii not in matched_product_for_item:
+                    matched_item_for_product[pi] = ii
+                    matched_product_for_item[ii] = pi
+                    best_score_for_product[pi] = 1.0
+                    break
+
+    # Paso 2: similitud de nombres para lo no calzado por código.
     pairs = []
     for pi, p in enumerate(products):
+        if pi in matched_item_for_product:
+            continue
         shelf_level = p.get("shelf_level")
         for ii, it in enumerate(items):
             score = _jaccard(prod_tokens[pi], item_tokens[ii])
@@ -1498,9 +1531,6 @@ def compute_planogram_compliance(planogram_id: str, products: list, planogram: d
             pairs.append((combined, score, pi, ii))
 
     pairs.sort(key=lambda x: -x[0])
-    matched_item_for_product = {}
-    matched_product_for_item = {}
-    best_score_for_product = {}
     for combined, raw_score, pi, ii in pairs:
         best_score_for_product[pi] = max(best_score_for_product.get(pi, 0.0), raw_score)
         if combined < MATCH_THRESHOLD:

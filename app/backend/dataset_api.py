@@ -99,7 +99,8 @@ def _counts(conn):
     """{category: {count, bytes}} of everything stored."""
     rows = conn.execute("SELECT category, COUNT(*) AS n, COALESCE(SUM(bytes), 0) AS total "
                         "FROM management_dataset_images GROUP BY category").fetchall()
-    return {row["category"]: {"count": row["n"], "bytes": row["total"]} for row in rows}
+    # int(): under Postgres SUM() comes back as Decimal, which json rejects (SQLite returns int).
+    return {row["category"]: {"count": int(row["n"]), "bytes": int(row["total"])} for row in rows}
 
 
 def _serialize(row) -> dict:

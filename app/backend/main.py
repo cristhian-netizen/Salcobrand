@@ -224,11 +224,27 @@ require_dashboard = permission("dashboard")
 require_resolve = permission("resolve")
 
 
-def require_training_image(user: dict = Depends(require_image_user)) -> dict:
-    """Dataset photo URLs authenticate like other images (HttpOnly cookie, any tab) but stay provider-only."""
-    if not profiles.can(user, "train"):
+def require_training_image(request: Request) -> dict:
+    """Dataset photo URLs authenticate like other images (HttpOnly cookie, any tab) but stay provider-only.
+    The browser holds one session per profile tab, and an <img> sends them all without choosing: the first
+    cookie is not the verdict. Any of the browser's valid sessions that may train lets the photo load; with
+    sessions but none that trains it is the profile refusal, and with no session at all it is 401."""
+    if request.headers.get('x-portal-session') is not None or request.query_params.get('portal_session') is not None:
+        user = require_user(request)
+        if not profiles.can(user, "train"):
+            raise HTTPException(status_code=403, detail="Tu perfil no permite esta acción")
+        return user
+    any_session = False
+    for name in _image_cookie_names(request):
+        username = auth.verify_session_token(request.cookies.get(name) or '')
+        if username:
+            any_session = True
+            user = _portal_user(_account_state(username, request))
+            if profiles.can(user, "train"):
+                return user
+    if any_session:
         raise HTTPException(status_code=403, detail="Tu perfil no permite esta acción")
-    return user
+    raise HTTPException(status_code=401, detail="Sesión inválida o expirada")
 
 
 def require_staff(user: dict = Depends(require_user)) -> dict:

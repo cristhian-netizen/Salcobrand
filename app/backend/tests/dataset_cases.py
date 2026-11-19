@@ -219,3 +219,22 @@ class DatasetCases:
         self.assertIn("catálogo configurado", fallback["warning"])
         allowed = self.dataset_upload(trainer, [("files", ("a.jpg", image_bytes("JPEG"), "image/jpeg"))])
         self.assertEqual(allowed.status_code, 201, allowed.text)
+
+    def test_dataset_file_loads_when_any_browser_session_can_train(self):
+        """El navegador real guarda una sesión por pestaña: la legacy puede ser de un perfil sin
+        entrenamiento y la de otra pestaña de local-neura. La foto carga si ALGUNA puede entrenar;
+        con sesiones pero ninguna entrenadora es el rechazo de perfil, no un 401."""
+        self.dataset_env()
+        up = self.dataset_upload(self.trainer(), [("files", ("a.jpg", image_bytes("JPEG"), "image/jpeg"))])
+        self.assertEqual(up.status_code, 201, up.text)
+        image_id = up.json()["created"][0]["id"]
+        url = f"/api/admin/dataset/images/{image_id}/file"
+
+        mixed = self.client(None)
+        mixed.cookies.set(self.auth.SESSION_COOKIE, self.auth.create_session_token("admin"))
+        mixed.cookies.set(self.auth.SESSION_COOKIE + "_" + "ab" * 16,
+                          self.auth.create_session_token("local-neura"))
+        self.assertEqual(mixed.get(url).status_code, 200)
+
+        admin_only = self.client("admin")
+        self.assertEqual(admin_only.get(url).status_code, 403)

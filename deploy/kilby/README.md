@@ -155,3 +155,13 @@ caras e incertidumbre; después presenta hallazgos, fotos y tablas. La revisión
 queda al final y mantiene sus permisos originales. Mediciones abre el mismo
 modal que Inicio/Alertas/Dashboards, sin perder los filtros al cerrarlo. Los
 enlaces directos anteriores siguen usando el mismo detalle compartido.
+
+
+## Desglose del puntaje de exhibicion
+
+La respuesta de cada lectura incluye standards.breakdown, calculado en el backend
+con los mismos valores y pesos que overall_score. Expone componentes, entradas,
+pesos base/efectivos, aportes, valor previo al redondeo y rangos de clasificacion.
+Los componentes sin datos se excluyen; los ceros participan. La interfaz compartida
+de Escanear y Mediciones muestra el desglose sin recalcular el puntaje ni alterar
+las detecciones. La confianza y el cumplimiento de planograma se explican aparte.

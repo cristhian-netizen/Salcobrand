@@ -122,3 +122,43 @@ class SettingsCases:
         self.assertEqual(second['capacity']['products'][0]['maximumUnits'], 12)
         self.assertEqual(first['products'], second['products'])
         self.assertEqual(first['standards']['overall_score'], second['standards']['overall_score'])
+
+    def test_score_breakdown_normalizes_missing_components_and_keeps_zero(self):
+        products=[{'shelf_level':1,'category':'A','facings':10},{'shelf_level':2,'category':'B','facings':15}]
+        score=self.db.compute_shelf_standards(products,30)
+        self.assertEqual(score['overall_score'],81)
+        detail=score['breakdown'];self.assertEqual(detail['unrounded_score'],81.25)
+        self.assertEqual(detail['weighted_sum'],65)
+        self.assertEqual(detail['available_weight_pct'],80)
+        rows={r['key']:r for r in detail['components']}
+        self.assertEqual(rows['stock']['effective_weight_pct'],43.75)
+        self.assertEqual(rows['space']['contribution'],12.5)
+        self.assertIsNone(rows['price']['score']);self.assertIsNone(rows['price']['contribution'])
+        self.assertEqual(rows['price']['effective_weight_pct'],0)
+        self.assertEqual(rows['organization']['inputs']['dominant_faces'],25)
+        self.assertEqual(sum(r['contribution'] or 0 for r in rows.values()),81.25)
+        for p in products:p['price_tag_visible']=False
+        zero=self.db.compute_shelf_standards(products,30)
+        self.assertEqual(zero['overall_score'],65)
+        self.assertEqual(zero['breakdown']['available_weight_pct'],100)
+        price=next(r for r in zero['breakdown']['components'] if r['key']=='price')
+        self.assertEqual(price['score'],0);self.assertEqual(price['effective_weight_pct'],20)
+        self.assertEqual(price['inputs'],{'visible':0,'evaluated':2})
+
+    def test_score_breakdown_handles_no_data_partial_data_and_weighted_levels(self):
+        empty=self.db.compute_shelf_standards([],None)
+        self.assertIsNone(empty['overall_score']);self.assertIsNone(empty['breakdown']['unrounded_score'])
+        self.assertEqual(empty['breakdown']['available_weight_pct'],0)
+        self.assertTrue(all(r['contribution'] is None for r in empty['breakdown']['components']))
+        partial=self.db.compute_shelf_standards([{}],None)
+        self.assertEqual(partial['overall_score'],100)
+        self.assertEqual(partial['breakdown']['available_weight_pct'],35)
+        self.assertEqual(partial['breakdown']['components'][0]['effective_weight_pct'],100)
+        products=[{'shelf_level':1,'category':'A','facings':3},{'shelf_level':1,'category':'B','facings':1},
+                  {'shelf_level':2,'category':'A','facings':1},{'shelf_level':2,'category':'B','facings':1}]
+        score=self.db.compute_shelf_standards(products,150)
+        self.assertEqual(score['space_score'],0)
+        self.assertEqual(score['organization_score'],67)
+        row=next(r for r in score['breakdown']['components'] if r['key']=='organization')
+        self.assertEqual(row['inputs']['dominant_faces'],4);self.assertEqual(row['inputs']['faces'],6)
+        self.assertEqual(len(row['inputs']['levels']),2)

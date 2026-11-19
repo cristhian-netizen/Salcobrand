@@ -7,6 +7,7 @@ import {api, fmt, download} from '../../lib/sb';
 import {can} from '../../lib/profiles.mjs';
 import {Card, Metric, StatusPill, Pill, Empty} from './ui';
 import MeasurementReview from './MeasurementReview';
+import ScoreBreakdown from '../measurement-details/ScoreBreakdown';
 
 const clp = v => typeof v === 'number' ? '$' + Math.round(v).toLocaleString('es-CL') : '—';
 const BOX = {ok: '#12b76a', match: '#12b76a', confirmed: '#12b76a', low: '#f79009', unmatched: '#f79009', unreadable: '#f79009', missing: '#f04438', gap: '#f04438', foreign: '#6172f3'};
@@ -50,12 +51,13 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo, show
     <div className="sb-metrics reading-summary" aria-label="Métricas de la medición">
       <article className="sb-metric"><span>Puntaje de exhibición</span>
         <div className="sb-score" style={{marginTop: 8}}><div className="ring" style={{'--p': s.overall_score ?? 0, '--c': s.grade_color || 'var(--nv-primary)'}}><span>{s.overall_score ?? '—'}</span></div>
-          <div><strong style={{fontSize: 20, margin: 0}}>{s.grade || 'Sin dato'}</strong><small>Stock {s.stock_score ?? '—'} · Espacio {s.space_score ?? '—'} · Orden {s.organization_score ?? '—'}</small></div></div>
+          <div><strong style={{fontSize: 20, margin: 0}}>{s.grade || 'Sin dato'}</strong><small>Stock {s.stock_score ?? '—'} · Espacio {s.space_score ?? '—'} · Precios {s.price_score ?? 'Sin evaluar'} · Orden {s.organization_score ?? '—'}</small></div></div>
       </article>
       <Metric label="Cumplimiento de planograma" value={c ? fmt.pct(c.compliance_pct) : '—'} hint={planHint}/>
       <Metric label="Caras detectadas" value={fmt.num(reading.total_facings)} hint={`${reading.shelf_levels_detected ?? '—'} niveles · espacio vacío ${fmt.pct(reading.empty_space_pct)}`}/>
       <Metric label="Detecciones inciertas" value={fmt.num(reading.needs_review)} hint={c ? `Impacto estimado ${clp(c.impact_clp)}` : 'Recortes dudosos del motor'}/>
     </div>
+    <ScoreBreakdown reading={reading}/>
     {s.findings?.length > 0 && <Card title="Hallazgos"><ul className="sb-findings">{s.findings.map((f, i) => <li key={i}>{f}</li>)}</ul></Card>}
     <Card className="measurement-photos" title={`Fotos (${reading.image_urls?.length || 0})`} subtitle="Verde: correcto · Naranjo: bajo lo esperado o sin identificar · Rojo: falta · Azul: fuera de planograma.">
       <div className="sb-photos">{(reading.image_urls || []).map((url, i) => <Photo key={url} url={url} index={i} engineImage={images[i]} products={products}/>)}</div>

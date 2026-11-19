@@ -1370,6 +1370,7 @@ def compute_shelf_standards(products: list, empty_space_pct) -> dict:
         cats[p.get("category") or "—"] = cats.get(p.get("category") or "—", 0) + facings
 
     organization_score = None
+    organization_levels = []
     if by_level:
         level_scores = []
         level_weights = []
@@ -1378,6 +1379,7 @@ def compute_shelf_standards(products: list, empty_space_pct) -> dict:
             if not total:
                 continue
             dominant = max(cats.values())
+            organization_levels.append({"level": level, "faces": total, "dominant_faces": dominant})
             level_scores.append(dominant / total)
             level_weights.append(total)
         if level_scores:
@@ -1386,11 +1388,30 @@ def compute_shelf_standards(products: list, empty_space_pct) -> dict:
 
     sub_scores = {"stock": stock_score, "space": space_score, "price": price_score, "organization": organization_score}
     available = {k: v for k, v in sub_scores.items() if v is not None}
+    weight_sum = sum(STANDARDS_WEIGHTS[k] for k in available)
     if available:
-        weight_sum = sum(STANDARDS_WEIGHTS[k] for k in available)
         overall_score = round(sum(v * STANDARDS_WEIGHTS[k] for k, v in available.items()) / weight_sum)
     else:
         overall_score = None
+
+    inputs = {
+        "stock": {"total": total_products, "missing": out_of_stock_count},
+        "space": {"empty_pct": empty_space_pct, "penalty_per_pct": 2},
+        "price": {"evaluated": len(price_evaluated), "visible": price_visible_count},
+        "organization": {"levels": organization_levels, "faces": sum(item["faces"] for item in organization_levels),
+                         "dominant_faces": sum(item["dominant_faces"] for item in organization_levels)},
+    }
+    breakdown = {
+        "components": [{"key": key, "score": value, "base_weight_pct": STANDARDS_WEIGHTS[key] * 100,
+                        "effective_weight_pct": round(STANDARDS_WEIGHTS[key] / weight_sum * 100, 6) if value is not None else 0,
+                        "contribution": round(value * STANDARDS_WEIGHTS[key] / weight_sum, 6) if value is not None else None,
+                        "inputs": inputs[key]} for key, value in sub_scores.items()],
+        "available_weight_pct": round(weight_sum * 100, 6),
+        "weighted_sum": round(sum(value * STANDARDS_WEIGHTS[key] for key, value in available.items()), 6),
+        "unrounded_score": round(sum(value * STANDARDS_WEIGHTS[key] for key, value in available.items()) / weight_sum, 6) if available else None,
+        "rounding": "nearest_integer_ties_to_even",
+        "grade_ranges": [{"minimum": threshold, "label": label} for threshold, label, _ in STANDARDS_GRADES],
+    }
 
     findings = []
     if out_of_stock_count:
@@ -1422,6 +1443,7 @@ def compute_shelf_standards(products: list, empty_space_pct) -> dict:
         "space_score": space_score,
         "price_score": price_score,
         "organization_score": organization_score,
+        "breakdown": breakdown,
         "out_of_stock_count": out_of_stock_count,
         "total_products": total_products,
         "price_tag_evaluated": len(price_evaluated),

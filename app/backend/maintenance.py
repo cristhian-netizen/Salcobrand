@@ -48,6 +48,8 @@ KEEP_TABLES = (
     "management_assignments", "management_instances", "management_events",
     "management_plan_scope_state", "management_plan_scopes", "management_integrations",
     "management_kilby_products",
+    # Dataset sweeps are valuable raw data (original nationwide photos): rows and files survive.
+    "management_dataset_images",
 )
 # pgcompat.SERIAL_TABLES minus planogram_items (kept): the ids of wiped tables restart from 1,
 # the same way migrate_from_sqlite leaves the sequences of the rows it copies.
@@ -55,6 +57,7 @@ RESET_SEQUENCES = ("readings", "stock_actions", "supplier_stockouts", "shadow_ru
 # DATA_DIR folders holding only operational files: uploads (storage.LOCAL_DIR: reading photos,
 # capturas/, vivo/ and the _training/ crops), kilby-crops (kilby_model) and thumbs (image_cache).
 # The folders themselves stay; data.db, secret.key and registration_code are never touched.
+# dataset/ (dataset_api originals) must NEVER be listed here: it mirrors KEEP_TABLES above.
 WIPE_DIRS = ("uploads", "kilby-crops", "thumbs")
 
 

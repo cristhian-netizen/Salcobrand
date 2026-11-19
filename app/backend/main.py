@@ -224,6 +224,13 @@ require_dashboard = permission("dashboard")
 require_resolve = permission("resolve")
 
 
+def require_training_image(user: dict = Depends(require_image_user)) -> dict:
+    """Dataset photo URLs authenticate like other images (HttpOnly cookie, any tab) but stay provider-only."""
+    if not profiles.can(user, "train"):
+        raise HTTPException(status_code=403, detail="Tu perfil no permite esta acción")
+    return user
+
+
 def require_staff(user: dict = Depends(require_user)) -> dict:
     """Configuration and capture links belong to Administrador only."""
     if not profiles.can(user, "manage"):
@@ -255,6 +262,8 @@ import client_console_api
 app.include_router(client_console_api.router(require_internal))
 import training_api
 app.include_router(training_api.router(require_training, require_internal))
+import dataset_api
+app.include_router(dataset_api.router(require_training, require_training_image))
 app.include_router(catalog_api.router(require_admin))
 
 

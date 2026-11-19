@@ -4,5 +4,7 @@ __pycache__/
 .venv/
 data.db
 uploads/
+dataset/
+thumbs/
 secret.key
 .DS_Store

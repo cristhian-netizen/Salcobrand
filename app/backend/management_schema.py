@@ -111,4 +111,10 @@ CREATE TABLE IF NOT EXISTS management_kilby_trainings (
  id TEXT PRIMARY KEY, catalog TEXT NOT NULL, status TEXT NOT NULL, data_json TEXT NOT NULL,
  started_by TEXT NOT NULL, started_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS management_dataset_images (
+ id TEXT PRIMARY KEY, category TEXT NOT NULL, store_id TEXT, path TEXT NOT NULL,
+ bytes BIGINT NOT NULL, mime TEXT NOT NULL, width INTEGER, height INTEGER,
+ created_by TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS management_dataset_category ON management_dataset_images(category, created_at);
 """

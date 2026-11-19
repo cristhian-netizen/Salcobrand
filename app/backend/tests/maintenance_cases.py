@@ -68,6 +68,8 @@ class MaintenanceCases:
             conn.execute("INSERT INTO management_clients (id,slug,name,tenant_json,model_json,updated_at) "
                          "VALUES ('cl-1','salcobrand','Salcobrand','{}','{}',?)", (now,))
             conn.execute("INSERT INTO management_planograms (id,data_json,updated_at) VALUES ('mp-1','{}',?)", (now,))
+            conn.execute("INSERT INTO management_dataset_images (id,category,store_id,path,bytes,mime,created_by,created_at) "
+                         "VALUES ('ds-keep','salud-sexual','L128','dataset/salud-sexual/ds-keep.heic',12,'image/heic','local-neura',?)", (now,))
 
     def table_counts(self, tables):
         with self.db.get_conn() as conn:
@@ -139,6 +141,9 @@ class MaintenanceCases:
         for path in inside:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b"test-bytes")
+        sweep = data_dir / "dataset" / "salud-sexual" / "ds-keep.heic"  # original dataset photos survive the wipe
+        sweep.parent.mkdir(parents=True, exist_ok=True)
+        sweep.write_bytes(b"original-heic-bytes")
         keeper = data_dir / "registration_code"
         keeper.write_text("INVITE")
         self.addCleanup(keeper.unlink)
@@ -155,6 +160,7 @@ class MaintenanceCases:
         self.assertEqual(result["files"], {"uploads": 3, "kilby-crops": 1, "thumbs": 0})
         for path in inside:
             self.assertFalse(path.exists(), path)
+        self.assertEqual(sweep.read_bytes(), b"original-heic-bytes")
         self.assertTrue((data_dir / "uploads").is_dir())  # the folders stay, only their contents leave
         self.assertTrue((data_dir / "kilby-crops").is_dir())
         self.assertEqual(protected.read_bytes(), b"outside-data-dir")
@@ -171,6 +177,9 @@ class MaintenanceCases:
         self.assertEqual(set(maintenance.WIPE_TABLES) | set(maintenance.KEEP_TABLES), set(pgcompat.TABLE_ORDER))
         self.assertEqual(set(maintenance.WIPE_TABLES) & set(maintenance.KEEP_TABLES), set())
         self.assertEqual(set(maintenance.RESET_SEQUENCES), set(pgcompat.SERIAL_TABLES) & set(maintenance.WIPE_TABLES))
+        # Dataset sweeps are valuable raw data: the table is KEEP and the files folder is never wiped.
+        self.assertIn("management_dataset_images", maintenance.KEEP_TABLES)
+        self.assertNotIn("dataset", maintenance.WIPE_DIRS)
 
     def test_wipe_runs_the_postgres_statements_in_one_transaction(self):
         """The Postgres layer gets the advisory lock, the sequence resets and the meta upsert in

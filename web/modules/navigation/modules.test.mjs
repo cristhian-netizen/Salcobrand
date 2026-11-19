@@ -5,12 +5,12 @@ const visible=role=>GROUPS.flatMap(([,ids])=>ids.filter(id=>visibleInSidebar(id,
 test('customer sidebar preserves business modules and hides internal verification',()=>{
  for(const role of ['admin','analyst','replenisher','viewer']){
   const ids=visible(role);
-  for(const id of ['revision','gondolas','enlaces','cuenta'])assert(!ids.includes(id),role+':'+id);
-  assert(allowed('cuenta',role));assert(allowed('gondolas',role));assert(!allowed('revision',role));
+  for(const id of ['revision','dataset','gondolas','enlaces','cuenta'])assert(!ids.includes(id),role+':'+id);
+  assert(allowed('cuenta',role));assert(allowed('gondolas',role));assert(!allowed('revision',role));assert(!allowed('dataset',role));
  }
  assert(!visible('admin').includes('dashboards'));
  assert(visible('analyst').includes('mediciones'));assert(visible('viewer').includes('uso-analisis'));
- assert.deepEqual(visible('local-neura'),['revision']);
+ assert.deepEqual(visible('local-neura'),['revision','dataset']);
 });
 test('APIs moves into admin settings while viewer retains read-only navigation',()=>{
  const admin=GROUPS.find(([name])=>name==='Administración')[1];

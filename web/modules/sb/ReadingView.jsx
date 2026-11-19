@@ -51,7 +51,9 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo, show
     <div className="sb-metrics reading-summary" aria-label="Métricas de la medición">
       <article className="sb-metric"><span>Puntaje de exhibición</span>
         <div className="sb-score" style={{marginTop: 8}}><div className="ring" style={{'--p': s.overall_score ?? 0, '--c': s.grade_color || 'var(--nv-primary)'}}><span>{s.overall_score ?? '—'}</span></div>
-          <div><strong style={{fontSize: 20, margin: 0}}>{s.grade || 'Sin dato'}</strong><small>Stock {s.stock_score ?? '—'} · Espacio {s.space_score ?? '—'} · Precios {s.price_score ?? 'Sin evaluar'} · Orden {s.organization_score ?? '—'}</small></div></div>
+          <div className="reading-score-text"><strong style={{fontSize: 20, margin: 0}}>{s.grade || 'Sin dato'}</strong>
+            <dl className="reading-score-components">{[['Stock',s.stock_score],['Espacio',s.space_score],['Precios',s.price_score],['Orden',s.organization_score]].map(([label,value]) => <div key={label}><dt>{label}</dt><dd>{value ?? 'Sin evaluar'}</dd></div>)}</dl>
+          </div></div>
       </article>
       <Metric label="Cumplimiento de planograma" value={c ? fmt.pct(c.compliance_pct) : '—'} hint={planHint}/>
       <Metric label="Caras detectadas" value={fmt.num(reading.total_facings)} hint={`${reading.shelf_levels_detected ?? '—'} niveles · espacio vacío ${fmt.pct(reading.empty_space_pct)}`}/>

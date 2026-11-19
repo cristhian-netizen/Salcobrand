@@ -1,5 +1,4 @@
 'use client';
-import {Card} from '../sb/ui';
 
 const number = value => typeof value === 'number' ? value.toLocaleString('es-CL', {maximumFractionDigits: 4}) : 'Sin evaluar';
 const NAMES = {stock: 'Stock observado', space: 'Espacio ocupado', price: 'Rótulos de precio', organization: 'Orden por categoría'};
@@ -23,7 +22,10 @@ export default function ScoreBreakdown({reading}) {
   if (!detail) return null;
   const evaluated = detail.components.filter(item => item.score != null);
   const expression = evaluated.map(item => `${number(item.score)} × ${number(item.base_weight_pct)} %`).join(' + ');
-  return <Card className="score-breakdown" title={`Cómo se obtiene el puntaje ${number(standards.overall_score)}`} subtitle="Puntaje de exhibición de 0 a 100. No representa la precisión del reconocimiento ni el porcentaje de cumplimiento del planograma.">
+  return <details className="score-breakdown sb-card nv-plain">
+    <summary className="score-breakdown-summary">Cómo se obtiene el puntaje {number(standards.overall_score)}</summary>
+    <div className="sb-card-body">
+    <p className="sb-hint">Puntaje de exhibición de 0 a 100. No representa la precisión del reconocimiento ni el porcentaje de cumplimiento del planograma.</p>
     {evaluated.length ? <div className="score-calculation" aria-label="Cálculo del puntaje">
       <p><strong>({expression}) ÷ {number(detail.available_weight_pct)} % = {number(detail.unrounded_score)} → {number(standards.overall_score)} puntos.</strong></p>
       <p>{detail.available_weight_pct < 100 ? `Hay datos para componentes que suman ${number(detail.available_weight_pct)} % del peso base. Sus pesos se redistribuyen proporcionalmente hasta sumar 100 %.` : 'Se utilizan los cuatro componentes con sus pesos base.'} El resultado se redondea al entero más cercano; si termina exactamente en ,5, se elige el entero par.</p>
@@ -43,5 +45,6 @@ export default function ScoreBreakdown({reading}) {
       <dt>Caras detectadas</dt><dd>Frentes visibles de productos estimados en las fotos. No son unidades totales en profundidad ni cantidad de productos diferentes.</dd>
       <dt>Detecciones inciertas</dt><dd>{number(reading.needs_review)} registros señalados por el motor para verificación. No se descuentan directamente del puntaje: un puntaje alto puede coexistir con muchas detecciones inciertas.</dd>
     </dl></details>
-  </Card>;
+    </div>
+  </details>;
 }

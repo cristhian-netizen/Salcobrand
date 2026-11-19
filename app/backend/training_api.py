@@ -80,6 +80,10 @@ class Account(BaseModel):
     password: str = Field(min_length=4,max_length=512)
 
 
+class KilbyTrain(BaseModel):
+    catalog: str = Field(default='',max_length=80)  # required (409) when the workspace has several catalogs
+
+
 def router(require_training, require_internal):
     api=APIRouter(prefix='/api/internal/training',tags=['Verificación interna para entrenamiento'])
     @api.post('/accounts')
@@ -141,9 +145,9 @@ def router(require_training, require_internal):
         return {**kilby_call(kilby_catalog.drain),'marked':marked}
 
     @api.post('/kilby/trainings',status_code=202)
-    def kilby_train(user=Depends(require_training)):
+    def kilby_train(payload:KilbyTrain=None,user=Depends(require_training)):
         import kilby_catalog
-        return kilby_call(kilby_catalog.start_training,user['username'])
+        return kilby_call(kilby_catalog.start_training,user['username'],(payload.catalog if payload else '').strip() or None)
 
     @api.get('/kilby/trainings/{training_id}')
     def kilby_training(training_id:str,user=Depends(require_training)):
@@ -151,7 +155,7 @@ def router(require_training, require_internal):
         return kilby_call(kilby_catalog.training_status,training_id)
 
     @api.post('/kilby/versions/{version}/publish')
-    def kilby_publish(version:str,user=Depends(require_training)):
+    def kilby_publish(version:str,catalog:str=None,user=Depends(require_training)):
         import kilby_catalog
-        return kilby_call(kilby_catalog.publish,version,user['username'])
+        return kilby_call(kilby_catalog.publish,version,user['username'],catalog)
     return api

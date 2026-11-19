@@ -207,6 +207,8 @@ def init_db(role: str = None):
             "ALTER TABLE users ADD COLUMN store_id TEXT",
             "ALTER TABLE users ADD COLUMN store_name TEXT",
             "ALTER TABLE users ADD COLUMN store_ids_json TEXT",
+            # multi-catalog (nov-2026): the Kilby catalog each product was/will be sent to
+            "ALTER TABLE management_kilby_products ADD COLUMN catalog TEXT",
             # captura por enlace (8-nov-2026): enlace universal (lista de locales) y tipo de foto (góndola / producto)
             "ALTER TABLE capture_links ADD COLUMN locales_json TEXT",
             "ALTER TABLE captures ADD COLUMN tipo TEXT",

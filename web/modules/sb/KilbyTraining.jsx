@@ -7,7 +7,7 @@ import {Card, Loading, ErrorBox, Pill} from './ui';
 
 const pct = v => (typeof v === 'number' ? `${(v * 100).toLocaleString('es-CL', {maximumFractionDigits: 1})} %` : '—');
 const STATUS = {queued: 'En cola', running: 'Entrenando', done: 'Terminado', failed: 'Falló'};
-const SKIPPED = {sin_job_kilby: 'lecturas anteriores a Kilby', sin_sku: 'sin SKU en el maestro', ajeno: 'productos ajenos'};
+const SKIPPED = {sin_job_kilby: 'lecturas anteriores a Kilby', sin_sku: 'sin SKU en el maestro', ajeno: 'productos ajenos', no_identificable: 'no identificables'};
 
 function Training({training, onPublish, busy}) {
   const m = training.metrics || {}, b = training.baseline || {};

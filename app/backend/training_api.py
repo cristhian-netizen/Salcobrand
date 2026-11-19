@@ -46,8 +46,10 @@ def pending():
     return result
 
 
-def save_label(reading, image_index, item_index, title, facings, actor):
+def save_label(reading, image_index, item_index, title, facings, actor, verdict=None, reason=None):
     title = _text(title or '', 'Producto verificado',180)
+    if verdict == 'no_identificable':
+        title = ''  # resolved without a product: not a training label and not a foreign product
     if facings is not None and (type(facings) is not int or not 0 <= facings <= 5000):
         raise ManagementError('Las caras deben ser un entero entre 0 y 5.000.')
     target = next((p for p in reading['products'] if p.get('image_index')==image_index and p.get('item_index')==item_index),None)
@@ -62,13 +64,13 @@ def save_label(reading, image_index, item_index, title, facings, actor):
             old = conn.execute('SELECT id,data_json FROM management_training_labels WHERE reading_id=? AND image_index=? AND item_index=?',(reading['id'],image_index,item_index)).fetchone()
             if old:
                 values = json.loads(old['data_json'])
-                if values['title'] != title or values['facings'] != facings:
+                if values['title'] != title or values['facings'] != facings or values.get('verdict') != verdict or values.get('reason') != reason:
                     raise ManagementError('Este producto ya fue verificado. Actualiza la lista.',409)
                 return {'ok':True,'label_id':old['id'],'training_only':True}
             crop = core.crop_jpeg(reading,image_index,item_index)
             storage.put(path,crop,'image/jpeg');stored=True
             values = {'reading_id':reading['id'],'point_id':reading['point_id'],'image_index':image_index,'item_index':item_index,
-                      'title':title,'facings':facings,'original_product':target,'planogram_id':reading.get('planogram_id'),
+                      'title':title,'facings':facings,'verdict':verdict,'reason':reason,'original_product':target,'planogram_id':reading.get('planogram_id'),
                       'captured_at':reading['created_at'],'verified_by':actor,'verified_at':db.now_iso()}
             conn.execute('INSERT INTO management_training_labels (id,reading_id,image_index,item_index,data_json,crop_path,created_by,created_at) VALUES (?,?,?,?,?,?,?,?)',
                          (label_id,reading['id'],image_index,item_index,json.dumps(values),path,actor,values['verified_at']))

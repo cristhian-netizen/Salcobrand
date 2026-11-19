@@ -263,6 +263,10 @@ def crop_for(reading: dict, image_index: int, item_index: int, margin: float = 0
 
 
 def crop_jpeg(reading: dict, image_index: int, item_index: int, max_side: int = 480) -> bytes:
+    import kilby_model
+    if kilby_model.reading_kilby_job(reading):
+        # Reading analyzed on Kilby: there are no local boxes; Kilby serves the crop and it is cached on disk.
+        return kilby_model.crop_jpeg(reading, image_index, item_index)
     crop = crop_for(reading, image_index, item_index)
     crop.thumbnail((max_side, max_side))
     buf = io.BytesIO()

@@ -189,6 +189,25 @@ class FakeKilby:
                     return
                 if self.path.startswith("/v1/neuravision/catalogs"):
                     return self._dataset("GET", b"")
+                if "/crops/" in self.path and self.path.startswith("/v1/neuravision/jobs/"):
+                    parts = self.path.split("/")  # /v1/neuravision/jobs/<id>/crops/<image>/<item>.jpg
+                    with fake.lock:
+                        job = fake.jobs.get(parts[4])
+                    if job is None:
+                        return self._send(404, {"error": {"message": "no job with this id", "type": "invalid_request_error", "code": "not_found"}})
+                    if job["body"].get("status") != "done":
+                        return self._send(409, {"error": {"message": "the job has not finished", "type": "invalid_request_error", "code": "job_not_done"}})
+                    image, item = int(parts[6]), int(parts[7].split(".")[0])
+                    if image >= job["body"].get("photos", 0) or item >= 50:
+                        return self._send(404, {"error": {"message": "no crop at this index", "type": "invalid_request_error", "code": "not_found"}})
+                    data = b"\xff\xd8\xffcrop-%d-%d" % (image, item)
+                    self.send_response(200)
+                    self.send_header("Content-Type", "image/jpeg")
+                    self.send_header("Cache-Control", "private, max-age=86400")
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
                 if self.path.startswith("/v1/neuravision/jobs/"):
                     job_id = self.path.rsplit("/", 1)[1]
                     with fake.lock:
@@ -391,6 +410,26 @@ class KilbyNeuravisionClientTests(unittest.TestCase):
         self.assertEqual(caught.exception.job.status, "running")
         self.assertEqual(caught.exception.job.id, job.id)
         self.assertLessEqual(len([r for r in self.fake.requests if r[0] == "GET"]), 12)  # backoff, not a tight loop
+
+    def test_crops_of_a_finished_job_are_served_with_the_key(self):
+        self.fake.final = {"status": "done", "billed": True, "result_available": True, "result": RESULT}
+        job = self.client.wait_for(self.client.analyze([kn.Photo(JPEG), kn.Photo(JPEG)], "PDV-001", "G1"))
+        self.assertEqual(self.client.crop(job.id, 1, 3), b"\xff\xd8\xffcrop-1-3")
+        with self.assertRaises(kn.InvalidRequestError) as caught:
+            self.client.crop(job.id, 5, 0)  # index out of range
+        self.assertEqual(caught.exception.code, "not_found")
+        with self.assertRaises(kn.InvalidRequestError) as caught:
+            self.client.crop("vjob_missing", 0, 0)
+        self.assertEqual(caught.exception.code, "not_found")
+        running = self.client.analyze([JPEG], "PDV-001", "G1")  # queued: crops only exist when the job is done
+        with self.assertRaises(kn.InvalidRequestError) as caught:
+            self.client.crop(running.id, 0, 0)
+        self.assertEqual(caught.exception.code, "job_not_done")
+        self.assertIn("proceso", caught.exception.message_es)
+        requests_before = len(self.fake.requests)
+        with self.assertRaises(kn.InvalidRequestError):
+            self.client.crop(job.id, -1, 0)  # refused client-side
+        self.assertEqual(len(self.fake.requests), requests_before)
 
     def test_connection_check_sends_no_photo(self):
         result = self.client.check()

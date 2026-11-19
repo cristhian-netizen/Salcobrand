@@ -107,7 +107,7 @@ def router(require_training, require_internal):
         return {'username':username,'role':'local-neura','created':True}
 
     @api.post('/suggest/{reading_id}')
-    def suggest(reading_id:int,user=Depends(require_training)):
+    def suggest(reading_id:int,limit:int=20,user=Depends(require_training)):
         """Gemini pre-labels the reading's pending crops. Stored suggestions are reused: pressing twice is free.
         The label itself keeps being the human confirmation (POST /api/readings/{id}/confirm, unchanged)."""
         import gemini_prelabel
@@ -116,7 +116,7 @@ def router(require_training, require_internal):
             raise HTTPException(404,'Lectura no encontrada')
         payload=review_payload(reading)
         try:
-            return gemini_prelabel.suggest(reading,payload['items'],payload.get('titles') or [],user['username'])
+            return gemini_prelabel.suggest(reading,payload['items'],payload.get('titles') or [],user['username'],limit=max(1,min(50,limit)))
         except gemini_prelabel.GeminiError as exc:
             status={'missing_key':409,'rate_limit':429,'invalid_key':409}.get(exc.code,502)
             raise HTTPException(status,exc.message_es)

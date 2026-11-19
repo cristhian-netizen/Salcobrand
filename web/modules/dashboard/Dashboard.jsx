@@ -37,7 +37,7 @@ export default function Dashboard({ user, go, notify }) {
   async function exportFile(kind) {
     setBusy(true);
     setExportError('');
-    try { await download(`/api/dashboard/export/${kind}.csv?${query}`, `Neuravision_Dashboard_${kind}.csv`); }
+    try { await download(`/api/dashboard/export/${kind}.csv?${query}`, `Salcobrand_Dashboard_${kind}.csv`); }
     catch (exception) { setExportError(exception.message); }
     finally { setBusy(false); }
   }

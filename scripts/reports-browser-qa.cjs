@@ -192,12 +192,12 @@ const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     for (
       let attempt = 0;
       attempt < 120 &&
-      !fs.existsSync(path.join(folder, "Neuravision_Mediciones.xlsx"));
+      !fs.existsSync(path.join(folder, "Salcobrand_Mediciones.xlsx"));
       attempt++
     )
       await pause(250);
     assert(
-      fs.existsSync(path.join(folder, "Neuravision_Mediciones.xlsx")),
+      fs.existsSync(path.join(folder, "Salcobrand_Mediciones.xlsx")),
       "Actual Excel download",
     );
     await wait(
@@ -207,13 +207,13 @@ const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     for (
       let attempt = 0;
       attempt < 120 &&
-      !fs.existsSync(path.join(folder, "Neuravision_Mediciones.csv"));
+      !fs.existsSync(path.join(folder, "Salcobrand_Mediciones.csv"));
       attempt++
     )
       await pause(250);
-    assert(fs.existsSync(path.join(folder, "Neuravision_Mediciones.csv")));
+    assert(fs.existsSync(path.join(folder, "Salcobrand_Mediciones.csv")));
     const csv = fs.readFileSync(
-      path.join(folder, "Neuravision_Mediciones.csv"),
+      path.join(folder, "Salcobrand_Mediciones.csv"),
       "utf8",
     );
     assert(csv.includes("Medición hecha por"));

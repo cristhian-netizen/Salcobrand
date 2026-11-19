@@ -1,6 +1,6 @@
 export const FONTS = ['Arial', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Georgia', 'Times New Roman', 'system-ui'];
 export const DEFAULT_MODEL = {remoteOrgId: '', credentialEnv: 'INTEGRATION_NEURAVISION_KEY'};
-export const DEFAULT_IDENTITY = {schema: 1, id: 'nuevo-cliente', name: 'Nuevo cliente', logo: '', theme: 'default', primaryColor: '#183247', sidebarColor: '#0f1b2d', modules: {vision: true, planograms: true, sales: false}, typography: {}};
+export const DEFAULT_IDENTITY = {schema: 1, id: 'nuevo-cliente', name: 'Nuevo cliente', logo: '', theme: 'default', primaryColor: '#0074c8', sidebarColor: '#ffffff', modules: {vision: true, planograms: true, sales: false}, typography: {}};
 export function identityOnly(value) {
   return Object.fromEntries(Object.keys(DEFAULT_IDENTITY).map(key => [key, structuredClone(value[key] ?? DEFAULT_IDENTITY[key])]));
 }
@@ -11,6 +11,6 @@ export function onColor(hex) {
 }
 export function identityStyle(tenant = {}) {
   const sidebar = tenant.typography?.sidebar || {}, content = tenant.typography?.content || {};
-  return {'--nv-primary': tenant.primaryColor || '#183247', '--nv-on-primary': onColor(tenant.primaryColor || '#183247'), '--nv-sidebar-bg': tenant.sidebarColor || '#0f1b2d', '--nv-sidebar-fg': sidebar.color || onColor(tenant.sidebarColor || '#0f1b2d'), '--nv-sidebar-font': sidebar.fontFamily || 'var(--nv-font)', '--nv-sidebar-size': sidebar.fontSize ? sidebar.fontSize + 'px' : '13.5px', ...(content.fontFamily ? {'--nv-font': content.fontFamily} : {}), ...(content.color ? {'--nv-text': content.color} : {})};
+  return {'--nv-primary': tenant.primaryColor || '#0074c8', '--nv-on-primary': onColor(tenant.primaryColor || '#0074c8'), '--nv-sidebar-bg': tenant.sidebarColor || '#ffffff', '--nv-sidebar-fg': sidebar.color || onColor(tenant.sidebarColor || '#ffffff'), '--nv-sidebar-font': sidebar.fontFamily || 'var(--nv-font)', '--nv-sidebar-size': sidebar.fontSize ? sidebar.fontSize + 'px' : '13.5px', ...(content.fontFamily ? {'--nv-font': content.fontFamily} : {}), ...(content.color ? {'--nv-text': content.color} : {})};
 }
 export const enabled = (user, key) => user?.tenant?.modules?.[key] !== false;

@@ -40,7 +40,7 @@ export default function AnalysisUsage() {
     if (!data || dirty) return;
     const rows = [['Mes','Período','Costo estimado (USD)'],...data.months.map(row => [monthLabel(row.month),row.month,row.cost_usd ?? ''])];
     const content = '\ufeff' + rows.map(row => row.map(value => '"'+String(value).replace(/"/g,'""')+'"').join(';')).join('\r\n')+'\r\n';
-    saveBlob(new Blob([content],{type:'text/csv;charset=utf-8'}),'Neuravision_Uso_Analisis.csv');
+    saveBlob(new Blob([content],{type:'text/csv;charset=utf-8'}),'Salcobrand_Uso_Analisis.csv');
   }
   return <section>
     <Header eyebrow="Análisis" title="Uso de análisis" subtitle="Costo mensual estimado de análisis de góndolas en la organización."/>

@@ -12,10 +12,11 @@ export {allowed,labelOf} from './modules.mjs';
 export default function Sidebar({user, current, onSelect, onLogout, open = false, onClose}) {
   const clientName = user.tenant?.name || 'Salcobrand';
   const isSalcobrand = user.tenant?.id === 'salcobrand' || clientName.trim().toLocaleLowerCase('es') === 'salcobrand';
-  const clientLogo = user.tenant?.logo || (isSalcobrand ? '/branding/salcobrand-logo.jpg' : null);
+  // The brand row already carries the Salcobrand lockup, so the large logo block only renders a tenant-provided logo.
+  const clientLogo = user.tenant?.logo || null;
   return <aside className="nv-sidebar" data-open={open ? 'true' : undefined} aria-label="Navegación">
     <div className="nv-sidebar-top">
-      <div className="nv-brand"><span className="nv-mark" aria-hidden="true">n</span><span className="nv-brand-name">neuravision</span></div>
+      <div className="nv-brand">{isSalcobrand && <img className="nv-brand-logo" src="/branding/salcobrand-logo.svg" alt="" width="34" height="34"/>}<span className="nv-brand-name">{clientName}</span></div>
       <button className="nv-icon-button nv-sidebar-close" type="button" onClick={onClose} aria-label="Cerrar menú"><Icon name="close"/></button>
     </div>
     {clientLogo && <div className="nv-client-logo"><img src={sessionUrl(clientLogo)} alt={isSalcobrand ? 'Farmacias Salcobrand' : clientName} width="112" height="112"/></div>}

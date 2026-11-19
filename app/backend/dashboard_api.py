@@ -61,4 +61,4 @@ def router(require_dashboard, require_report, store_scope):
 
 def response(kind, content):
     return Response(content=content, media_type='text/csv; charset=utf-8', headers={
-        'Content-Disposition': f'attachment; filename="Neuravision_Dashboard_{kind}.csv"', 'Cache-Control': 'no-store'})
+        'Content-Disposition': f'attachment; filename="Salcobrand_Dashboard_{kind}.csv"', 'Cache-Control': 'no-store'})

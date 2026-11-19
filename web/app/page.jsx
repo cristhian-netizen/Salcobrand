@@ -60,7 +60,7 @@ export default function Page() {
   }, []);
   useEffect(() => { if (!notice) return; const t = setTimeout(() => setNotice(''), 7000); return () => clearTimeout(t); }, [notice]);
   useEffect(() => { if (!navOpen) return; const k = e => { if (e.key === 'Escape') setNavOpen(false); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [navOpen]);
-  useEffect(() => { document.title = user?.internal && user.role !== 'local-neura' && (!user.portal_access || route.view === 'consola') ? 'Consola interna · NeuraVision' : user?.tenant?.name ? user.tenant.name + ' · NeuraVision' : 'NeuraVision'; }, [user, route.view]);
+  useEffect(() => { document.title = user?.internal && user.role !== 'local-neura' && (!user.portal_access || route.view === 'consola') ? 'Consola interna · NeuraVision' : user?.tenant?.name || 'Salcobrand'; }, [user, route.view]);
 
   const go = useCallback(path => { window.location.hash = '/' + String(path).replace(/^[#/]+/, ''); }, []);
   async function logout() {

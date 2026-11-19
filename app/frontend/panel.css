@@ -1,11 +1,12 @@
-/* Panel de supervisión NeuraVision (Salcobrand) — mismos tokens que el portal interno de Neuramorphic:
-   tema claro por defecto, oscuro por botón (data-theme="dark"). Todo color vive en los bloques de tokens. */
+/* Panel de supervisión (Salcobrand) — misma estructura de tokens que el resto del sistema:
+   tema claro por defecto, oscuro por botón (data-theme="dark"). Todo color vive en los bloques de tokens.
+   Paleta Salcobrand (salcobrand.cl): azul #0074c8, azul profundo #0051b3, celeste #06a7e2. */
 
 /* ── tema claro (por defecto) ─────────────────────────────────────────────── */
 :root {
   color-scheme: light;
-  --lime: #b1e225; --lime-hi: #d6ff5a; --lime-ink: #111827;
-  --accent: #4d7c0f; --accent-hi: #3f6212; --accent-bg: rgba(132, 204, 22, 0.14); --accent-bd: rgba(77, 124, 15, 0.42);
+  --lime: #0074c8; --lime-hi: #0051b3; --lime-ink: #ffffff;
+  --accent: #0074c8; --accent-hi: #0051b3; --accent-bg: rgba(0, 116, 200, 0.12); --accent-bd: rgba(0, 116, 200, 0.42);
   --page: #f6f6f3; --surface: #ffffff; --surface2: #f6f6f3; --nav: rgba(255, 255, 255, 0.86);
   --ink: #111827; --ink2: #4b5563; --ink3: #5f6673;
   --line: rgba(17, 24, 39, 0.08); --line2: rgba(17, 24, 39, 0.12); --line3: rgba(17, 24, 39, 0.26); --field-bd: #8a9099;
@@ -21,11 +22,11 @@
   --r: 16px;
 }
 
-/* ── tema oscuro (home de neuramorphic.ai): negro, superficies translúcidas, lima como acento ── */
+/* ── tema oscuro: negro, superficies translúcidas, celeste Salcobrand como acento ── */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --lime: #b1e225; --lime-hi: #d6ff5a; --lime-ink: #000000;
-  --accent: #b1e225; --accent-hi: #d6ff5a; --accent-bg: rgba(177, 226, 37, 0.14); --accent-bd: rgba(177, 226, 37, 0.45);
+  --lime: #06a7e2; --lime-hi: #00acdb; --lime-ink: #000000;
+  --accent: #06a7e2; --accent-hi: #00acdb; --accent-bg: rgba(6, 167, 226, 0.14); --accent-bd: rgba(6, 167, 226, 0.45);
   --page: #0a0a0a; --surface: rgba(255, 255, 255, 0.04); --surface2: rgba(255, 255, 255, 0.04); --nav: rgba(10, 10, 10, 0.88);
   --ink: #ffffff; --ink2: #c4c4c4; --ink3: #a3a3a3;
   --line: rgba(255, 255, 255, 0.07); --line2: rgba(255, 255, 255, 0.1); --line3: rgba(255, 255, 255, 0.22); --field-bd: #6b6b6b;

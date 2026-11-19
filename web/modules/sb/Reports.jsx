@@ -51,7 +51,7 @@ export default function Reports({ user, go }) {
     try {
       await download(
         "/api/reports/measurements." + extension + "?" + query,
-        "Neuravision_Mediciones." + extension,
+        "Salcobrand_Mediciones." + extension,
       );
     } catch (exception) {
       setError(exception.message);
@@ -63,7 +63,7 @@ export default function Reports({ user, go }) {
     setBusy(true);
     setError('');
     try {
-      await download('/api/reports/catalog/' + kind + '.xlsx', kind === 'products' ? 'Neuravision_Productos.xlsx' : 'Neuravision_PDV.xlsx');
+      await download('/api/reports/catalog/' + kind + '.xlsx', kind === 'products' ? 'Salcobrand_Productos.xlsx' : 'Salcobrand_PDV.xlsx');
     } catch (exception) {
       setError(exception.message);
     } finally {

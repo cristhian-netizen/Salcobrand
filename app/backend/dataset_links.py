@@ -148,7 +148,9 @@ def admin_router(require_training):
             _audit(conn, user["username"], "dataset.link_create", link_id, None,
                    {"category": category, "store_id": store_id, "days": days, "max_photos": max_photos})
             row = conn.execute("SELECT * FROM management_dataset_links WHERE id = ?", (link_id,)).fetchone()
-        host = request.headers.get("x-forwarded-host") or request.headers.get("host") or "salcobrand.neuramorphic.ai"
+        # DATASET_CAPTURE_HOST: el dominio neutro de los enlaces (p. ej. fotos de terreno sin marca). Sin él,
+        # el enlace sale con el host del portal desde donde se creó.
+        host = os.environ.get("DATASET_CAPTURE_HOST", "").strip() or request.headers.get("x-forwarded-host") or request.headers.get("host") or "salcobrand.neuramorphic.ai"
         # The token travels in the FRAGMENT: browsers never send it in the path, so it stays out of access logs.
         return {**_serialize(row, 0), "url": f"https://{host}/captura#{token}"}
 

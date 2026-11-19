@@ -805,11 +805,20 @@ def _reading_dict(row: sqlite3.Row) -> dict:
 
     planogram_id = row["planogram_id"] if "planogram_id" in keys else None
     compliance = None
+    planogram_reference = None
     if planogram_id:
         # Se recalcula en cada lectura (no se persiste) para que los precios cargados
         # después de la foto se reflejen de inmediato en el impacto $ estimado.
         snapshot = json.loads(row["plan_snapshot_json"]) if "plan_snapshot_json" in keys and row["plan_snapshot_json"] else None
-        compliance = compute_planogram_compliance(planogram_id, products, planogram=snapshot)
+        reference = snapshot if snapshot is not None else get_planogram(planogram_id)
+        planogram_reference = {
+            "id": planogram_id,
+            "name": reference.get("name", "") if reference else "",
+            "position_count": len(reference.get("items", [])) if reference else None,
+            "expected_facings": sum(item.get("expected_facings") or 0 for item in reference.get("items", [])) if reference else None,
+            "status": "ready" if reference and reference.get("items") else "missing_positions" if reference else "unavailable",
+        }
+        compliance = compute_planogram_compliance(planogram_id, products, planogram=reference)
         if compliance:
             for p, ann in zip(products, compliance.get("product_annotations", [])):
                 p["planogram_status"] = ann["planogram_status"]
@@ -837,6 +846,7 @@ def _reading_dict(row: sqlite3.Row) -> dict:
         "display_area_m2": display_area_m2,
         "total_units_estimate": total_units_estimate,
         "planogram_id": planogram_id,
+        "planogram_reference": planogram_reference,
         "compliance": compliance,
         "standards": standards,
         "engine": json.loads(row["engine_json"]) if "engine_json" in keys and row["engine_json"] else None,

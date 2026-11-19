@@ -135,3 +135,38 @@ class SharedPlanCases:
         saved=admin.put(path,json={**body,'replace_conflicts':True});self.assertEqual(saved.status_code,200,saved.text)
         self.assertEqual(admin.put(path,json={**body,'replace_conflicts':True}).status_code,409)
         self.assertEqual(admin.get('/api/admin/catalog/planograms/'+first['id']).json()['assigned_count'],0)
+
+    def test_reading_distinguishes_document_reference_from_computable_plan(self):
+        plan, body = self.shared_master('Reference without positions')
+        body['positionRows'] = []
+        admin = self.client('admin')
+        updated = admin.patch('/api/admin/catalog/planograms/'+plan['id'],json={**body,'version':1})
+        self.assertEqual(updated.status_code,200,updated.text)
+        self.assignment(plan,['L128']).raise_for_status()
+        snapshot = self.db.get_planogram(plan['id'])
+        reading = self.db.add_reading('point-a',self.analysis,[],planogram_id=plan['id'],plan_snapshot=snapshot,captured_by='replenisher')
+        path = '/api/readings/'+str(reading['id'])
+        for role in ('admin','analyst','replenisher','viewer'):
+            response = self.client(role).get(path)
+            self.assertEqual(response.status_code,200,response.text)
+            value = response.json()
+            self.assertEqual(value['planogram_id'],plan['id'])
+            self.assertIsNone(value['compliance'])
+            self.assertEqual(value['planogram_reference'],{'id':plan['id'],'name':plan['name'],'position_count':0,'expected_facings':0,'status':'missing_positions'})
+        self.assertEqual(self.client(None).get(path).status_code,401)
+        query={'store':'L128','category':plan['category'],'subcategories':plan['subcategories'],'type_id':''}
+        listed=self.client('replenisher').get('/api/capture/planograms',params=query)
+        self.assertEqual(listed.status_code,200,listed.text)
+        self.assertEqual(listed.json()[0]['position_count'],0)
+        detail=self.client('replenisher').get('/api/capture/planograms/'+plan['id'],params={'store':'L128','type_id':''})
+        self.assertEqual(detail.status_code,200,detail.text)
+        self.assertEqual(detail.json()['position_count'],0)
+        # Completing today's master must not rewrite the evidence of an earlier reading.
+        body['positionRows']=self.plan_fields(self.create_product(sku='Completed reference'))['positionRows']
+        filled=admin.patch('/api/admin/catalog/planograms/'+plan['id'],json={**body,'version':updated.json()['version']})
+        self.assertEqual(filled.status_code,200,filled.text)
+        self.assertEqual(admin.get(path).json()['planogram_reference']['status'],'missing_positions')
+        current=self.db.add_reading('point-a',self.analysis,[],planogram_id=plan['id'])
+        self.assertEqual(current['planogram_reference']['status'],'ready')
+        self.assertIsNotNone(current['compliance'])
+        self.assertIsNone(self.db.get_reading(self.own['id'])['planogram_reference'])

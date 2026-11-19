@@ -111,7 +111,8 @@ def reference_plans(user, store, category='', subcategories=(), plan_id=None, ty
             if row['id'] not in allowed:
                 continue
             if plan_id and row['id']!=plan_id:continue
-            if plan_id:return {key:meta.get(key,'') for key in ('photo','document','document_name')} | {'id':row['id'],'name':row['name'],'document_pages':meta.get('document_pages',0),'category':meta.get('category',''),'subcategories':meta.get('subcategories',[])}
-            result.append({'id':row['id'],'name':row['name'],'subcategories':meta.get('subcategories',[]),'has_reference':bool(meta.get('photo') or meta.get('document'))})
+            position_count=conn.execute('SELECT COUNT(*) AS n FROM planogram_items WHERE planogram_id=?',(row['id'],)).fetchone()['n']
+            if plan_id:return {key:meta.get(key,'') for key in ('photo','document','document_name')} | {'id':row['id'],'name':row['name'],'document_pages':meta.get('document_pages',0),'category':meta.get('category',''),'subcategories':meta.get('subcategories',[]),'position_count':position_count}
+            result.append({'id':row['id'],'name':row['name'],'subcategories':meta.get('subcategories',[]),'has_reference':bool(meta.get('photo') or meta.get('document')),'position_count':position_count})
         if plan_id:raise ManagementError('El planograma no está disponible en este PDV y tipo de góndola.',404)
         return sorted(result,key=lambda r:r['name'].casefold())

@@ -30,6 +30,15 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo, show
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const c = reading.compliance, s = reading.standards || {};
+  const reference = reading.planogram_reference;
+  const hasPlan = !!reading.planogram_id;
+  const missingPositions = reference?.status === 'missing_positions';
+  const planHint = c ? `${c.total_filled_facings} de ${c.total_expected_facings} caras esperadas`
+    : hasPlan ? `${reference?.name || 'Planograma asociado'} · ${missingPositions ? 'Sin posiciones configuradas' : 'Comparación no disponible'}` : 'Sin planograma asociado';
+  const planMessage = hasPlan
+    ? missingPositions ? 'El planograma está asociado a esta medición, pero no tiene posiciones de productos ni caras esperadas configuradas. Para calcular cumplimiento y reposición, el Administrador debe completar los productos, niveles, posiciones y caras en el módulo Planogramas.'
+      : 'Esta medición tiene un planograma asociado, pero no hay una comparación disponible con su referencia de captura.'
+    : 'Esta medición no tiene un planograma asociado. Las referencias para nuevas capturas se asignan desde el módulo Planogramas.';
   const products = reading.products || [];
   const images = reading.engine?.images || [];
   async function remove() {
@@ -43,7 +52,7 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo, show
         <div className="sb-score" style={{marginTop: 8}}><div className="ring" style={{'--p': s.overall_score ?? 0, '--c': s.grade_color || 'var(--nv-primary)'}}><span>{s.overall_score ?? '—'}</span></div>
           <div><strong style={{fontSize: 20, margin: 0}}>{s.grade || 'Sin dato'}</strong><small>Stock {s.stock_score ?? '—'} · Espacio {s.space_score ?? '—'} · Orden {s.organization_score ?? '—'}</small></div></div>
       </article>
-      <Metric label="Cumplimiento de planograma" value={c ? fmt.pct(c.compliance_pct) : '—'} hint={c ? `${c.total_filled_facings} de ${c.total_expected_facings} caras esperadas` : 'Góndola sin planograma'}/>
+      <Metric label="Cumplimiento de planograma" value={c ? fmt.pct(c.compliance_pct) : '—'} hint={planHint}/>
       <Metric label="Caras detectadas" value={fmt.num(reading.total_facings)} hint={`${reading.shelf_levels_detected ?? '—'} niveles · espacio vacío ${fmt.pct(reading.empty_space_pct)}`}/>
       <Metric label="Detecciones inciertas" value={fmt.num(reading.needs_review)} hint={c ? `Impacto estimado ${clp(c.impact_clp)}` : 'Recortes dudosos del motor'}/>
     </div>
@@ -70,12 +79,12 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo, show
           <td><StatusPill status={item.status}/></td><td className="sb-num">{clp(item.price_clp)}</td></tr>)}
       </tbody></SortableTable></div>
       {c.foreign_products?.length > 0 && <div className="sb-card-body"><h3>Productos fuera de planograma</h3><p>{c.foreign_products.map(f => f.product).join(' · ')}</p></div>}
-    </Card> : <Card><Empty>Esta góndola no tiene planograma asignado. Asígnalo desde Puntos de venta para medir cumplimiento.</Empty></Card>)}
+    </Card> : <Card className="measurement-planogram-state" title={hasPlan ? `Planograma asociado${reference?.name ? ' · '+reference.name : ''}` : 'Sin planograma asociado'}><p>{planMessage}</p>{missingPositions && <p className="sb-hint">{reference.position_count} posiciones · {reference.expected_facings} caras esperadas en la referencia de captura.</p>}</Card>)}
     {tab === 'reposicion' && <Card body={false} title="Reposición sugerida" subtitle="Posiciones faltantes o bajo lo esperado, prioridad TOP y lanzamientos primero.">
       {c?.replenishment?.length ? <div className="sb-table"><SortableTable><thead><tr><th>Producto</th><th>Posición</th><th className="sb-num">Faltan</th><th className="sb-num">Valor</th><th>Estado</th></tr></thead><tbody>
         {c.replenishment.map(item => <tr key={item.planogram_item_id}><td><b>{item.title}</b>{item.tag && <small>{item.tag}</small>}</td><td>{item.section_label} · {item.position_in_section}</td>
           <td className="sb-num">{item.deficit}</td><td className="sb-num">{clp(item.deficit_value_clp)}</td><td><StatusPill status={item.status}/></td></tr>)}
-      </tbody></SortableTable></div> : <Empty>{c ? 'No hay posiciones por reponer en esta lectura.' : 'Sin planograma no se puede calcular reposición.'}</Empty>}
+      </tbody></SortableTable></div> : <Empty>{c ? 'No hay posiciones por reponer en esta lectura.' : planMessage}</Empty>}
     </Card>}
     {reading.infrastructure?.category && <p className="sb-hint">{reading.infrastructure.category} · {reading.infrastructure.subcategories?.join(', ') || reading.infrastructure.subcategory || 'Todas las subcategorías'}{reading.infrastructure.captureMode === 'manual' ? ` · ${reading.linear_meters == null ? 'Ancho no informado' : 'Ancho manual '+reading.linear_meters+' m'}` : ''}</p>}
     {reading.infrastructure?.captureMode === 'manual' && reading.infrastructure.depths?.length > 0 && <p className="sb-hint">{reading.infrastructure.depths.length} niveles · {reading.infrastructure.depths.map((depth,index) => `Nivel ${index+1}: ${depth} cm de profundidad`).join(' · ')}</p>}

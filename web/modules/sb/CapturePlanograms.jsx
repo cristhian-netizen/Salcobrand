@@ -44,6 +44,7 @@ function Reference({store,id,typeId}) {
   if (error) return <ErrorBox error={error} onRetry={reload}/>;
   return <>
     <div className="sb-actions"><strong>{data.name}</strong><button type="button" aria-expanded={expanded} onClick={() => setExpanded(value=>!value)}>{expanded ? 'Ocultar referencia' : 'Mostrar referencia'}</button></div>
+    {data.position_count === 0 && <p className="message" role="status">Planograma asociado como referencia visual. No tiene posiciones de productos configuradas: la captura identificará productos y caras, pero no podrá calcular cumplimiento ni reposición hasta que el Administrador complete sus posiciones en Planogramas.</p>}
     {expanded && <>
       {data.document ? <>
         <div className="sb-actions"><button type="button" disabled={page<=1} onClick={()=>setPage(page-1)}>Anterior</button><span>Página {page} de {data.document_pages || 1}</span><button type="button" disabled={page>=(data.document_pages || 1)} onClick={()=>setPage(page+1)}>Siguiente</button>{url && <a href={url} download={data.document_name || 'planograma.pdf'}>Descargar PDF</a>}</div>

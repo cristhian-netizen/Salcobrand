@@ -163,6 +163,18 @@
 #nv main .sb-crop .row input { width: 100%; min-width: 0; }
 #nv main .sb-crop .row button { width: 100%; }
 #nv main .sb-crop button.link { justify-self: start; }
+/* Dataset sweep (local-neura): category chips and the original-photos grid */
+#nv .sb-dataset-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-bottom: 14px; }
+#nv main .sb-dataset-chips button { display: grid; gap: 4px; justify-items: start; align-content: start; min-height: 68px; padding: 12px 14px;
+  border-color: var(--nv-border); background: var(--nv-surface); color: var(--nv-text); text-align: left; white-space: normal; font-weight: 500; box-shadow: var(--nv-shadow-xs); }
+#nv main .sb-dataset-chips button strong { font-size: 15px; }
+#nv main .sb-dataset-chips button small { color: var(--nv-text-muted); font-size: 12px; font-weight: 400; }
+#nv .sb-dataset-store { display: grid; gap: 4px; max-width: 340px; }
+#nv .sb-dataset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+#nv .sb-dataset-photo { margin: 0; display: grid; gap: 6px; min-width: 0; }
+#nv .sb-dataset-photo img { width: 100%; height: 150px; object-fit: cover; border-radius: 10px; background: var(--nv-surface-3); }
+#nv .sb-dataset-photo figcaption { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: var(--nv-text-muted); min-width: 0; }
+#nv .sb-dataset-photo figcaption span { overflow-wrap: anywhere; }
 #nv .sb-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
 #nv main button.sb-tile.sb-tile { display: grid; align-items: stretch; justify-content: stretch; gap: 0; min-height: 0; padding: 0; border: 1px solid var(--nv-border); border-radius: 12px; overflow: hidden;
   background: var(--nv-surface); color: var(--nv-text); text-align: left; white-space: normal; font-weight: 400; cursor: pointer; box-shadow: var(--nv-shadow-xs); transition: box-shadow .15s, transform .15s; }

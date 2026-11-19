@@ -9,6 +9,8 @@ export const MODULES = [
   ['gondolas', 'Detalle de medición', 'infrastructure', ['replenisher', 'analyst', 'viewer', 'admin','local-neura']],
   ['mediciones', 'Mediciones', 'reports', ['replenisher', 'analyst', 'viewer', 'admin']],
   ['revision', 'Revisión', 'review', ['local-neura']],
+  // Nationwide dataset sweep: original phone photos per active category (no analysis, no processing).
+  ['dataset', 'Dataset images', 'scan', ['local-neura']],
   ['alertas', 'Alertas', 'alerts', ['replenisher', 'analyst', 'viewer', 'admin']],
   ['planogramas', 'Planogramas', 'planograms', ['admin']],
   ['reportes', 'Reportes', 'reports', ['analyst', 'viewer', 'admin']],
@@ -22,7 +24,7 @@ export const MODULES = [
   // Keys of external APIs (Neuravision on Kilby). Admin edits; Superusuario sees status only, never a key.
   ['apis', 'APIs', 'link', ['admin', 'viewer']],
 ];
-export const GROUPS = [['Verificación interna', ['revision']], ['General', ['inicio', 'alertas']], ['Operación', ['escanear', 'mediciones']], ['Análisis', ['dashboards', 'reportes', 'uso-analisis']], ['Administración', ['pdv', 'infraestructura', 'productos', 'planogramas', 'usuarios', 'configuracion', 'ayuda', 'apis']]];
+export const GROUPS = [['Verificación interna', ['revision', 'dataset']], ['General', ['inicio', 'alertas']], ['Operación', ['escanear', 'mediciones']], ['Análisis', ['dashboards', 'reportes', 'uso-analisis']], ['Administración', ['pdv', 'infraestructura', 'productos', 'planogramas', 'usuarios', 'configuracion', 'ayuda', 'apis']]];
 export const labelOf = id => MODULES.find(m => m[0] === id)?.[1] || id;
 export const allowed = (id, role) => !!MODULES.find(m => m[0] === id)?.[3].includes(profileOf(role));
 

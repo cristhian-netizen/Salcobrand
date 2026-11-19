@@ -7,4 +7,6 @@ app/secret.key
 app/registration_code
 app/uploads/
 app/kilby-crops/
+app/dataset/
+app/thumbs/
 .local/

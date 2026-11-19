@@ -135,6 +135,7 @@ TABLE_ORDER = [
     "management_shelf_types", "management_assignments", "management_instances",
     "management_events", "management_training_labels", "management_training_suggestions", "management_plan_scope_state", "management_plan_scopes",
     "management_integrations", "management_kilby_products", "management_kilby_trainings",
+    "management_dataset_images",
 ]
 
 

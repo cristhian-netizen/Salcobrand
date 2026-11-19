@@ -11,6 +11,7 @@ import Scan from '../modules/sb/Scan';
 import Gondolas from '../modules/sb/Gondolas';
 import Measurements from '../modules/sb/Measurements';
 import Review from '../modules/sb/Review';
+import DatasetImages from '../modules/dataset/DatasetImages';
 import Alerts from '../modules/sb/Alerts';
 import Planograms from '../modules/catalog/Planograms';
 import Products from '../modules/catalog/Products';
@@ -28,7 +29,7 @@ import ApiIntegrations from '../modules/settings/ApiIntegrations';
 import ClientConsole from '../modules/identity/ClientConsole';
 import {identityStyle, enabled} from '../modules/identity/identity.mjs';
 
-const VIEWS = {'uso-analisis': AnalysisUsage, inicio: Home, escanear: Scan, mediciones: Measurements, gondolas: Gondolas, revision: Review, alertas: Alerts, planogramas: Planograms,
+const VIEWS = {'uso-analisis': AnalysisUsage, inicio: Home, escanear: Scan, mediciones: Measurements, gondolas: Gondolas, revision: Review, dataset: DatasetImages, alertas: Alerts, planogramas: Planograms,
   reportes: Reports, dashboards: Dashboard, enlaces: CaptureLinks, usuarios: Users, cuenta: Account, ayuda: Help, pdv: Stores, infraestructura: Infrastructure, productos: Products, configuracion: Settings, apis: ApiIntegrations};
 
 function parseHash() {

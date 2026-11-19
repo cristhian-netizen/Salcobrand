@@ -28,6 +28,8 @@ class KilbyCases:
         env.start(); self.addCleanup(env.stop)
         import kilby_model
         kilby_model._HEALTH.update(generation=None)  # tables are emptied between tests without bumping the generation
+        import kilby_catalog
+        kilby_catalog.forget_catalogs()  # the 60 s catalogs cache must not leak between tests
 
     def save_key(self, key=KEY, **values):
         admin = self.client('admin')
@@ -379,8 +381,10 @@ class KilbyCases:
                 conn.execute('INSERT INTO management_training_labels(id,reading_id,image_index,item_index,data_json,crop_path,created_by,created_at) VALUES(?,?,0,?,?,?,?,?)',
                              (label_id, reading['id'], int(label_id[1]), json.dumps({'title': title}), '_training/' + label_id, 'local-neura', self.db.now_iso()))
         labels, skipped = kilby_catalog.labels()
-        self.assertEqual(labels, [{'job_id': 'vjob_ok', 'image_index': 0, 'item_index': 1, 'sku': product['sku']}])
+        self.assertEqual(labels, [{'job_id': 'vjob_ok', 'image_index': 0, 'item_index': 1, 'sku': product['sku'], 'catalog': None}])
         self.assertEqual(skipped, {'sin_job_kilby': 1, 'sin_sku': 1, 'ajeno': 1})
+        labels, _ = kilby_catalog.labels(default='salud-sexual')  # readings without a recorded catalog count as the configured one
+        self.assertEqual(labels[0]['catalog'], 'salud-sexual')
 
     def test_train_in_kilby_route_is_internal_and_reports_metrics(self):
         trainings = {}
@@ -417,3 +421,151 @@ class KilbyCases:
         self.assertEqual(trainer.get('/api/internal/training/kilby').json()['error'], 'Kilby todavía no ofrece la API de catálogos y entrenamientos.')
         response = trainer.post('/api/internal/training/kilby/trainings')
         self.assertEqual(response.status_code, 503, response.text)
+
+    # ------------------------------------------------------------------ multi-catalog (one Kilby catalog per category)
+    TWO_CATALOGS = [{'slug': 'salud-sexual', 'name': 'Salud sexual', 'products': 40, 'photos': 40, 'trainings_left': 2,
+                     'published_version': {'version': 'v3', 'top1': 0.8, 'top3': 0.9}},
+                    {'slug': 'desodorantes', 'name': 'Desodorantes', 'products': 150, 'photos': 150, 'trainings_left': 1,
+                     'published_version': None}]
+
+    def test_products_route_to_the_catalog_of_their_category(self):
+        import kilby_catalog
+        sent = []
+        def handler(request):
+            if request.url.path == '/v1/neuravision/catalogs':
+                return httpx.Response(200, json={'object': 'list', 'data': self.TWO_CATALOGS})
+            if request.method == 'PUT':
+                sent.append(request.url.path)
+                return httpx.Response(201, json={'photos': 0})
+            return httpx.Response(500)
+        self.kilby(handler)
+        self.save_key(catalog='salud-sexual')
+        slugs = {'salud-sexual', 'desodorantes'}
+        route = kilby_catalog.route
+        self.assertEqual(route({'subcategory': 'Desodorantes', 'category': 'Cuidado personal'}, slugs, 'salud-sexual'), 'desodorantes')  # subcategory wins
+        self.assertEqual(route({'subcategory': '', 'category': 'Desodorantes'}, slugs, 'salud-sexual'), 'desodorantes')  # category fallback
+        self.assertEqual(route({'subcategory': 'Vitaminas', 'category': 'Suplementos'}, slugs, 'salud-sexual'), 'salud-sexual')  # no such catalog
+        self.assertEqual(route({}, slugs, 'salud-sexual'), 'salud-sexual')  # no category
+        self.create_product()  # subcategory "Desodorantes" -> its own catalog
+        self.create_product(sku='000124', barcode='000790', category='Salud Sexual', subcategory='Preservativos')  # no "preservativos" catalog -> default
+        with self.db.get_conn() as conn:  # imported products may come without any category
+            conn.execute("INSERT INTO management_products (id,sku,name,data_json,created_at,updated_at) VALUES ('p-nc','000125','Sin categoría','{}',?,?)",
+                         (self.db.now_iso(), self.db.now_iso()))
+            kilby_catalog.mark_put(conn, 'p-nc', '000125')
+        self.assertEqual(kilby_catalog.drain(), {'sent': 3, 'deleted': 0, 'failed': 0})
+        by_sku = {path.rsplit('/', 1)[1]: path for path in sent}
+        self.assertEqual(by_sku['000123'], '/v1/neuravision/catalogs/desodorantes/products/000123')
+        self.assertEqual(by_sku['000124'], '/v1/neuravision/catalogs/salud-sexual/products/000124')
+        self.assertEqual(by_sku['000125'], '/v1/neuravision/catalogs/salud-sexual/products/000125')
+        order = [path.split('/')[4] for path in sent]
+        self.assertEqual(order, sorted(order))  # one catalog at a time
+        with self.db.get_conn() as conn:
+            stored = {r['sku']: r['catalog'] for r in conn.execute('SELECT sku, catalog FROM management_kilby_products').fetchall()}
+        self.assertEqual(stored, {'000123': 'desodorantes', '000124': 'salud-sexual', '000125': 'salud-sexual'})
+
+    def test_mark_all_reroutes_and_deletes_follow_the_synced_catalog(self):
+        import base64
+        import io
+        from PIL import Image
+        import kilby_catalog
+        state = {'catalogs': self.TWO_CATALOGS[:1], 'sent': []}
+        def handler(request):
+            if request.url.path == '/v1/neuravision/catalogs':
+                return httpx.Response(200, json={'object': 'list', 'data': state['catalogs']})
+            if request.method == 'PUT':
+                state['sent'].append((request.url.path, 'photo' if b'filename=' in request.content else 'fields'))
+                return httpx.Response(201, json={'photos': 1})
+            if request.method == 'DELETE':
+                state['sent'].append((request.url.path, ''))
+                return httpx.Response(204)
+            return httpx.Response(500)
+        self.kilby(handler)
+        self.save_key(catalog='salud-sexual')
+        buffer = io.BytesIO()
+        Image.new('RGB', (10, 10), 'white').save(buffer, format='JPEG')
+        product = self.create_product(photo='data:image/jpeg;base64,' + base64.b64encode(buffer.getvalue()).decode())
+        self.assertEqual(kilby_catalog.drain(), {'sent': 1, 'deleted': 0, 'failed': 0})
+        self.assertEqual(state['sent'][0], ('/v1/neuravision/catalogs/salud-sexual/products/000123', 'photo'))  # only catalog: the default
+        state['catalogs'] = self.TWO_CATALOGS  # the category's catalog now exists in Kilby
+        self.assertEqual(kilby_catalog.mark_all(), 1)  # "Reenviar todo" refreshes the catalog listing
+        self.assertEqual(kilby_catalog.drain()['sent'], 1)
+        self.assertEqual(state['sent'][1], ('/v1/neuravision/catalogs/desodorantes/products/000123', 'photo'))  # new catalog: photo sent again
+        kilby_catalog.mark_all()
+        kilby_catalog.drain()
+        self.assertEqual(state['sent'][2], ('/v1/neuravision/catalogs/desodorantes/products/000123', 'fields'))  # same catalog: unchanged photo kept
+        response = self.client('admin').post('/api/admin/catalog/products/delete', json={'products': [{'id': product['id'], 'version': product['version']}]})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(kilby_catalog.drain()['deleted'], 1)
+        self.assertEqual(state['sent'][3], ('/v1/neuravision/catalogs/desodorantes/products/000123', ''))  # deleted where it was synced
+
+    def test_training_targets_one_catalog_and_filters_its_labels(self):
+        uploads, started = {}, []
+        def handler(request):
+            path = request.url.path
+            if path == '/v1/neuravision/catalogs':
+                return httpx.Response(200, json={'object': 'list', 'data': self.TWO_CATALOGS})
+            if path.endswith('/labels'):
+                uploads[path.split('/')[4]] = request.content.decode()
+                return httpx.Response(200, json={'accepted': 1, 'skipped': 0})
+            if path.endswith('/trainings') and request.method == 'POST':
+                started.append(path.split('/')[4])
+                return httpx.Response(202, json={'id': 'tr-' + path.split('/')[4], 'status': 'queued'})
+            if '/trainings/tr-' in path:
+                return httpx.Response(200, json={'id': path.rsplit('/', 1)[1], 'status': 'queued'})
+            if request.method == 'PUT':
+                return httpx.Response(201, json={'photos': 0})
+            return httpx.Response(500)
+        self.kilby(handler)
+        self.save_key(catalog='salud-sexual')
+        product = self.create_product(name='Producto verificado')
+        deo = self.db.add_reading('point-a', {**self.analysis, 'engine': {'images': [], 'kilby': {'job_id': 'vjob_deo', 'catalog': 'desodorantes'}}}, [])
+        cfg = self.db.add_reading('point-a', {**self.analysis, 'engine': {'images': [], 'kilby': {'job_id': 'vjob_cfg'}}}, [])  # before multi-catalog
+        with self.db.get_conn() as conn:
+            for label_id, reading in (('d1', deo), ('s1', cfg)):
+                conn.execute('INSERT INTO management_training_labels(id,reading_id,image_index,item_index,data_json,crop_path,created_by,created_at) VALUES(?,?,0,0,?,?,?,?)',
+                             (label_id, reading['id'], json.dumps({'title': 'Producto verificado'}), '_training/' + label_id, 'local-neura', self.db.now_iso()))
+        trainer = self.trainer()
+        unnamed = trainer.post('/api/internal/training/kilby/trainings')
+        self.assertEqual(unnamed.status_code, 409, unnamed.text)
+        self.assertIn('indica cuál entrenar', unnamed.json()['detail'])
+        missing = trainer.post('/api/internal/training/kilby/trainings', json={'catalog': 'perfumes'})
+        self.assertEqual(missing.status_code, 409)
+        self.assertIn('no existe en Kilby', missing.json()['detail'])
+        self.assertEqual(started, [])  # nothing consumed the plan's quota
+        first = trainer.post('/api/internal/training/kilby/trainings', json={'catalog': 'desodorantes'})
+        self.assertEqual(first.status_code, 202, first.text)
+        self.assertEqual((first.json()['catalog'], started), ('desodorantes', ['desodorantes']))
+        self.assertEqual(uploads, {'desodorantes': json.dumps({'job_id': 'vjob_deo', 'image_index': 0, 'item_index': 0, 'sku': product['sku']}, ensure_ascii=False) + '\n'})
+        self.assertEqual(first.json()['labels'], {'sent': 1, 'skipped_here': {'sin_job_kilby': 0, 'sin_sku': 0, 'ajeno': 0, 'otro_catalogo': 1},
+                                                  'accepted': 1, 'skipped_by_kilby': 0})
+        second = trainer.post('/api/internal/training/kilby/trainings', json={'catalog': 'salud-sexual'})
+        self.assertEqual(second.status_code, 202, second.text)
+        self.assertIn('vjob_cfg', uploads['salud-sexual'])  # readings without a recorded catalog count as the configured one
+        self.assertNotIn('vjob_deo', uploads['salud-sexual'])
+
+    def test_overview_reports_each_catalog_with_its_counters(self):
+        def handler(request):
+            path = request.url.path
+            if path == '/v1/neuravision/catalogs':
+                return httpx.Response(200, json={'object': 'list', 'data': self.TWO_CATALOGS})
+            if path.endswith('/versions'):
+                return httpx.Response(200, json={'object': 'list', 'data': []})
+            return httpx.Response(500)
+        self.kilby(handler)
+        self.save_key(catalog='salud-sexual')
+        self.create_product(name='Producto verificado')  # pending, routed to desodorantes
+        deo = self.db.add_reading('point-a', {**self.analysis, 'engine': {'images': [], 'kilby': {'job_id': 'vjob_deo', 'catalog': 'desodorantes'}}}, [])
+        cfg = self.db.add_reading('point-a', {**self.analysis, 'engine': {'images': [], 'kilby': {'job_id': 'vjob_cfg'}}}, [])
+        with self.db.get_conn() as conn:
+            for label_id, reading in (('d1', deo), ('s1', cfg)):
+                conn.execute('INSERT INTO management_training_labels(id,reading_id,image_index,item_index,data_json,crop_path,created_by,created_at) VALUES(?,?,0,0,?,?,?,?)',
+                             (label_id, reading['id'], json.dumps({'title': 'Producto verificado'}), '_training/' + label_id, 'local-neura', self.db.now_iso()))
+        overview = self.trainer().get('/api/internal/training/kilby').json()
+        self.assertEqual((overview['default_catalog'], overview['catalog']['slug']), ('salud-sexual', 'salud-sexual'))
+        blocks = {c['slug']: c for c in overview['catalogs']}
+        self.assertEqual({key: blocks['desodorantes'][key] for key in ('pending', 'stuck', 'synced', 'labels_ready')},
+                         {'pending': 1, 'stuck': 0, 'synced': 0, 'labels_ready': 1})
+        self.assertEqual({key: blocks['salud-sexual'][key] for key in ('pending', 'labels_ready')}, {'pending': 0, 'labels_ready': 1})
+        self.assertEqual((blocks['desodorantes']['products'], blocks['desodorantes']['trainings_left']), (150, 1))  # Kilby's counters pass through
+        self.assertEqual(blocks['salud-sexual']['published_version']['version'], 'v3')
+        self.assertEqual((overview['labels']['ready'], overview['products']['pending']), (2, 1))

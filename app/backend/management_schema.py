@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS management_integrations (
  version INTEGER NOT NULL DEFAULT 0, updated_by TEXT, updated_at TEXT
 );
 CREATE TABLE IF NOT EXISTS management_kilby_products (
- sku TEXT PRIMARY KEY, product_id TEXT, pending TEXT, revision TEXT, synced_fingerprint TEXT, synced_photo TEXT,
+ sku TEXT PRIMARY KEY, product_id TEXT, pending TEXT, catalog TEXT, revision TEXT, synced_fingerprint TEXT, synced_photo TEXT,
  attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT, updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS management_kilby_products_pending ON management_kilby_products(pending, updated_at);

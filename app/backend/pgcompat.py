@@ -120,6 +120,8 @@ ALTER TABLE management_shelf_types ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL D
 ALTER TABLE management_shelf_types ADD COLUMN IF NOT EXISTS supplier TEXT NOT NULL DEFAULT '';
 ALTER TABLE management_shelf_types ADD COLUMN IF NOT EXISTS height_cm DOUBLE PRECISION;
 ALTER TABLE management_shelf_types ADD COLUMN IF NOT EXISTS deleted INTEGER NOT NULL DEFAULT 0;
+-- multi-catalog (nov-2026): the Kilby catalog each product was/will be sent to
+ALTER TABLE management_kilby_products ADD COLUMN IF NOT EXISTS catalog TEXT;
 DROP INDEX IF EXISTS management_shelf_name_ci;
 CREATE UNIQUE INDEX IF NOT EXISTS management_shelf_name_active_ci ON management_shelf_types(LOWER(name)) WHERE deleted=0;
 """

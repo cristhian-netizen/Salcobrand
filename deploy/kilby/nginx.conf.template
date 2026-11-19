@@ -43,8 +43,21 @@ server {
         proxy_buffering off;
     }
 
+    # La página del barrido anónimo (/captura, estático del export) es nuestra; solo las páginas
+    # legadas con token (/captura/<token>, renderizadas por el backend) siguen yendo al backend.
+    location = /captura {
+        add_header Cache-Control "no-cache";
+        try_files $uri $uri.html $uri/ =404;
+    }
+    location ~ ^/captura/.+ {
+        proxy_pass ${BACKEND_URL};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_read_timeout 950s;
+    }
+
     # Preserve the pharmacy pilot pages and their assets.
-    location ~ ^/(tienda|captura|vivo|vivo-recursos|panel|revision|planogramas|sw\.js|manifest\.webmanifest)(/|$) {
+    location ~ ^/(tienda|vivo|vivo-recursos|panel|revision|planogramas|sw\.js|manifest\.webmanifest)(/|$) {
         proxy_pass ${BACKEND_URL};
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;

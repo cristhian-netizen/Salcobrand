@@ -54,7 +54,7 @@ export default function KilbyTraining({notify, state}) {
     actions={<>
       <button type="button" disabled={busy || state.loading} onClick={() => sync(false)}>Sincronizar productos</button>
       <button type="button" disabled={busy || state.loading} onClick={() => sync(true)}>Reenviar todo</button>
-      <button type="button" className="action" disabled={busy || state.loading || running || (!selected && !fallback) || (selected || fallback)?.trainings_left === 0} onClick={train}>
+      <button type="button" className="action" disabled={busy || state.loading || running || (!selected && !fallback) || (!(selected || fallback)?.trainings_unlimited && (selected || fallback)?.trainings_left === 0)} onClick={train}>
         {selected && catalogs.length > 1 ? `Entrenar «${selected.slug}»` : 'Entrenar en Kilby'}</button>
     </>}>
     <ErrorBox error={failure || state.error} onRetry={state.reload}/>
@@ -75,7 +75,7 @@ export default function KilbyTraining({notify, state}) {
         <article className="sb-metric"><span>Productos</span><strong>{data.products.synced} / {data.products.local}</strong><small>{data.products.pending} pendientes{data.products.stuck ? ` · ${data.products.stuck} con error` : ''}</small></article>
         <article className="sb-metric"><span>Etiquetas listas</span><strong>{data.labels.ready}</strong><small>{skippedText || 'Sin omitidas'}</small></article>
       </div>}
-      {(selected || fallback) && <p className="sb-hint">Entrenamientos disponibles en el plan{selected ? ` para «${selected.slug}»` : ''}: {(selected || fallback).trainings_left ?? '—'}. Una versión nueva se publica sola si su top-1 iguala o supera el de la publicada; si no, queda como candidata.</p>}
+      {(selected || fallback) && <p className="sb-hint">Entrenamientos disponibles en el plan{selected ? ` para «${selected.slug}»` : ''}: {(selected || fallback).trainings_unlimited ? 'sin límite (habilitado por Kilby)' : ((selected || fallback).trainings_left ?? '—')}. Una versión nueva se publica sola si su top-1 iguala o supera el de la publicada; si no, queda como candidata.</p>}
       {selected && catalogs.length > 1 && data.default_catalog && <p className="sb-hint">Al entrenar se envían solo las etiquetas de lecturas analizadas con «{selected.slug}». Las lecturas sin catálogo registrado (anteriores a los catálogos por categoría) cuentan para el catálogo configurado «{data.default_catalog}».</p>}
       {data.products.errors.length > 0 && <details><summary>Errores de sincronización ({data.products.errors.length})</summary>
         <ul>{data.products.errors.map(e => <li key={e.sku}><b>{e.sku}</b>{e.catalog ? <small> → {e.catalog}</small> : null}: {e.last_error}</li>)}</ul></details>}

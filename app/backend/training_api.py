@@ -1,7 +1,7 @@
 ﻿"""Provider-only training verification, isolated from production readings."""
 import json
 import uuid
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 import auth
@@ -110,12 +110,13 @@ def router(require_training, require_internal):
         return Response(content,media_type='application/x-ndjson',headers={'Cache-Control':'no-store','Content-Disposition':'attachment; filename="Neuravision_Etiquetas_Entrenamiento.jsonl"'})
 
     @api.get('/labels/{label_id}/crop.jpg')
-    def crop(label_id:str,user=Depends(require_training)):
+    def crop(label_id:str,request:Request,user=Depends(require_training)):
         with db.get_conn() as conn:
             row=conn.execute('SELECT crop_path FROM management_training_labels WHERE id=?',(label_id,)).fetchone()
         content=storage.get(row['crop_path']) if row else None
         if content is None:raise HTTPException(404,'Recorte no disponible.')
-        return Response(content,media_type='image/jpeg',headers={'Cache-Control':'private, no-store'})
+        import image_cache
+        return image_cache.response(request,content,'image/jpeg',immutable=True)
 
     # Entrenar en Kilby. Depends on Kilby's Neuravision dataset API (contract 2026-11-18, not deployed yet).
     def kilby_call(action,*args):

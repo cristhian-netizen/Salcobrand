@@ -1,19 +1,20 @@
 'use client';
-import {sessionUrl} from '../../lib/tab-session.mjs';
 import {useRef} from 'react';
+import Img from '../common/Img';
+import {imageUrl} from '../../lib/images.mjs';
 
-export default function ShelfPhoto({photo, name}) {
+export default function ShelfPhoto({photo, name, thumb = 256}) {
   const viewer = useRef(null);
   if (!photo) return <span className="sb-hint">Sin foto</span>;
   return <>
     <button className="shelf-photo-button" type="button" aria-label={'Ampliar foto de ' + name} onClick={() => viewer.current.showModal()}>
-      <img src={sessionUrl(photo)} alt={name}/><span>Ampliar</span>
+      <Img src={imageUrl(photo, thumb)} alt={name}/><span>Ampliar</span>
     </button>
     <dialog ref={viewer} className="shelf-photo-viewer" aria-label={'Foto de ' + name}
       onKeyDown={event => event.stopPropagation()} onCancel={event => event.stopPropagation()}
       onClick={event => {if (event.target === event.currentTarget) viewer.current.close();}}>
       <div className="sb-card-head"><h2>{name}</h2><button type="button" aria-label="Cerrar foto" onClick={() => viewer.current.close()}>Cerrar</button></div>
-      <img src={sessionUrl(photo)} alt={'Foto ampliada de ' + name}/>
+      <Img src={imageUrl(photo)} alt={'Foto ampliada de ' + name}/>
     </dialog>
   </>;
 }

@@ -262,7 +262,8 @@
 #nv .shelf-photo-button span { font-size: 11px; }
 #nv .shelf-photo-viewer { padding: 0; border: 0; border-radius: 16px; width: min(90vw, 1000px); max-height: 90vh; background: white; color: #183247; }
 #nv .shelf-photo-viewer::backdrop { background: rgb(8 19 34 / 75%); }
-#nv .shelf-photo-viewer > img { display: block; width: 100%; height: auto; max-height: 75vh; object-fit: contain; padding: 16px; box-sizing: border-box; }
+#nv .shelf-photo-viewer > img, #nv .shelf-photo-viewer > .sb-img > img { display: block; width: 100%; height: auto; max-height: 75vh; object-fit: contain; padding: 16px; box-sizing: border-box; }
+#nv .shelf-photo-viewer > .sb-img.is-loading, #nv .shelf-photo-viewer > .sb-img.is-error { min-height: 320px; }
 @media (max-width: 600px) { #nv .store-assignment { grid-template-columns: 74px minmax(0, 1fr); gap: 12px; } #nv .store-assignment > label { grid-column: 1 / -1; } }
 #nv .infrastructure-actions { flex-wrap: nowrap; }
 #nv main .infrastructure-actions button { margin: 0; }
@@ -423,3 +424,26 @@
 .home-skeleton-sr { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (max-width: 800px) { .home-entry-skeleton { grid-template-columns: minmax(0, 1fr); } .home-skeleton-sidebar { display: none; } .home-skeleton-page { padding: 20px; } .home-skeleton-cards { grid-template-columns: minmax(0, 1fr); } }
 @media (prefers-reduced-motion: reduce) { .home-skeleton-line { animation: none; } }
+
+/* Imágenes con esqueleto (common/Img): shimmer del tamaño correcto mientras carga, aparición suave y reintento visible. */
+#nv .sb-img { position: relative; display: block; min-width: 0; }
+#nv .sb-img > img { display: block; opacity: 0; transition: opacity .25s ease; }
+#nv .sb-img.is-ready > img { opacity: 1; }
+#nv .sb-img.is-loading { min-height: 24px; }
+#nv .sb-img.is-loading::before, #nv .sb-img.is-error::before { content: ''; position: absolute; inset: 0; border-radius: 8px;
+  background: linear-gradient(90deg, var(--nv-surface-3), var(--nv-surface), var(--nv-surface-3)); background-size: 200% 100%;
+  animation: nv-shimmer 1.2s linear infinite; }
+#nv .sb-img.is-error::before { animation: none; background: var(--nv-surface-3); }
+#nv main .sb-img .sb-img-retry, #nv .sb-img .sb-img-retry { position: absolute; inset: 0; display: grid; place-content: center; gap: 2px;
+  width: 100%; min-height: 0; padding: 4px; border: 1px dashed var(--nv-border); border-radius: 8px; background: transparent;
+  color: var(--nv-text-muted); font-size: 12px; cursor: pointer; }
+#nv .sb-img .sb-img-retry b { color: var(--nv-primary); font-weight: 600; }
+#nv .sb-img.sb-thumb.is-loading { min-height: 0; }
+#nv .sb-img.sb-thumb img { width: 100%; height: 100%; object-fit: cover; }
+#nv .sb-photo .sb-img.is-loading, #nv .sb-photo .sb-img.is-error { min-height: 220px; }
+#nv .sb-previews .sb-img.is-loading, #nv .sb-previews .sb-img.is-error { min-height: 110px; }
+@media (prefers-reduced-motion: reduce) { #nv .sb-img.is-loading::before { animation: none; } }
+
+/* Sugerencia de la IA en los recortes de revisión: es una sugerencia, la decisión sigue siendo humana. */
+#nv .sb-crop .ai-suggest { font-size: 12px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--nv-border); background: var(--nv-surface-3); color: var(--nv-text); overflow-wrap: anywhere; }
+#nv .sb-crop .ai-suggest.none { color: var(--nv-text-muted); }

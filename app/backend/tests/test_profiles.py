@@ -34,12 +34,13 @@ from brand_settings_cases import BrandSettingsCases
 from shared_plan_cases import SharedPlanCases
 from email_access_cases import EmailAccessCases
 from kilby_cases import KilbyCases
+from image_cache_cases import ImageCacheCases
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
 
-class ProfileHTTPTests(KilbyCases, EmailAccessCases, SharedPlanCases, BrandSettingsCases, PortalImprovementsCases, SessionCases, ConsoleCases, UsageCases, PeopleCases, StoreExcelCases, AlertCases, DashboardCases, DetailCases, HomeCases, SettingsCases, ReportCases, CaptureCases, CatalogCases, InfrastructureCases, unittest.TestCase):
+class ProfileHTTPTests(ImageCacheCases, KilbyCases, EmailAccessCases, SharedPlanCases, BrandSettingsCases, PortalImprovementsCases, SessionCases, ConsoleCases, UsageCases, PeopleCases, StoreExcelCases, AlertCases, DashboardCases, DetailCases, HomeCases, SettingsCases, ReportCases, CaptureCases, CatalogCases, InfrastructureCases, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory(prefix="salcobrand-profile-tests-")
@@ -188,7 +189,10 @@ class ProfileHTTPTests(KilbyCases, EmailAccessCases, SharedPlanCases, BrandSetti
         self.assertEqual(own.get(f'/api/readings/{self.other["id"]}/crops/0/0.jpg').status_code, 403)
         response = own.get(f'/api/readings/{self.own["id"]}/crops/0/0.jpg')
         self.assertEqual(response.status_code, 200)
-        self.assertIn("no-store", response.headers["cache-control"])
+        # Crops of a stored reading never change: the browser may keep them (private; auth still runs here).
+        self.assertIn("private", response.headers["cache-control"])
+        self.assertIn("immutable", response.headers["cache-control"])
+        self.assertTrue(response.headers["etag"])
         external = self.client(None)
         self.assertEqual(external.get("/uploads/point-a/own.jpg", headers={"X-API-Key": "isolated-client-key"}).status_code, 200)
         self.assertEqual(external.get("/uploads/point-a/own.jpg", headers={"X-API-Key": "wrong"}).status_code, 401)

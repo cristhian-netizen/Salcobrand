@@ -1,7 +1,8 @@
 'use client';
 import SortableTable from '../tables/SortableTable';
 
-import {sessionUrl} from '../../lib/tab-session.mjs';
+import {imageUrl} from '../../lib/images.mjs';
+import Img from '../common/Img';
 import {useMemo, useState} from 'react';
 import {api, download, fmt} from '../../lib/sb';
 import {can} from '../../lib/profiles.mjs';
@@ -114,7 +115,7 @@ function PointDetail({user, go, pointId, tab, notify}) {
     {tab === 'lecturas' && <Card body={false} title="Historial de lecturas">
       {readings.length ? <div className="sb-table"><SortableTable><thead><tr><th></th><th>Fecha</th><th>Estado</th><th className="sb-num">Caras</th><th>Cumplimiento</th><th>Puntaje</th><th className="sb-num">Por revisar</th></tr></thead><tbody>
         {readings.map(r => <tr key={r.id} className="sb-click" onClick={() => go(`gondolas/${encodeURIComponent(point.id)}/lectura/${r.id}`)}>
-          <td style={{width: 76}}>{r.image_urls?.[0] ? <img className="sb-thumb" src={sessionUrl(r.image_urls[0])} alt="" loading="lazy"/> : <span className="sb-thumb"/>}</td>
+          <td style={{width: 76}}>{r.image_urls?.[0] ? <Img className="sb-thumb" src={imageUrl(r.image_urls[0], 128)} alt=""/> : <span className="sb-thumb"/>}</td>
           <td data-sort-value={r.created_at}><b>{fmt.dateTime(r.created_at)}</b><small>Lectura #{r.id} · {r.image_urls?.length || 0} fotos</small></td>
           <td><Pill kind={r.review?.status === 'Aprobado' ? 'ok' : r.review?.status === 'Rechazado' ? 'bad' : 'warn'}>{r.review?.status || 'En revisión'}</Pill></td>
           <td className="sb-num">{r.total_facings}</td><td><ComplianceBar pct={r.compliance?.compliance_pct}/></td>

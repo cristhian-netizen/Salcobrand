@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../lib/sb";
 import Icon from "../navigation/icons";
 import ShelfPhoto from "../management/ShelfPhoto";
+import Img from "../common/Img";
 import {orderRegions} from "../../lib/locations.mjs";
 import { useApi, Header, Card, ErrorBox, Loading } from "./ui";
 import ReadingView from "./ReadingView";
@@ -588,7 +589,7 @@ export default function Scan({ user, rest, go, notify }) {
                 {isHeic(p.file) ? (
                   <div className="sb-empty">Foto HEIC {i + 1}</div>
                 ) : (
-                  <img src={p.url} alt={`Foto ${i + 1}`} />
+                  <Img src={p.url} alt={`Foto ${i + 1}`} eager />
                 )}
                 <figcaption>
                   <span>{i + 1}</span>

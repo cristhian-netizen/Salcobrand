@@ -19,6 +19,7 @@ from pydantic import BaseModel
 import api_jobs
 import api_v1
 import auth
+import image_cache
 import captures
 import vivo
 import core
@@ -133,7 +134,10 @@ def require_auth(request: Request) -> str:
 
 def require_account(request: Request) -> dict:
     """Usuario de la sesión con su rol y local: {username, role, store_id, store_name}."""
-    username = require_auth(request)
+    return _account_state(require_auth(request), request)
+
+
+def _account_state(username: str, request: Request) -> dict:
     u = db.get_user(username)
     if not u:
         raise HTTPException(status_code=401, detail="Sesión inválida o expirada")
@@ -156,13 +160,44 @@ def require_account(request: Request) -> dict:
 
 
 def require_user(request: Request) -> dict:
-    user = require_account(request)
+    return _portal_user(require_account(request))
+
+
+def _portal_user(user: dict) -> dict:
     if not user['portal_access']:
         raise HTTPException(status_code=403,detail='Esta cuenta tiene acceso a la consola interna.')
     import client_identity
     if not client_identity.public_identity()['active']:
         raise HTTPException(status_code=403,detail='El cliente está inactivo.')
     return user
+
+
+_TAB_COOKIE = re.compile(re.escape(auth.SESSION_COOKIE) + r'_[a-f0-9]{32}$')
+
+
+def _image_cookie_names(request: Request) -> list:
+    return [auth.SESSION_COOKIE, *sorted(name for name in request.cookies if _TAB_COOKIE.fullmatch(name))]
+
+
+def _has_image_session(request: Request) -> bool:
+    if request.headers.get('x-portal-session') is not None or request.query_params.get('portal_session') is not None:
+        return bool(request.cookies.get(_session_cookie_name(request)))
+    return any(request.cookies.get(name) for name in _image_cookie_names(request))
+
+
+def require_image_user(request: Request) -> dict:
+    """Images authenticate with the HttpOnly session cookie alone. An explicit tab selector (header or query
+    parameter) keeps its strict per-tab meaning, for the capture links and older clients that still send it; an
+    image URL without one accepts any valid session cookie of the browser (legacy cookie first, then the per-tab
+    cookies in stable order). Without the per-tab query parameter the URL is identical in every tab, so the
+    browser cache finally works for photos and crops."""
+    if request.headers.get('x-portal-session') is not None or request.query_params.get('portal_session') is not None:
+        return require_user(request)
+    for name in _image_cookie_names(request):
+        username = auth.verify_session_token(request.cookies.get(name) or '')
+        if username:
+            return _portal_user(_account_state(username, request))
+    raise HTTPException(status_code=401, detail="Sesión inválida o expirada")
 
 
 def require_internal(user: dict = Depends(require_account)):
@@ -285,13 +320,15 @@ app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 
 @app.get("/uploads/{rel_path:path}")
-def uploaded_photo(rel_path: str, request: Request):
-    """Authorize original photos, including direct URLs, before retrieving bytes."""
+def uploaded_photo(rel_path: str, request: Request, w: Optional[int] = None):
+    """Authorize original photos, including direct URLs, before retrieving bytes. `?w=` serves the cached
+    thumbnail for grids; the answer is browser-cacheable (ETag + private max-age, immutable for reading photos,
+    which never change under their path)."""
     if rel_path.startswith('_training/'):
         raise HTTPException(404, 'Fotografía no disponible.')
     reading_id = db.reading_for_photo(rel_path)
-    if request.cookies.get(_session_cookie_name(request)):
-        user = require_user(request)
+    if _has_image_session(request):
+        user = require_image_user(request)
         if reading_id is not None:
             authorize_reading(reading_id, user)
         elif not profiles.can(user, "manage"):
@@ -310,8 +347,9 @@ def uploaded_photo(rel_path: str, request: Request):
         data = None
     if data is None:
         raise HTTPException(status_code=404, detail="Foto no encontrada")
-    return Response(content=data, media_type=storage.content_type_for(rel_path),
-                    headers={"Cache-Control": "private, no-store"})
+    data, thumb_type = image_cache.thumbnail("uploads", rel_path, data, w)
+    return image_cache.response(request, data, thumb_type or storage.content_type_for(rel_path),
+                                immutable=reading_id is not None)
 # Imágenes oficiales del catálogo real (data/catalogo/<categoria>/images), solo lectura y solo carpetas existentes
 for _category, _images_dir in db.catalog_image_dirs():
     app.mount(f"/catalog-images/{_category}", StaticFiles(directory=_images_dir), name=f"catalog-images-{_category}")
@@ -1019,13 +1057,15 @@ def _crop_cached(reading_id: int, image_index: int, item_index: int) -> bytes:
 
 
 @app.get("/api/readings/{reading_id}/crops/{image_index}/{item_index}.jpg")
-def api_reading_crop(reading_id: int, image_index: int, item_index: int, user: dict = Depends(require_user)):
+def api_reading_crop(reading_id: int, image_index: int, item_index: int, request: Request, w: Optional[int] = None,
+                     user: dict = Depends(require_image_user)):
     authorize_reading(reading_id, user)
     try:
         data = _crop_cached(reading_id, image_index, item_index)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return Response(content=data, media_type="image/jpeg", headers={"Cache-Control": "private, no-store"})
+    data, thumb_type = image_cache.thumbnail("crops", f"{reading_id}/{image_index}/{item_index}", data, w)
+    return image_cache.response(request, data, thumb_type or "image/jpeg", immutable=True)
 
 
 @app.post("/api/readings/{reading_id}/confirm")

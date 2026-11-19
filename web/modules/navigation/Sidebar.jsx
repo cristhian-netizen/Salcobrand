@@ -1,5 +1,5 @@
 'use client';
-import {sessionUrl} from '../../lib/tab-session.mjs';
+import Img from '../common/Img';
 
 import Icon from './icons';
 import {ROLE_NAMES} from '../../lib/sb';
@@ -18,7 +18,7 @@ export default function Sidebar({user, current, onSelect, onLogout, open = false
       <div className="nv-brand"><span className="nv-mark" aria-hidden="true">n</span><span className="nv-brand-name">neuravision</span></div>
       <button className="nv-icon-button nv-sidebar-close" type="button" onClick={onClose} aria-label="Cerrar menú"><Icon name="close"/></button>
     </div>
-    {clientLogo && <div className="nv-client-logo"><img src={sessionUrl(clientLogo)} alt={isSalcobrand ? 'Farmacias Salcobrand' : clientName} width="112" height="112"/></div>}
+    {clientLogo && <div className="nv-client-logo"><Img src={clientLogo} alt={isSalcobrand ? 'Farmacias Salcobrand' : clientName} width="112" height="112" eager/></div>}
     <nav aria-label="Principal">{GROUPS.map(([group, ids]) => {
       const visible = ids.filter(id => visibleInSidebar(id, user.role) && (id !== 'planogramas' || enabled(user, 'planograms')));
       return visible.length ? <div className="nv-nav-section" key={group}>

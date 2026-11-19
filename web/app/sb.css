@@ -277,7 +277,7 @@
 #nv .shelf-photo-button span { font-size: 11px; }
 #nv .shelf-photo-viewer { padding: 0; border: 0; border-radius: 16px; width: min(90vw, 1000px); max-height: 90vh; background: white; color: #183247; }
 #nv .shelf-photo-viewer::backdrop { background: rgb(8 19 34 / 75%); }
-#nv .shelf-photo-viewer > img, #nv .shelf-photo-viewer > .sb-img > img { display: block; width: 100%; height: auto; max-height: 75vh; object-fit: contain; padding: 16px; box-sizing: border-box; }
+#nv .shelf-photo-viewer > img, #nv .shelf-photo-viewer > .sb-img > img { display: block; width: auto; max-width: 100%; height: auto; max-height: 75vh; object-fit: contain; padding: 16px; box-sizing: border-box; margin-inline: auto; } /* nunca agrandar sobre el tamaño real: un recorte chico estirado se ve borroso aunque el archivo sea nítido */
 #nv .shelf-photo-viewer > .sb-img.is-loading, #nv .shelf-photo-viewer > .sb-img.is-error { min-height: 320px; }
 @media (max-width: 600px) { #nv .store-assignment { grid-template-columns: 74px minmax(0, 1fr); gap: 12px; } #nv .store-assignment > label { grid-column: 1 / -1; } }
 #nv .infrastructure-actions { flex-wrap: nowrap; }

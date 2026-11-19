@@ -1388,9 +1388,15 @@ def compute_shelf_standards(products: list, empty_space_pct) -> dict:
 
     sub_scores = {"stock": stock_score, "space": space_score, "price": price_score, "organization": organization_score}
     available = {k: v for k, v in sub_scores.items() if v is not None}
-    weight_sum = sum(STANDARDS_WEIGHTS[k] for k in available)
-    if available:
-        overall_score = round(sum(v * STANDARDS_WEIGHTS[k] for k, v in available.items()) / weight_sum)
+    # Weights configured in Configuración → Parámetros de medición; STANDARDS_WEIGHTS only as fallback. The score
+    # is computed every time a reading is shown or exported, so a weight change re-scores existing measurements.
+    from settings_service import display_parameters, score_band
+    parameters = display_parameters()
+    configured = parameters.get("standardsWeights") or {}
+    weights = {k: (configured[k] / 100 if type(configured.get(k)) is int else STANDARDS_WEIGHTS[k]) for k in STANDARDS_WEIGHTS}
+    weight_sum = sum(weights[k] for k in available)
+    if available and weight_sum:
+        overall_score = round(sum(v * weights[k] for k, v in available.items()) / weight_sum)
     else:
         overall_score = None
 
@@ -1402,13 +1408,13 @@ def compute_shelf_standards(products: list, empty_space_pct) -> dict:
                          "dominant_faces": sum(item["dominant_faces"] for item in organization_levels)},
     }
     breakdown = {
-        "components": [{"key": key, "score": value, "base_weight_pct": STANDARDS_WEIGHTS[key] * 100,
-                        "effective_weight_pct": round(STANDARDS_WEIGHTS[key] / weight_sum * 100, 6) if value is not None else 0,
-                        "contribution": round(value * STANDARDS_WEIGHTS[key] / weight_sum, 6) if value is not None else None,
+        "components": [{"key": key, "score": value, "base_weight_pct": weights[key] * 100,
+                        "effective_weight_pct": round(weights[key] / weight_sum * 100, 6) if value is not None and weight_sum else 0,
+                        "contribution": round(value * weights[key] / weight_sum, 6) if value is not None and weight_sum else None,
                         "inputs": inputs[key]} for key, value in sub_scores.items()],
         "available_weight_pct": round(weight_sum * 100, 6),
-        "weighted_sum": round(sum(value * STANDARDS_WEIGHTS[key] for key, value in available.items()), 6),
-        "unrounded_score": round(sum(value * STANDARDS_WEIGHTS[key] for key, value in available.items()) / weight_sum, 6) if available else None,
+        "weighted_sum": round(sum(value * weights[key] for key, value in available.items()), 6),
+        "unrounded_score": round(sum(value * weights[key] for key, value in available.items()) / weight_sum, 6) if available and weight_sum else None,
         "rounding": "nearest_integer_ties_to_even",
         "grade_ranges": [{"minimum": threshold, "label": label} for threshold, label, _ in STANDARDS_GRADES],
     }
@@ -1429,8 +1435,7 @@ def compute_shelf_standards(products: list, empty_space_pct) -> dict:
     grade_label, grade_color = (None, None)
     if overall_score is not None:
         grade_label, grade_color = _grade_for_score(overall_score)
-    from settings_service import score_band
-    band = score_band(overall_score)
+    band = score_band(overall_score, parameters.get("scoreParameters"))
     if band:
         grade_color = {'bad': '#dc2626', 'warn': '#d97706', 'ok': '#16a34a'}[band]
 

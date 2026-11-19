@@ -5,6 +5,7 @@ import { useApi, Header, Loading, ErrorBox } from '../sb/ui';
 import CatalogSettings from './CatalogSettings';
 import PdvTypesSettings from './PdvTypesSettings';
 import AnalysisSettings from './AnalysisSettings';
+import MeasurementSettings from './MeasurementSettings';
 import AlertSettings from './AlertSettings';
 import ApiIntegrations from './ApiIntegrations';
 import ClassificationTransfer from './ClassificationTransfer';
@@ -118,6 +119,7 @@ export default function Settings({ notify, rest=[] }) {
             </div>
             <div style={{ display: tab === 'alerts' ? 'block' : 'none' }}><AlertSettings state={data.state} busy={busy} save={save}/></div>
             <div style={{ display: tab === 'analysis'  ? 'block' : 'none' }}>
+              <MeasurementSettings state={data.state} busy={busy} save={save} />
               <AnalysisSettings state={data.state} busy={busy} save={save} />
             </div>
           </div>

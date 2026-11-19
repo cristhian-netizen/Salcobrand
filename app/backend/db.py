@@ -176,6 +176,7 @@ def init_db(role: str = None):
                 conn.execute("UPDATE users SET role = 'admin' WHERE role IS NULL OR role = ''")
             _backfill_authors()
             pgcompat.meta_set("ready", now_iso())
+            _maintenance_wipe()
         return
     with get_conn() as conn:
         conn.executescript(SCHEMA + MANAGEMENT_SCHEMA)
@@ -227,6 +228,15 @@ def init_db(role: str = None):
         conn.execute("UPDATE users SET role = 'admin' WHERE role IS NULL OR role = ''")
     _backfill_authors()
     _seed_planograms_if_empty()
+    if role in ("api", "all"):
+        _maintenance_wipe()
+
+
+def _maintenance_wipe():
+    """One-shot wipe of operational data, driven by MAINTENANCE_WIPE_OPERATIONAL (maintenance.py)."""
+    import maintenance  # imported here: maintenance uses this module
+
+    maintenance.wipe_if_requested()
 
 
 ROLES = (*PROFILES, *LEGACY_PROFILES, *INTERNAL_PROFILES)

@@ -1,4 +1,4 @@
-/* Captura de fotos por enlace (/captura/<código>) — NeuraVision para Salcobrand. Sin dependencias ni build.
+/* Captura de fotos por enlace (/captura/<código>) — piloto Salcobrand. Sin dependencias ni build.
    Misma experiencia que la recolección de PF (PF/app/frontend/recoleccion.js), adaptada al piloto Salcobrand:
    - Enlace por local (entra con el local ya elegido) o UNIVERSAL (la persona elige su local de la lista al abrir).
    - Al entrar se elige QUÉ se fotografía: "Góndola" (guiado franja por franja y al final la completa) o "Producto"
@@ -214,8 +214,8 @@
   };
 
   // ─── vistas ──────────────────────────────────────────────────────────────
-  const LOCKUP = `<span class="lockup" aria-label="NeuraVision para Salcobrand"><span class="prod">Neura<i>Vision</i></span><span class="sep"></span>
-      <span class="client"><span class="para">para</span><b>Salcobrand</b></span></span>`;
+  const LOCKUP = `<span class="lockup" aria-label="Salcobrand · Fotos de góndola"><span class="client"><b>Salcobrand</b></span><span class="sep"></span>
+      <span class="client"><span class="para">Fotos de góndola</span></span></span>`;
   const top = () => `<header class="r-top">${LOCKUP}<button class="btn btn-ghost btn-icon" type="button" data-act="ayuda" aria-label="¿Para qué es esto?">${icon("help")}</button>
       <button class="btn btn-ghost btn-icon" id="themeBtn" type="button" data-act="tema"></button></header>`;
 
@@ -247,7 +247,7 @@
     const cur = Sesiones.actual();
     let cuerpo;
     if (!S.info) {
-      cuerpo = `<div class="r-hello"><span class="kicker">${icon("camera")}Piloto NeuraVision</span><h1>Cargando…</h1></div>
+      cuerpo = `<div class="r-hello"><span class="kicker">${icon("camera")}Piloto Salcobrand</span><h1>Cargando…</h1></div>
         <div class="r-empty" style="padding:18px;text-align:center">${navigator.onLine ? '<span class="spinner"></span>' : "Sin señal: abre el enlace con internet la primera vez."}</div>`;
     } else if (universal() && !l) {
       cuerpo = `<div class="r-hello"><span class="kicker">${icon("store")}Paso 1 de 2</span><h1>¿En qué local estás?</h1>

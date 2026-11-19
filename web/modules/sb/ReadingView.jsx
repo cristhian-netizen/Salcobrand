@@ -101,7 +101,7 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo, show
     {error && <div className="sb-error" role="alert">{error}</div>}
     {showExport && can(user, 'read') && <div className="sb-actions"><button type="button" disabled={busy} onClick={async () => {
       setBusy(true); setError('');
-      try { await download(`/api/readings/${reading.id}/report.xlsx`, `Neuravision_Medicion_${reading.id}.xlsx`); }
+      try { await download(`/api/readings/${reading.id}/report.xlsx`, `Salcobrand_Medicion_${reading.id}.xlsx`); }
       catch (exception) { setError(exception.message); } finally { setBusy(false); }
     }}>Descargar Excel de esta medición</button></div>}
     <div className="sb-actions" style={{justifyContent: 'space-between'}}>

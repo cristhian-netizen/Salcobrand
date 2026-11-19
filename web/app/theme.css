@@ -1,4 +1,6 @@
-/* Neuravision design system.
+/* Salcobrand portal design system.
+   Brand palette taken from salcobrand.cl: institutional blue #0074c8, deep blue #0051b3,
+   action blue #06a7e2, offers magenta #c90188; text #333 on white/#f5f5f5 surfaces.
    Tokens live on :root; the tenant colours (primary, sidebar) are set inline on #nv.
    Rules scoped to #nv only touch visual properties, so module layouts keep working. */
 
@@ -21,7 +23,7 @@
   --nv-primary-ring: color-mix(in srgb, var(--nv-primary) 24%, transparent);
   --nv-accent: #06a7e2;
   --nv-highlight: #c90188;
-  --nv-brand-accent: #b1e225;
+  --nv-brand-accent: #0074c8;
   --nv-chart-2: #06a7e2;
   --nv-success: #067647;
   --nv-success-soft: #ecfdf3;
@@ -109,9 +111,10 @@ body {
 .nv-mark {
   display: inline-grid; place-items: center; flex: none;
   width: 30px; height: 30px; border-radius: 9px;
-  background: var(--nv-brand-accent); color: #0b0f14;
+  background: var(--nv-brand-accent); color: #ffffff;
   font-size: 18px; font-weight: 800; line-height: 1; letter-spacing: -.06em;
 }
+.nv-brand-logo { display: block; flex: none; width: 34px; height: 34px; object-fit: contain; }
 #nv .nv-brand-name { font-size: 16px; font-weight: 700; letter-spacing: -.03em; }
 #nv .nv-sidebar-close { display: none; color: inherit; }
 #nv .nv-client-logo { display: flex; justify-content: center; flex: 0 0 auto; padding-inline: 8px; }
@@ -355,7 +358,7 @@ body {
 .nv-spinner { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--nv-border); border-top-color: var(--nv-text); animation: nv-spin .8s linear infinite; }
 @keyframes nv-spin { to { transform: rotate(360deg); } }
 .nv-global-alert { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 90; padding: 10px 16px; border-radius: 10px; background: #fff; color: var(--nv-danger); border: 1px solid var(--nv-danger-border); box-shadow: var(--nv-shadow-lg); font-size: 13.5px; }
-.nv-org-picker { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: radial-gradient(1200px 600px at 80% -10%, #b1e22522, transparent), var(--nv-bg); }
+.nv-org-picker { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: radial-gradient(1200px 600px at 80% -10%, #0074c822, transparent), var(--nv-bg); }
 .nv-org-card { width: min(100%, 440px); padding: 32px; border: 1px solid var(--nv-border); border-radius: 18px; background: var(--nv-surface); box-shadow: var(--nv-shadow-lg); }
 .nv-org-card h1 { margin: 18px 0 6px; font-size: 22px; letter-spacing: -.02em; }
 .nv-org-card p { margin: 0 0 20px; color: var(--nv-text-muted); }

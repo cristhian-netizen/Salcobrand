@@ -4,7 +4,7 @@
    - Navegaciones: red primero (4 s), si falla el /tienda cacheado.
    - CSS/JS versionados por ?v=: caché primero (una versión nueva cambia la URL y este archivo).
    Al publicar una versión nueva: cambiar VERSION aquí y en <meta name="tienda-version"> de tienda.html. */
-const VERSION = "2026.11.05-3";
+const VERSION = "2026.11.19-1";
 const CACHE = "tienda-" + VERSION;
 const SHELL = [
   "/tienda",

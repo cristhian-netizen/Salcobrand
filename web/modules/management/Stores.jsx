@@ -23,7 +23,7 @@ export default function Stores({notify}) {
     try {
       const query = new URLSearchParams({search:q,region,commune,status,include_deleted:String(deleted)});
       await download('/api/admin/store-transfer/workbook.xlsx?' + query,
-        'Neuravision_PDV.xlsx');
+        'Salcobrand_PDV.xlsx');
     } catch (exception) {setError(exception.message);} finally {setBusy(false);}
   }
   async function changeStatus(s) {

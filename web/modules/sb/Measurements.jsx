@@ -48,7 +48,7 @@ export default function Measurements({ user, go }) {
     try {
       await download(
         "/api/reports/measurements.xlsx?" + query,
-        "Neuravision_Mediciones.xlsx",
+        "Salcobrand_Mediciones.xlsx",
       );
     } catch (exception) {
       setError(exception.message);

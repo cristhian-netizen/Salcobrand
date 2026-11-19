@@ -465,7 +465,7 @@
     const remembered = Settings.get("user", "");
     view().innerHTML = `
       <div class="login"><form class="login-card" id="loginForm" novalidate>
-        <div class="brand"><svg style="color:var(--lime)"><use href="#i-mark"/></svg><div><b>Góndolas</b><span>NeuraVision · Salcobrand</span></div></div>
+        <div class="brand"><img src="/static/assets/pwa/icon-192.png" alt="" width="34" height="34"/><div><b>Góndolas</b><span>Farmacias Salcobrand</span></div></div>
         <div class="fld"><label for="u">Usuario</label><input class="in" id="u" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" value="${esc(remembered)}" required></div>
         <div class="fld"><label for="p">Contraseña</label><input class="in" id="p" name="password" type="password" autocomplete="current-password" required></div>
         <label class="chk"><input type="checkbox" id="remember" ${Settings.get("remember", true) ? "checked" : ""}> Recordar en este dispositivo</label>

@@ -4,7 +4,7 @@
    - /captura/<código>/estado, /foto y demás llamadas nunca pasan por el caché (van directo a la red).
    - Navegación: red primero (4 s); sin señal, la página guardada de ese enlace (o la de otro enlace: es la misma).
    Al publicar una versión: cambiar VERSION aquí y en captures.VERSION (app/backend/captures.py). */
-const VERSION = "2026.11.08-sb2";
+const VERSION = "2026.11.19-sb3";
 const CACHE = "sb-captura-" + VERSION;
 const SHELL = [
   "/static/captura.css?v=" + VERSION,

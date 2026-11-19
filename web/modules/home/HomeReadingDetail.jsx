@@ -14,7 +14,7 @@ export default function HomeReadingDetail({ row, user, go, onClose }) {
   const status = review?.status || data?.review?.status || row.status;
   async function exportReading() {
     setExporting(true);setExportError('');
-    try {await download(`/api/readings/${row.id}/report.xlsx`, `Neuravision_Medicion_${row.id}.xlsx`);}
+    try {await download(`/api/readings/${row.id}/report.xlsx`, `Salcobrand_Medicion_${row.id}.xlsx`);}
     catch (exception) {setExportError(exception.message);}
     finally {setExporting(false);}
   }

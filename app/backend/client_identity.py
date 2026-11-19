@@ -14,8 +14,9 @@ from infrastructure import ManagementError, _audit, _text
 
 FONTS = ['Arial','Verdana','Tahoma','Trebuchet MS','Georgia','Times New Roman','system-ui']
 DEFAULT_MODEL = {'remoteOrgId':'','credentialEnv':'INTEGRATION_NEURAVISION_KEY'}
+# Salcobrand brand palette (salcobrand.cl): institutional blue on a white sidebar.
 DEFAULT_IDENTITY = {'schema':1,'id':'salcobrand','name':'Salcobrand','logo':'','theme':'default',
-                    'primaryColor':'#183247','sidebarColor':'#0f1b2d',
+                    'primaryColor':'#0074c8','sidebarColor':'#ffffff',
                     'modules':{'vision':True,'planograms':True,'sales':False},'typography':{}}
 IDENTITY_FIELDS = tuple(DEFAULT_IDENTITY)
 
@@ -119,7 +120,7 @@ def validate_identity(tenant):
         if 'fontSize' in values and (type(values['fontSize']) is not int or not 10 <= values['fontSize'] <= 24):
             raise ManagementError('El tamaño de la barra lateral debe estar entre 10 y 24 px.')
     return {'schema':1,'id':slug,'name':name,'logo':logo,'theme':_text(tenant.get('theme','default'),'Tema',50),
-            'primaryColor':color(tenant.get('primaryColor')),'sidebarColor':color(tenant.get('sidebarColor','#0f1b2d')),
+            'primaryColor':color(tenant.get('primaryColor')),'sidebarColor':color(tenant.get('sidebarColor','#ffffff')),
             'modules':{key:modules[key] for key in ('vision','planograms','sales')},'typography':copy.deepcopy(typography)}
 
 

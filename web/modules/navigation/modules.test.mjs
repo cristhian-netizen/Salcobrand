@@ -12,3 +12,9 @@ test('customer sidebar preserves business modules and hides internal verificatio
  assert(visible('analyst').includes('mediciones'));assert(visible('viewer').includes('uso-analisis'));
  assert.deepEqual(visible('local-neura'),['revision']);
 });
+test('APIs closes Administración for admin and Superusuario only',()=>{
+ const admin=GROUPS.find(([name])=>name==='Administración')[1];
+ assert.equal(admin.at(-1),'apis');
+ assert.equal(visible('admin').at(-1),'apis');assert.equal(visible('viewer').at(-1),'apis');
+ for(const role of ['analyst','replenisher','local-neura'])assert(!allowed('apis',role),role);
+});

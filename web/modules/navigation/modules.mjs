@@ -19,8 +19,10 @@ export const MODULES = [
   ['cuenta', 'Mi cuenta', 'account', ['replenisher', 'analyst', 'viewer', 'admin','local-neura']],
   ['configuracion', 'Configuración', 'settings', ['admin']],
   ['ayuda', 'Ayuda y soporte', 'help', ['analyst', 'viewer', 'admin']],
+  // Keys of external APIs (Neuravision on Kilby). Admin edits; Superusuario sees status only, never a key.
+  ['apis', 'APIs', 'link', ['admin', 'viewer']],
 ];
-export const GROUPS = [['Verificación interna', ['revision']], ['General', ['inicio', 'alertas']], ['Operación', ['escanear', 'mediciones']], ['Análisis', ['dashboards', 'reportes', 'uso-analisis']], ['Administración', ['pdv', 'infraestructura', 'productos', 'planogramas', 'usuarios', 'configuracion', 'ayuda']]];
+export const GROUPS = [['Verificación interna', ['revision']], ['General', ['inicio', 'alertas']], ['Operación', ['escanear', 'mediciones']], ['Análisis', ['dashboards', 'reportes', 'uso-analisis']], ['Administración', ['pdv', 'infraestructura', 'productos', 'planogramas', 'usuarios', 'configuracion', 'ayuda', 'apis']]];
 export const labelOf = id => MODULES.find(m => m[0] === id)?.[1] || id;
 export const allowed = (id, role) => !!MODULES.find(m => m[0] === id)?.[3].includes(profileOf(role));
 

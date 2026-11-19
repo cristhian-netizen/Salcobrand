@@ -17,8 +17,24 @@ import db
 import storage
 from vision import MAX_IMAGES, analyze_shelf  # noqa: F401  (vision.py agrega la raíz del proyecto al sys.path)
 
+def analysis_backend():
+    """embedded (engine in this process), remote (NeuraVision engine with user/password) or kilby (Neuravision on Kilby)."""
+    value = os.environ.get("NEURAVISION_ANALYSIS_BACKEND", "embedded").strip().lower()
+    return value if value in ("embedded", "remote", "kilby") else "embedded"
+
+
 def remote_enabled():
-    return os.environ.get("NEURAVISION_ANALYSIS_BACKEND", "embedded") == "remote"
+    """True when the engine runs outside this process: the old remote engine or Neuravision on Kilby."""
+    return analysis_backend() != "embedded"
+
+
+def remote_adapter():
+    """The module that analyzes outside this process; both expose analyze() and health() with the same contract."""
+    if analysis_backend() == "kilby":
+        import kilby_model
+        return kilby_model
+    import remote_model
+    return remote_model
 
 
 def shared_components():
@@ -185,8 +201,7 @@ def warm_up_engine():
 
 def engine_health() -> dict:
     if remote_enabled():
-        import remote_model
-        return remote_model.health()
+        return remote_adapter().health()
     if os.environ.get("ROLE") == "api" and os.environ.get("JOBS_QUEUE_URL"):
         # la API no carga el motor: lo corren los workers, que escalan desde 0 según la cola
         return {"engine": "neuravision", "engine_ready": True, "engine_error": None,
@@ -205,8 +220,7 @@ def analyze_and_store(point_id: str, loaded: List[Tuple[bytes, str]], linear_met
     planogram_context = db.planogram_context_for_vision(planogram_id, planogram=plan_snapshot) if planogram_id else None
     t0 = time.perf_counter()
     if remote_enabled():
-        import remote_model
-        analysis = remote_model.analyze(point_id, loaded, linear_meters, job_id, plan_snapshot)
+        analysis = remote_adapter().analyze(point_id, loaded, linear_meters, job_id, plan_snapshot)
     else:
         analysis = analyze_shelf(loaded, planogram_context)
     engine_ms = int((time.perf_counter() - t0) * 1000)

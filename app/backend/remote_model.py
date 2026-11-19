@@ -45,7 +45,19 @@ def authenticate(client):
         raise ValueError('La API de análisis no autorizó el acceso configurado en el servidor.')
 
 
+_HEALTH = {"at": 0.0, "value": None}
+HEALTH_TTL_S = int(os.environ.get("NEURAVISION_REMOTE_HEALTH_TTL_S", "30"))
+
+
 def health():
+    """Cached: Kilby probes /health every few seconds, and each call used to poll the engine (≈25,000 calls a day)."""
+    if _HEALTH["value"] is not None and time.monotonic() - _HEALTH["at"] < HEALTH_TTL_S:
+        return _HEALTH["value"]
+    _HEALTH.update(at=time.monotonic(), value=_health())
+    return _HEALTH["value"]
+
+
+def _health():
     ready = False
     try:
         with httpx.Client(timeout=10, follow_redirects=False, trust_env=False) as client:

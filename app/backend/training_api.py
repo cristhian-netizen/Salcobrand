@@ -2,7 +2,7 @@
 import json
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 import auth
 import core
@@ -112,4 +112,46 @@ def router(require_training, require_internal):
         content=storage.get(row['crop_path']) if row else None
         if content is None:raise HTTPException(404,'Recorte no disponible.')
         return Response(content,media_type='image/jpeg',headers={'Cache-Control':'private, no-store'})
+
+    # Entrenar en Kilby. Depends on Kilby's Neuravision dataset API (contract 2026-11-18, not deployed yet).
+    def kilby_call(action,*args):
+        import kilby_catalog
+        kn=kilby_catalog.kn
+        try:
+            return action(*args)
+        except kn.NeuravisionError as exc:
+            if exc.status==404 and exc.code in (None,'not_found'):
+                raise HTTPException(503,'Kilby todavía no ofrece la API de catálogos y entrenamientos.')
+            status=exc.status if exc.status in (403,409,429) else 502 if (exc.status or 500)>=500 else 409
+            raise HTTPException(status,exc.message_es)
+        except LookupError as exc:
+            raise HTTPException(404,str(exc))
+        except ValueError as exc:
+            raise HTTPException(409,str(exc))
+
+    @api.get('/kilby')
+    def kilby_overview(user=Depends(require_training)):
+        import kilby_catalog
+        return JSONResponse(kilby_catalog.overview(),headers={'Cache-Control':'no-store'})
+
+    @api.post('/kilby/sync')
+    def kilby_sync(full:bool=False,user=Depends(require_training)):
+        import kilby_catalog
+        marked=kilby_catalog.mark_all() if full else None
+        return {**kilby_call(kilby_catalog.drain),'marked':marked}
+
+    @api.post('/kilby/trainings',status_code=202)
+    def kilby_train(user=Depends(require_training)):
+        import kilby_catalog
+        return kilby_call(kilby_catalog.start_training,user['username'])
+
+    @api.get('/kilby/trainings/{training_id}')
+    def kilby_training(training_id:str,user=Depends(require_training)):
+        import kilby_catalog
+        return kilby_call(kilby_catalog.training_status,training_id)
+
+    @api.post('/kilby/versions/{version}/publish')
+    def kilby_publish(version:str,user=Depends(require_training)):
+        import kilby_catalog
+        return kilby_call(kilby_catalog.publish,version,user['username'])
     return api

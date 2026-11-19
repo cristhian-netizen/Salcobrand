@@ -256,6 +256,8 @@ app.include_router(capture_api.router(require_user, require_scan, authorize_poin
 app.include_router(report_api.router(require_report, require_review, authorize_reading, store_scope, require_user))
 app.include_router(analysis_usage_api.router(require_user))
 app.include_router(settings_api.router(require_admin, require_user))
+import integrations_api
+app.include_router(integrations_api.router(require_admin, require_user))
 app.include_router(reading_details_api.router(require_user, require_review, authorize_reading))
 app.include_router(dashboard_api.router(require_dashboard, require_report, store_scope))
 app.include_router(alerts_api.router(require_user, require_resolve, authorize_reading))
@@ -330,6 +332,8 @@ def _startup_engine():
         threading.Thread(target=core.warm_up_engine, daemon=True).start()
     # cola de lecturas: con SQS la API solo encola (el motor está en el servicio worker); sin SQS, hilo local
     api_jobs.start_worker()
+    import kilby_catalog
+    kilby_catalog.start()  # NEURAVISION_ANALYSIS_BACKEND=kilby only: sends pending product changes to Kilby
     if storage.using_s3():  # fotos antiguas de EFS → S3, en segundo plano (idempotente)
         threading.Thread(target=storage.migrate_local_to_s3, daemon=True).start()
 
@@ -931,6 +935,9 @@ def api_reanalyze_all(user: dict = Depends(require_review)):
     if ROLE == "api":
         raise HTTPException(status_code=409, detail="El motor corre en el servicio worker; el reanálisis masivo se hace "
                                                     "desde un worker (no desde la API).")
+    if getattr(core, "analysis_backend", lambda: "embedded")() == "kilby":
+        raise HTTPException(status_code=409, detail="Con Neuravision en Kilby cada foto reanalizada se cobra: el reanálisis "
+                                                    "masivo no está disponible. Vuelve a capturar las góndolas que lo necesiten.")
     results = {"updated": [], "unchanged_rejected": [], "errors": []}
     for r in db.all_readings_with_images():
         try:

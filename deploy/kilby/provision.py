@@ -31,8 +31,9 @@ def main():
     parser.add_argument("--snapshot", type=Path, required=True)
     parser.add_argument("--state", type=Path, default=Path(".local/kilby/deployment-state.json"))
     args = parser.parse_args()
-    if not os.environ.get("KILBY_API_KEY") or not os.environ.get("NEURAVISION_REMOTE_URL"):
-        parser.error("Set KILBY_API_KEY and NEURAVISION_REMOTE_URL in the operator environment.")
+    backend = os.environ.get("NEURAVISION_ANALYSIS_BACKEND", "remote")
+    if not os.environ.get("KILBY_API_KEY") or (backend == "remote" and not os.environ.get("NEURAVISION_REMOTE_URL")):
+        parser.error("Set KILBY_API_KEY (and NEURAVISION_REMOTE_URL for the remote backend) in the operator environment.")
     # These private values support a resumable provisioning run, including upload
     # of the initial snapshot. The state path belongs outside version control.
     args.state.parent.mkdir(parents=True, exist_ok=True)
@@ -59,12 +60,14 @@ def main():
         "DATABASE_URL": database["internal_url"], "DATA_DIR": "/data/app", "PORT": "8080",
         "SESSION_SECRET": state["session_secret"], "REGISTRATION_CODE": state["registration_code"],
         "NEURAVISION_ENVIRONMENT": "kilby", "NEURAVISION_TENANT_ID": "salcobrand",
-        "NEURAVISION_TENANT_NAME": "Salcobrand", "NEURAVISION_ANALYSIS_BACKEND": "remote",
+        "NEURAVISION_TENANT_NAME": "Salcobrand", "NEURAVISION_ANALYSIS_BACKEND": backend,
         "NEURAVISION_WARMUP": "0", "ROLE": "all", "APIS_STORE": "memory", "APIS_CW_METRICS": "0",
         "SALCOBRAND_BOOTSTRAP_TOKEN": state["bootstrap_token"], "SALCOBRAND_DATA_ARCHIVE_SHA256": checksum,
     }
     for name in ("NEURAVISION_REMOTE_URL", "NEURAVISION_REMOTE_USERNAME", "NEURAVISION_REMOTE_PASSWORD",
-                 "NEURAVISION_REMOTE_POINT_PREFIX", "NEURAVISION_REMOTE_POINT_MAP", "INTEGRATION_NEURAVISION_KEY"):
+                 "NEURAVISION_REMOTE_POINT_PREFIX", "NEURAVISION_REMOTE_POINT_MAP", "INTEGRATION_NEURAVISION_KEY",
+                 "KILBY_NEURAVISION_URL", "KILBY_NEURAVISION_CATALOG", "NEURAVISION_API_KEY", "NEURAVISION_DATASET_KEY",
+                 "INTEGRATIONS_SECRET_KEY"):
         if os.environ.get(name):
             runtime[name] = os.environ[name]
     services = {item["name"]: item for item in call("/services")["services"]}

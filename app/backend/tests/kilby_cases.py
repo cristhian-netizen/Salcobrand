@@ -198,6 +198,19 @@ class KilbyCases:
         self.assertIn(b'name="catalog"\r\n\r\ndesodorantes', posts[0])
         self.assertIn('desodorantes', analysis['notes'])
         self.assertIn('desodorantes', self.db.get_job('cat-plan')['payload']['kilby_catalog_note'])
+        # The real taxonomy nests deodorants under "Cuidado personal": the single subcategory wins over the category.
+        self.db.create_job('cat-plan-sub', 'app', 'point-a', {'user': 'analyst'})
+        analysis = kilby_model.analyze('point-a', [(b'\xff\xd8\xffx', 'image/jpeg')], job_id='cat-plan-sub',
+                                       plan_snapshot={'id': 'plan-2', 'category': 'Cuidado personal',
+                                                      'subcategories': ['Desodorantes'], 'items': []})
+        self.assertIn(b'name="catalog"\r\n\r\ndesodorantes', posts[-1])
+        self.assertIn('desodorantes', analysis['notes'])
+        # Several subcategories and none chosen: back to the category, which maps to no catalog -> configured one.
+        self.db.create_job('cat-plan-multi', 'app', 'point-a', {'user': 'analyst'})
+        kilby_model.analyze('point-a', [(b'\xff\xd8\xffx', 'image/jpeg')], job_id='cat-plan-multi',
+                            plan_snapshot={'id': 'plan-3', 'category': 'Salud Sexual',
+                                           'subcategories': ['Preservativos', 'Lubricantes'], 'items': []})
+        self.assertIn(b'name="catalog"\r\n\r\nsalud-sexual', posts[-1])
         # The category selected at capture (no planogram) also drives the catalog.
         self.db.create_job('cat-context', 'app', 'point-a', {'user': 'analyst', 'infrastructure': {'category': 'Desodorantes'}})
         kilby_model.analyze('point-a', [(b'\xff\xd8\xffx', 'image/jpeg')], job_id='cat-context')

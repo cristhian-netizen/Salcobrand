@@ -101,13 +101,26 @@ def catalog_slug(value):
 
 
 def _catalog_choice(plan_snapshot, prior):
-    """Catalog for one analysis: the category of the planogram (or the one selected at capture) when it maps to a
-    slug other than the configured catalog, else the configured catalog. Returns (slug or None, Spanish note)."""
+    """Catalog for one analysis: the planogram's subcategory when it is unambiguous (finer than the category:
+    "Cuidado personal" > "Desodorantes" must pick desodorantes), else its category (or the one selected at
+    capture), when it maps to a slug other than the configured catalog; else the configured catalog.
+    Returns (slug or None, Spanish note)."""
     configured = catalog() or None
-    category = (plan_snapshot or {}).get("category") or (prior.get("infrastructure") or {}).get("category")
-    derived = catalog_slug(category)
-    if derived and derived != configured:
-        return derived, f"Análisis con el catálogo «{derived}» de Kilby, según la categoría «{category}»."
+    plan = plan_snapshot or {}
+    subs = [s for s in (plan.get("subcategories") or []) if s]
+    candidates = []
+    if plan.get("subcategory"):
+        candidates.append(plan.get("subcategory"))
+    if len(subs) == 1:
+        candidates.append(subs[0])
+    candidates.append(plan.get("category"))
+    candidates.append((prior.get("infrastructure") or {}).get("category"))
+    for candidate in candidates:
+        derived = catalog_slug(candidate)
+        if derived:
+            if derived != configured:
+                return derived, f"Análisis con el catálogo «{derived}» de Kilby, según «{candidate}»."
+            break
     return configured, ""
 
 

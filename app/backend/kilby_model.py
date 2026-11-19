@@ -18,14 +18,18 @@ Rules:
 import hashlib
 import io
 import json
+import logging
 import os
 import re
 import time
+import unicodedata
 from datetime import datetime, timezone
 
 import db
 import integrations_service
 import kilby_neuravision as kn
+
+log = logging.getLogger("kilby_model")
 
 INTEGRATION = "neuravision"
 PHOTO_BUDGET = kn.MAX_TOTAL_BYTES - 64 * 1024  # room for the multipart envelope
@@ -85,6 +89,26 @@ def kilby_id(value):
         return value
     prefix = re.sub(r"[^A-Za-z0-9._-]", "-", value).strip("-._")[:29] or "id"
     return prefix + "-" + hashlib.sha256(value.encode()).hexdigest()[:10]
+
+
+def catalog_slug(value):
+    """Kilby catalog slug for a planogram category: lowercase, accents stripped, separators to dashes
+    ("Salud Sexual" → "salud-sexual", "Desodorantes" → "desodorantes"). None when nothing usable remains."""
+    text = unicodedata.normalize("NFKD", str(value or ""))
+    text = "".join(c for c in text if not unicodedata.combining(c)).lower()
+    text = re.sub(r"[^a-z0-9]+", "-", text).strip("-")[:40].rstrip("-")
+    return text if kn.CATALOG_PATTERN.match(text) else None
+
+
+def _catalog_choice(plan_snapshot, prior):
+    """Catalog for one analysis: the category of the planogram (or the one selected at capture) when it maps to a
+    slug other than the configured catalog, else the configured catalog. Returns (slug or None, Spanish note)."""
+    configured = catalog() or None
+    category = (plan_snapshot or {}).get("category") or (prior.get("infrastructure") or {}).get("category")
+    derived = catalog_slug(category)
+    if derived and derived != configured:
+        return derived, f"Análisis con el catálogo «{derived}» de Kilby, según la categoría «{category}»."
+    return configured, ""
 
 
 def checkpoint(job_id, **values):
@@ -154,10 +178,53 @@ def normalized(job):
     return {"products": products, "categories": reading.get("categories") or [], "total_facings": reading.get("total_facings"),
             "shelf_levels_detected": reading.get("shelf_levels_detected"), "empty_space_pct": reading.get("empty_space_pct"),
             "notes": "", "is_pharmacy_shelf": True,
-            # Kilby does not return item boxes: no overlays or review crops for these readings (see INTEGRACION.md).
+            # Kilby does not return item boxes: no overlays for these readings; the review crops are downloaded
+            # from Kilby's crops endpoint and cached on disk (crop_jpeg below).
             "engine": {"images": [], "kilby": {"job_id": job.id, "catalog": job.catalog, "engine_ms": job.engine_ms,
                                                 "billed": job.billed, "photos": job.photos,
                                                 "possible_missing": reading.get("possible_missing") or []}}}
+
+
+# ---------------------------------------------------------------------------- review crops
+
+def reading_kilby_job(reading):
+    """Kilby job id of a reading analyzed on Kilby (no local item boxes), else None."""
+    engine = reading.get("engine") if isinstance(reading, dict) else None
+    if not isinstance(engine, dict) or engine.get("images"):
+        return None
+    info = engine.get("kilby") if isinstance(engine.get("kilby"), dict) else {}
+    job_id = info.get("job_id")
+    return job_id if isinstance(job_id, str) and job_id else None
+
+
+def crop_jpeg(reading, image_index, item_index):
+    """JPEG crop of one detected item, served by Kilby and cached on disk (DATA_DIR/kilby-crops): the crops of a
+    finished job never change, so each one is downloaded once and later requests read the file. LookupError (with
+    the Spanish reason) when Kilby does not have that crop or cannot be reached."""
+    job_id = reading_kilby_job(reading)
+    if not job_id or type(image_index) is not int or type(item_index) is not int or image_index < 0 or item_index < 0:
+        raise LookupError("Recorte no encontrado")
+    path = db.DATA_DIR / "kilby-crops" / re.sub(r"[^A-Za-z0-9._-]", "-", job_id)[:80] / f"{image_index}-{item_index}.jpg"
+    try:
+        return path.read_bytes()
+    except OSError:
+        pass
+    key = api_key()
+    if not key:
+        raise LookupError(kn.message_es("missing_key"))
+    with client(key) as kilby:
+        try:
+            data = kilby.crop(job_id, image_index, item_index)
+        except kn.NeuravisionError as exc:
+            raise LookupError(exc.message_es) from None
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temp = path.with_name(path.name + f".{os.getpid()}.tmp")
+        temp.write_bytes(data)
+        temp.replace(path)  # atomic: a concurrent request never reads a half-written file
+    except OSError:
+        log.warning("neuravision: el recorte %s no se pudo guardar en disco", path)
+    return data
 
 
 # ---------------------------------------------------------------------------- analysis
@@ -168,6 +235,7 @@ def analyze(local_point_id, images, linear_meters=None, job_id=None, plan_snapsh
         checkpoint(job_id, remote_final_failed=True)
         raise ValueError(kn.message_es("missing_key"))
     prior = db.get_job(job_id)["payload"] if job_id else {}
+    note = prior.get("kilby_catalog_note") or ""
     timeout = int(os.environ.get("KILBY_NEURAVISION_TIMEOUT_S", "600"))
     with client(key) as kilby:
         try:
@@ -178,11 +246,29 @@ def analyze(local_point_id, images, linear_meters=None, job_id=None, plan_snapsh
             else:
                 point = _point(local_point_id)
                 photos = fit_budget(images)
-                checkpoint(job_id, remote_submitted=True, kilby_submitted_at=time.time(), kilby_photos=len(photos))
+                chosen, note = _catalog_choice(plan_snapshot, prior)
+                checkpoint(job_id, remote_submitted=True, kilby_submitted_at=time.time(), kilby_photos=len(photos),
+                           kilby_catalog_note=note)
+
+                def submit(slug):
+                    return kilby.analyze(photos, kilby_id(point.get("store_id") or "PDV-001"), kilby_id(local_point_id),
+                                         catalog=slug, name=point.get("name"), linear_meters=linear_meters,
+                                         wait=kn.MAX_WAIT_S)
                 try:
-                    job = kilby.analyze(photos, kilby_id(point.get("store_id") or "PDV-001"), kilby_id(local_point_id),
-                                        catalog=catalog() or None, name=point.get("name"), linear_meters=linear_meters,
-                                        wait=kn.MAX_WAIT_S)
+                    try:
+                        job = submit(chosen)
+                    except kn.InvalidRequestError as exc:
+                        configured = catalog() or None
+                        if exc.code != "catalog_not_found" or not chosen or chosen == configured:
+                            raise
+                        # The category's catalog does not exist (yet) in Kilby: one retry with the configured one.
+                        # Kilby answers 404 before counting any photo, so the retry cannot bill twice.
+                        note = (f"El catálogo «{chosen}» no existe en Kilby; se usó el catálogo configurado "
+                                + (f"«{configured}»." if configured else "(el único del espacio)."))
+                        log.warning("neuravision: el catálogo %s no existe en Kilby; se reintenta con %s",
+                                    chosen, configured or "el catálogo único del espacio")
+                        checkpoint(job_id, kilby_catalog_note=note)
+                        job = submit(configured)
                 except kn.AmbiguousSubmitError:
                     raise  # remote_submitted stays: "Recuperar" finds the job instead of sending again
                 except kn.NeuravisionError:
@@ -201,7 +287,10 @@ def analyze(local_point_id, images, linear_meters=None, job_id=None, plan_snapsh
         except kn.NeuravisionError as exc:
             raise ValueError(exc.message_es) from None
     if job.status == "done" and job.result:
-        return normalized(job)
+        result = normalized(job)
+        if note:
+            result["notes"] = note
+        return result
     checkpoint(job_id, remote_final_failed=True)
     if job.status == "done":
         raise ValueError("Kilby ya no tiene el resultado de este análisis (se guarda 7 días). Vuelve a cargar las fotos.")

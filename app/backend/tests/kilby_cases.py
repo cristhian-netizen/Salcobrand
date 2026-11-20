@@ -233,6 +233,44 @@ class KilbyCases:
         c2 = db.compute_planogram_compliance(None, products, planogram=planogram)
         self.assertEqual(c2["compliance_pct"], 100.0)
 
+    def test_banner_over_the_gondola_is_not_stored_as_a_shelf(self):
+        """Pilot reading 104 (L128 deodorants) as Kilby returned it: the banner over the góndola came back as level 1.
+        Same steps as core.analyze_and_store (this suite replaces core; test_level_alignment checks its wiring)."""
+        import kilby_model
+        import level_alignment
+        from test_level_alignment import PILOT, pilot_analysis
+        result = {k: v for k, v in pilot_analysis(104).items() if k != 'engine'}
+        banner = [p['item_index'] for p in result['products'] if p['shelf_level'] == 1]
+        for p in result['products']:
+            p['needs_review'] = p['match_status'] != 'match'
+        def handler(request):
+            return httpx.Response(200, json={'id': 'vjob_banner', 'status': 'done', 'photos': 1, 'catalog': 'desodorantes',
+                                             'billed': True, 'result_available': True, 'result': result})
+        self.kilby(handler)
+        self.save_key(catalog='desodorantes')
+        items = [{**it, 'id': i + 1, 'order_seq': i + 1, 'position_in_section': i + 1, 'expected_facings': 1, 'price_clp': None,
+                  'tag': None, 'section_label': '', 'module': 1, 'segment': None} for i, it in enumerate(PILOT['planogram']['items'])]
+        snapshot = {'id': 'pg-l128', 'name': 'Desodorantes', 'category': 'Desodorantes', 'module_cm': None, 'bands': 6, 'items': items}
+        self.db.create_job('banner-job', 'app', 'point-a', {'user': 'analyst'})
+        analysis = kilby_model.analyze('point-a', [(b'\xff\xd8\xffbanner', 'image/jpeg')], None, 'banner-job', snapshot)
+        self.assertEqual(analysis['shelf_levels_detected'], 7)
+        analysis = level_alignment.align(analysis, snapshot)
+        reading = self.db.add_reading('point-a', analysis, ['point-a/banner.jpg'], None, 'pg-l128', plan_snapshot=snapshot)
+        self.assertEqual(self.db.get_reading(reading['id'])['products'], reading['products'])
+        self.assertEqual(reading['shelf_levels_detected'], 6)
+        self.assertEqual(sorted({p['shelf_level'] for p in reading['products']}), [1, 2, 3, 4, 5, 6])
+        self.assertEqual(reading['engine']['level_alignment']['dropped_levels'], [1])
+        self.assertEqual(reading['engine']['kilby']['job_id'], 'vjob_banner')
+        band_of = {it['internal_code']: it['band'] for it in items}
+        on_band = sum(1 for p in reading['products'] if band_of.get(p['sku']) == p['shelf_level'])
+        self.assertGreaterEqual(on_band, 22)  # before: 4 recognized products on their band, 22 one level below it
+        self.assertEqual(sum(1 for p in reading['products'] if p['out_of_stock']), 3)  # the banner's 3 gaps are gone
+        review = [p['item_index'] for p in reading['products'] if p.get('needs_review') and p.get('item_index') is not None]
+        self.assertTrue(review)
+        self.assertFalse(set(review) & set(banner))  # nobody is asked to label the banner's crops
+        self.assertIn('sobre la góndola (cartel)', reading['notes'])
+        self.assertEqual(len(reading['engine']['level_alignment']['dropped']), len(banner))
+
     def test_kilby_catalog_follows_the_planogram_category(self):
         import kilby_model
         for category, slug in (('Salud Sexual', 'salud-sexual'), ('Desodorantes', 'desodorantes'),

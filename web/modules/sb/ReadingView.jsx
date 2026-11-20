@@ -42,6 +42,10 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo, show
     : 'Esta medición no tiene un planograma asociado. Las referencias para nuevas capturas se asignan desde el módulo Planogramas.';
   const products = reading.products || [];
   const images = reading.engine?.images || [];
+  // Filas que el motor leyó como nivel pero quedan fuera del planograma (cartel sobre la góndola, base vacía).
+  const alignment = reading.engine?.level_alignment;
+  const droppedRows = alignment?.applied ? (alignment.dropped_levels || []).length : 0;
+  const droppedHint = droppedRows ? ` · ${droppedRows} fila${droppedRows === 1 ? '' : 's'} fuera del planograma descartada${droppedRows === 1 ? '' : 's'}` : '';
   async function remove() {
     if (!window.confirm(`¿Eliminar la lectura #${reading.id}? Las fotos se conservan.`)) return;
     setBusy(true); setError('');
@@ -56,7 +60,7 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo, show
           </div></div>
       </article>
       <Metric label="Cumplimiento de planograma" value={c ? fmt.pct(c.compliance_pct) : '—'} hint={planHint}/>
-      <Metric label="Caras detectadas" value={fmt.num(reading.total_facings)} hint={`${reading.shelf_levels_detected ?? '—'} niveles · espacio vacío ${fmt.pct(reading.empty_space_pct)}`}/>
+      <Metric label="Caras detectadas" value={fmt.num(reading.total_facings)} hint={`${reading.shelf_levels_detected ?? '—'} niveles · espacio vacío ${fmt.pct(reading.empty_space_pct)}${droppedHint}`}/>
       <Metric label="Detecciones inciertas" value={fmt.num(reading.needs_review)} hint={c ? `Impacto estimado ${clp(c.impact_clp)}` : 'Recortes dudosos del motor'}/>
     </div>
     <ScoreBreakdown reading={reading}/>

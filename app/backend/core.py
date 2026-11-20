@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import db
+import level_alignment
 import storage
 from vision import MAX_IMAGES, analyze_shelf  # noqa: F401  (vision.py agrega la raíz del proyecto al sys.path)
 
@@ -226,6 +227,12 @@ def analyze_and_store(point_id: str, loaded: List[Tuple[bytes, str]], linear_met
     engine_ms = int((time.perf_counter() - t0) * 1000)
     if not analysis.get("is_pharmacy_shelf", True):
         raise AnalysisRejected(analysis.get("rejection_reason") or "La imagen no parece ser una góndola/estante de farmacia.")
+    # Un cartel sobre la góndola o la base vacía no son niveles: se alinean los niveles con las bandas del planograma.
+    planogram = plan_snapshot if plan_snapshot is not None else db.get_planogram(planogram_id) if planogram_id else None
+    try:
+        analysis = level_alignment.align(analysis, planogram)
+    except Exception as exc:  # el análisis ya se cobró: se guarda sin alinear antes que perderlo
+        print(f"[niveles] no se pudo alinear con el planograma: {exc!r}", flush=True)
     if image_paths is None:
         image_paths = [save_upload(point_id, image_bytes, content_type) for image_bytes, content_type in loaded]
     reading = db.add_reading(point_id, analysis, image_paths, linear_meters, planogram_id, captured_by=captured_by, capture_context=capture_context, plan_snapshot=plan_snapshot)

@@ -23,6 +23,6 @@ export default function HomeReadingDetail({ row, user, go, onClose }) {
     actions={data && can(user, 'read') && <button type="button" className="measurement-header-export" disabled={exporting} onClick={exportReading}>{exporting ? 'Descargando…' : 'Descargar Excel de esta medición'}</button>}>
     <ErrorBox error={error || exportError} onRetry={error ? reload : undefined} />
     {loading && !data && <Loading text="Cargando medición…" />}
-    {data && <ReadingView key={row.id} reading={data} user={user} showExport={false} onReviewChanged={setReview} onDeleted={onClose} onConfirmGo={() => { onClose(); go('revision'); }} />}
+    {data && <ReadingView key={row.id} reading={data} user={user} showExport={false} onReviewChanged={setReview} onDeleted={onClose} onConfirmGo={() => { onClose(); go('revision'); }} onMoved={() => reload()} />}
   </Modal>;
 }

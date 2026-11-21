@@ -25,11 +25,14 @@ function Photo({url, index, engineImage, products}) {
   </figure>;
 }
 
-export default function ReadingView({reading, user, onDeleted, onConfirmGo, showExport = true, onReviewChanged}) {
+export default function ReadingView({reading, user, onDeleted, onConfirmGo, onMoved, showExport = true, onReviewChanged}) {
   const [review, setReview] = useState(reading.review);
   const [tab, setTab] = useState('productos');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [moveError, setMoveError] = useState('');
+  // Los productos reconocidos calzan mucho mejor con el planograma de otra góndola del local (gondola_check.py).
+  const suggestion = reading.engine?.gondola_check?.suggested_point_id ? reading.engine.gondola_check : null;
   const c = reading.compliance, s = reading.standards || {};
   const reference = reading.planogram_reference;
   const hasPlan = !!reading.planogram_id;
@@ -51,7 +54,17 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo, show
     setBusy(true); setError('');
     try { await api(`/api/readings/${reading.id}`, {method: 'DELETE'}); onDeleted?.(); } catch (e) { setError(e.message); } finally { setBusy(false); }
   }
+  async function move() {
+    setBusy(true); setMoveError('');
+    try { onMoved?.(await api(`/api/readings/${reading.id}/move`, {method: 'POST', body: {point_id: suggestion.suggested_point_id}})); }
+    catch (e) { setMoveError(e.message); } finally { setBusy(false); }
+  }
   return <>
+    {suggestion && <div className="sb-warning" role="status">
+      <p>Esta foto parece de <b>{suggestion.suggested_name}</b>: {suggestion.suggested_matches} productos de su planograma, contra {suggestion.current_matches} del de esta góndola.</p>
+      {can(user, 'scan') && <button type="button" disabled={busy} onClick={move}>Mover la medición a {suggestion.suggested_name}</button>}
+      {moveError && <p className="sb-warning-error" role="alert">{moveError}</p>}
+    </div>}
     <div className="sb-metrics reading-summary" aria-label="Métricas de la medición">
       <article className="sb-metric"><span>Puntaje de exhibición</span>
         <div className="sb-score" style={{marginTop: 8}}><div className="ring" style={{'--p': s.overall_score ?? 0, '--c': s.grade_color || 'var(--nv-primary)'}}><span>{s.overall_score ?? '—'}</span></div>

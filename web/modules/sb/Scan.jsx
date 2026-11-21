@@ -409,7 +409,7 @@ export default function Scan({ user, rest, go, notify }) {
     return (
       <section>
         <Header
-          eyebrow={selected?.name || pointId}
+          eyebrow={(points.data?.points || []).find(point => point.id === result.point_id)?.name || selected?.name || pointId}
           title={`Lectura #${result.id}`}
           subtitle="Análisis terminado."
         >
@@ -426,10 +426,12 @@ export default function Scan({ user, rest, go, notify }) {
           </button>
         </Header>
         <ReadingView
+          key={result.id + ":" + result.point_id}
           reading={result}
           user={user}
           onDeleted={another}
           onConfirmGo={() => go("revision")}
+          onMoved={setResult}
         />
       </section>
     );

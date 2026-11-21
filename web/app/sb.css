@@ -222,6 +222,9 @@
 #nv .sb-hint { font-size: 12.5px; color: var(--nv-text-muted); }
 #nv .sb-error { padding: 10px 14px; border: 1px solid var(--nv-danger-border); border-radius: var(--nv-radius); background: var(--nv-danger-soft); color: var(--nv-danger); font-size: 13.5px; margin-bottom: 14px; }
 #nv .sb-ok { padding: 10px 14px; border: 1px solid var(--nv-success-border); border-radius: var(--nv-radius); background: var(--nv-success-soft); color: var(--nv-success); font-size: 13.5px; margin-bottom: 14px; }
+#nv .sb-warning { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 14px; border: 1px solid var(--nv-warning-border); border-radius: var(--nv-radius); background: var(--nv-warning-soft); color: var(--nv-warning); font-size: 13.5px; margin-bottom: 14px; }
+#nv .sb-warning p { margin: 0; flex: 1 1 260px; }
+#nv .sb-warning .sb-warning-error { flex-basis: 100%; color: var(--nv-danger); }
 
 /* Scan */
 #nv .home-review-notification { padding: 14px 0; border-bottom: 1px solid var(--nv-border); }

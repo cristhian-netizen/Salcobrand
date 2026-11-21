@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import db
+import gondola_check
 import level_alignment
 import storage
 from vision import MAX_IMAGES, analyze_shelf  # noqa: F401  (vision.py agrega la raíz del proyecto al sys.path)
@@ -233,6 +234,13 @@ def analyze_and_store(point_id: str, loaded: List[Tuple[bytes, str]], linear_met
         analysis = level_alignment.align(analysis, planogram)
     except Exception as exc:  # el análisis ya se cobró: se guarda sin alinear antes que perderlo
         print(f"[niveles] no se pudo alinear con el planograma: {exc!r}", flush=True)
+    # ¿Es esta la góndola? Los productos reconocidos dicen si la foto calza mejor con otra góndola del mismo local.
+    try:
+        verdict = gondola_check.check_reading(point_id, analysis.get("products"), planogram)
+        if verdict:
+            analysis = {**analysis, "engine": {**(analysis.get("engine") or {}), "gondola_check": verdict}}
+    except Exception as exc:  # igual que la alineación: nunca se pierde un análisis cobrado por esto
+        print(f"[góndola] no se pudo comparar con las otras góndolas del local: {exc!r}", flush=True)
     if image_paths is None:
         image_paths = [save_upload(point_id, image_bytes, content_type) for image_bytes, content_type in loaded]
     reading = db.add_reading(point_id, analysis, image_paths, linear_meters, planogram_id, captured_by=captured_by, capture_context=capture_context, plan_snapshot=plan_snapshot)

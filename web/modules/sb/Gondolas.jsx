@@ -135,7 +135,8 @@ function ReadingPage({user, go, pointId, readingId}) {
     <Back onClick={() => go(`gondolas/${encodeURIComponent(pointId)}`)}>{pointId}</Back>
     <Header eyebrow={pointId} title={`Lectura #${readingId}`} subtitle={data ? fmt.dateTime(data.created_at) : ''}/>
     <ErrorBox error={error} onRetry={reload}/>
-    {loading && !data ? <Loading text="Cargando lectura…"/> : data && <ReadingView reading={data} user={user} onDeleted={() => go(`gondolas/${encodeURIComponent(pointId)}`)} onConfirmGo={() => go('revision')}/>}
+    {loading && !data ? <Loading text="Cargando lectura…"/> : data && <ReadingView reading={data} user={user} onDeleted={() => go(`gondolas/${encodeURIComponent(pointId)}`)} onConfirmGo={() => go('revision')}
+      onMoved={moved => go(`gondolas/${encodeURIComponent(moved.point_id)}/lectura/${moved.id}`)}/>}
   </section>;
 }
 

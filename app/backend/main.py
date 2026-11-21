@@ -64,6 +64,10 @@ class PlanogramAssignPayload(BaseModel):
     planogram_id: Optional[str] = None
 
 
+class ReadingMovePayload(BaseModel):
+    point_id: str
+
+
 class PlanogramPricesPayload(BaseModel):
     prices: dict
 
@@ -1069,6 +1073,16 @@ def api_delete_reading(reading_id: int, user: dict = Depends(require_admin)):
     if not db.delete_reading(reading_id):
         raise HTTPException(status_code=404, detail="Lectura no encontrada")
     return {"deleted": reading_id}
+
+
+@app.post("/api/readings/{reading_id}/move")
+def api_move_reading(reading_id: int, payload: ReadingMovePayload, user: dict = Depends(require_scan)):
+    """Corrige la góndola elegida al escanear: quien puede medir mueve sus mediciones (el reponedor, solo las propias) a
+    otra góndola medible del mismo local. Se compara con el planograma de esa góndola y queda auditado."""
+    authorize_reading(reading_id, user)
+    authorize_point(payload.point_id, user)
+    import gondola_check
+    return gondola_check.move_reading(reading_id, payload.point_id, user["username"])
 
 
 @app.get("/api/review/pending")

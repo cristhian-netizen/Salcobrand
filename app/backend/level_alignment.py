@@ -74,6 +74,14 @@ def _offset(votes):
     return offset
 
 
+def dominant_offset(products, planogram):
+    """The level - band offset that the products recognized by code agree on (the rule of align), or None without
+    clear evidence. 0 when the photo's levels already are the planogram's bands."""
+    if not isinstance(planogram, dict):
+        return None
+    return _offset(offset_votes(products or [], _bands_by_code(planogram)))
+
+
 def align(analysis, planogram):
     """`analysis` with its levels aligned to the planogram's bands (a new dict), or the same dict when there is
     nothing to align or not enough evidence."""

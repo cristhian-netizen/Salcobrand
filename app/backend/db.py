@@ -2,6 +2,7 @@ import json
 import os
 import re
 import sqlite3
+import level_alignment
 from management_schema import SCHEMA as MANAGEMENT_SCHEMA
 from profiles import PROFILES, LEGACY_PROFILES, INTERNAL_PROFILES
 from contextlib import contextmanager, nullcontext
@@ -835,6 +836,9 @@ def _reading_dict(row: sqlite3.Row) -> dict:
             for p, ann in zip(products, compliance.get("product_annotations", [])):
                 p["planogram_status"] = ann["planogram_status"]
                 p["planogram_tag"] = ann["planogram_tag"]
+                p["planogram_band"] = ann.get("planogram_band")
+                p["planogram_position"] = ann.get("planogram_position")
+                p["planogram_other_level"] = bool(ann.get("planogram_other_level"))
 
     standards = compute_shelf_standards(products, row["empty_space_pct"] if "empty_space_pct" in keys else None)
 
@@ -909,8 +913,13 @@ def invalidate_measurement_review(conn, reading_id, invalidate_details=True):
                          (json.dumps(data), 'system:evidence-change', now_iso(), reading_id))
 
 
+# Campos que _reading_dict deriva del planograma cada vez que muestra una lectura: no se guardan con los productos.
+DERIVED_PRODUCT_FIELDS = ("planogram_status", "planogram_tag", "planogram_band", "planogram_position", "planogram_other_level")
+
+
 def update_reading_products(reading_id: int, products: list) -> dict:
     """Guarda productos corregidos por una persona (confirmaciones de /revision)."""
+    products = [{k: v for k, v in p.items() if k not in DERIVED_PRODUCT_FIELDS} for p in products]
     with get_conn() as conn:
         conn.execute(
             "UPDATE readings SET products_json = ?, total_facings = ? WHERE id = ?",
@@ -1574,6 +1583,18 @@ def compute_planogram_compliance(planogram_id: str, products: list, planogram: d
             extra_facings_for_item[best_ii] = extra_facings_for_item.get(best_ii, 0) + facings
             extra_units_for_item[best_ii] = extra_units_for_item.get(best_ii, 0) + facings * (p.get("estimated_depth") or 1)
 
+    # Repisa en que se vio cada producto, comparada con su banda. Si la foto empieza bajo la banda 1 (o el motor corrió
+    # los niveles), los productos reconocidos por código coinciden en un desfase nivel - banda: se descuenta, para no
+    # marcar "otra repisa" a todos (level_alignment.dominant_offset).
+    shelf_offset = level_alignment.dominant_offset(products, pg) or 0
+
+    def _level_of(p):
+        level = p.get("shelf_level")
+        return level if type(level) is int else None
+
+    def _other_level(level, band):
+        return level is not None and type(band) is int and level - shelf_offset != band
+
     item_results = []
     total_expected = 0
     total_filled = 0
@@ -1594,8 +1615,10 @@ def compute_planogram_compliance(planogram_id: str, products: list, planogram: d
         price_tag_visible = None
         price_tag_value = None
         uncertain = False
+        found_level = found_position = None
         if pi is not None:
             p = products[pi]
+            found_level, found_position = _level_of(p), p.get("position_index")
             primary_facings = 0 if p.get("out_of_stock") else (p.get("facings") or 0)
             primary_units = primary_facings * (p.get("estimated_depth") or 1)
             price_tag_visible = p.get("price_tag_visible")
@@ -1650,18 +1673,24 @@ def compute_planogram_compliance(planogram_id: str, products: list, planogram: d
             "price_clp": it["price_clp"],
             "deficit_value_clp": deficit_value,
             "orden_incorrecto": False,
+            "found_level": found_level,
+            "found_position": found_position,
+            "otro_nivel": _other_level(found_level, it["band"]),
             "price_tag_visible": price_tag_visible,
         })
+        slot = {"planogram_band": it["band"], "planogram_position": it["position_in_section"]}
         if pi is not None:
             product_annotations[pi] = {
                 "planogram_status": status, "planogram_tag": it["tag"], "planogram_foreign": False,
-                "planogram_item_id": it["id"],
+                "planogram_item_id": it["id"], **slot,
+                "planogram_other_level": _other_level(found_level, it["band"]),
             }
         for dup_pi, dup_ii in duplicate_of_item.items():
             if dup_ii == ii:
                 product_annotations[dup_pi] = {
                     "planogram_status": status, "planogram_tag": it["tag"], "planogram_foreign": False,
-                    "planogram_item_id": it["id"],
+                    "planogram_item_id": it["id"], **slot,
+                    "planogram_other_level": _other_level(_level_of(products[dup_pi]), it["band"]),
                 }
 
     # Verificación de SECUENCIA dentro de cada nivel: el planograma manda un orden
@@ -1671,11 +1700,13 @@ def compute_planogram_compliance(planogram_id: str, products: list, planogram: d
     # de "position_index" (orden real detectado por la IA) contra "order_seq" del
     # planograma (orden real esperado), usando la subsecuencia creciente más larga:
     # todo lo que no forma parte de esa subsecuencia está fuera de secuencia.
+    # Solo entran los productos vistos en la repisa de su banda: las posiciones del motor se cuentan por repisa, y un
+    # producto visto en otra repisa ya queda marcado "otro_nivel" (mezclar sus posiciones daba órdenes falsos).
     misplaced_items = []
     by_band = {}
     for ii, it in enumerate(items):
         pi = matched_product_for_item.get(ii)
-        if pi is None:
+        if pi is None or item_results[ii]["found_level"] is None or item_results[ii]["otro_nivel"]:
             continue
         detected_pos = products[pi].get("position_index")
         if detected_pos is None:
@@ -1696,6 +1727,14 @@ def compute_planogram_compliance(planogram_id: str, products: list, planogram: d
                     "position_in_section": items[ii]["position_in_section"],
                     "tag": items[ii]["tag"],
                 })
+
+    # Ubicación correcta: de los productos encontrados, los que están en la repisa de su banda y en orden. Va aparte del
+    # % de cumplimiento (presencia de caras), que no cambia.
+    found_items = [r for r in item_results if r["found_level"] is not None]
+    placed_ok = sum(1 for r in found_items if not r["otro_nivel"] and not r["orden_incorrecto"])
+    other_level_items = [{"title": r["title"], "band": r["band"], "position_in_section": r["position_in_section"],
+                          "found_level": r["found_level"], "found_position": r["found_position"]}
+                         for r in item_results if r["otro_nivel"]]
 
     foreign_products = []
     for pi, p in enumerate(products):
@@ -1750,6 +1789,10 @@ def compute_planogram_compliance(planogram_id: str, products: list, planogram: d
         "foreign_products": foreign_products,
         "band_summary": band_summary,
         "misplaced_items": misplaced_items,
+        "other_level_items": other_level_items,
+        "placement_pct": round(placed_ok / len(found_items) * 100, 1) if found_items else None,
+        "placement_found": len(found_items),
+        "shelf_offset": shelf_offset,
         "price_tag_compliance_pct": price_tag_compliance_pct,
         "price_tag_target_pct": PRICE_TAG_TARGET_PCT,
         "price_tag_evaluated": price_tag_total_count,
@@ -2225,6 +2268,7 @@ def catalog_for_planogram(planogram_id: str, point_id: str = None) -> dict:
                     observed_by_item[it["planogram_item_id"]] = {
                         "reading_id": r["id"], "detected_facings": it["detected_facings"], "status": it["status"],
                         "deficit": it["deficit"], "uncertain": it["uncertain"], "orden_incorrecto": it.get("orden_incorrecto"),
+                        "otro_nivel": it.get("otro_nivel"), "found_level": it.get("found_level"), "found_position": it.get("found_position"),
                         "price_tag_value": it.get("price_tag_value"), "crops": [],
                     }
                 for prod, ann in zip(r.get("products") or [], c.get("product_annotations") or []):

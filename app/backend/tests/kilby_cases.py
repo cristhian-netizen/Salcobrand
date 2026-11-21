@@ -233,6 +233,60 @@ class KilbyCases:
         c2 = db.compute_planogram_compliance(None, products, planogram=planogram)
         self.assertEqual(c2["compliance_pct"], 100.0)
 
+    def _ideal_render(self):
+        """Reading 105 (Cris, 2026-11-20): the planogram's own ideal image analyzed with catalog v4, and that planogram."""
+        from pathlib import Path
+        data = json.loads(Path(__file__).with_name('planogram_position_pilot.json').read_text(encoding='utf-8'))
+        items = [{**it, 'id': i + 1, 'order_seq': i + 1, 'price_clp': None, 'section_label': '', 'module': 1, 'segment': None}
+                 for i, it in enumerate(data['planogram']['items'])]
+        return {'id': 'pg-l128', 'name': data['planogram']['name'], 'module_cm': None, 'bands': 6, 'items': items}, \
+            [dict(p) for p in data['reading_105']['products']]
+
+    def test_compliance_says_where_each_product_was_found(self):
+        planogram, products = self._ideal_render()
+        c = self.db.compute_planogram_compliance(None, products, planogram=planogram)
+        self.assertEqual(c['compliance_pct'], 78.9)  # the number Cris saw: presence of facings does not change
+        self.assertEqual((c['shelf_offset'], c['placement_found']), (0, 65))
+        by_title = {r['title'][:24]: r for r in c['items']}
+        clinical = by_title['NIVEA DEO CLINICAL MASCU']  # band 1, slot 9: on its shelf, numbered 8 by the engine
+        self.assertEqual((clinical['band'], clinical['position_in_section'], clinical['found_level'], clinical['found_position'],
+                          clinical['otro_nivel'], clinical['orden_incorrecto']), (1, 9, 1, 8, False, False))
+        # Found by SKU on another shelf: present, flagged, and kept out of the order check of a shelf it is not on.
+        other = {(r['title'][:23], r['found_level']) for r in c['other_level_items']}
+        self.assertEqual(other, {('PACK REXONA CLINICAL ME', 1), ('NIVEA DEO MEN BARRA B&W', 4)})
+        self.assertFalse(any(r['otro_nivel'] and r['orden_incorrecto'] for r in c['items']))
+        # The only order break left is real: two Axe Musk of band 5 matched the wrong way round.
+        self.assertEqual([(m['band'], m['position_in_section']) for m in c['misplaced_items']], [(5, 5)])
+        self.assertEqual(c['placement_pct'], round(62 / 65 * 100, 1))
+        # Each matched product carries its planogram slot (the products table shows it next to the engine's numbering).
+        p = next(p for p, a in zip(products, c['product_annotations']) if a.get('planogram_item_id') == clinical['planogram_item_id'])
+        ann = c['product_annotations'][products.index(p)]
+        self.assertEqual((p['shelf_level'], p['position_index'], ann['planogram_band'], ann['planogram_position']), (1, 8, 1, 9))
+
+    def test_a_photo_that_starts_below_band_one_is_not_all_on_another_shelf(self):
+        planogram, products = self._ideal_render()
+        lower = [{**p, 'shelf_level': p['shelf_level'] - 1} for p in products if p['shelf_level'] != 1]  # no top shelf
+        c = self.db.compute_planogram_compliance(None, lower, planogram=planogram)
+        self.assertEqual(c['shelf_offset'], -1)
+        self.assertLessEqual(len(c['other_level_items']), 2)  # without the offset all ~50 would be "otra repisa"
+        dry = next(r for r in c['items'] if r['title'].startswith('DOVE MEN AP.SP.INVISIBLE DRY'))
+        self.assertEqual((dry['band'], dry['found_level'], dry['otro_nivel']), (3, 2, False))
+        self.assertGreaterEqual(c['placement_pct'], 90.0)
+
+    def test_planogram_slots_shown_with_a_reading_are_never_stored(self):
+        planogram, products = self._ideal_render()
+        reading = self.db.add_reading('point-a', {'products': products, 'total_facings': 100, 'shelf_levels_detected': 6},
+                                      ['point-a/ideal.jpg'], None, 'pg-l128', plan_snapshot=planogram)
+        shown = reading['products']
+        self.assertTrue(any(p.get('planogram_band') for p in shown))
+        self.assertTrue(any(p.get('planogram_other_level') for p in shown))
+        self.db.update_reading_products(reading['id'], shown)
+        with self.db.get_conn() as conn:
+            stored = json.loads(conn.execute('SELECT products_json FROM readings WHERE id = ?', (reading['id'],)).fetchone()['products_json'])
+        for field in self.db.DERIVED_PRODUCT_FIELDS:
+            self.assertFalse(any(field in p for p in stored), field)
+        self.assertEqual(self.db.get_reading(reading['id'])['compliance']['placement_pct'], round(62 / 65 * 100, 1))
+
     def test_banner_over_the_gondola_is_not_stored_as_a_shelf(self):
         """Pilot reading 104 (L128 deodorants) as Kilby returned it: the banner over the góndola came back as level 1.
         Same steps as core.analyze_and_store (this suite replaces core; test_level_alignment checks its wiring)."""

@@ -34,7 +34,7 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo, show
   const reference = reading.planogram_reference;
   const hasPlan = !!reading.planogram_id;
   const missingPositions = reference?.status === 'missing_positions';
-  const planHint = c ? `${c.total_filled_facings} de ${c.total_expected_facings} caras esperadas`
+  const planHint = c ? `${c.total_filled_facings} de ${c.total_expected_facings} caras esperadas${c.placement_pct != null ? ` · ubicación correcta ${fmt.pct(c.placement_pct)}` : ''}`
     : hasPlan ? `${reference?.name || 'Planograma asociado'} · ${missingPositions ? 'Sin posiciones configuradas' : 'Comparación no disponible'}` : 'Sin planograma asociado';
   const planMessage = hasPlan
     ? missingPositions ? 'El planograma está asociado a esta medición, pero no tiene posiciones de productos ni caras esperadas configuradas. Para calcular cumplimiento y reposición, el Administrador debe completar los productos, niveles, posiciones y caras en el módulo Planogramas.'
@@ -83,17 +83,19 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo, show
             ? (p.product && p.product !== 'producto no identificado' ? `texto leído: ${p.product}` : '')
             : [p.brand, p.category].filter(Boolean).join(' · ');
           return <tr key={i}><td><b>{title}</b>{note && <small>{note}</small>}</td>
-          <td>{p.shelf_level} / {p.position_index}</td><td className="sb-num">{p.facings}</td>
+          <td>{p.shelf_level} / {p.position_index}{p.planogram_band != null && <small>planograma: banda {p.planogram_band} · {p.planogram_position}{p.planogram_other_level ? ' (otra repisa)' : ''}</small>}</td><td className="sb-num">{p.facings}</td>
           <td><StatusPill status={p.planogram_status || p.match_status}/>{p.needs_review && <> <Pill kind="warn">Confianza limitada</Pill></>}</td>
           <td className="sb-num">{typeof p.confidence === 'number' ? Math.round(p.confidence * 100) + ' %' : '—'}</td></tr>;
         })}
       </tbody></SortableTable></div> : <Empty>El motor no detectó productos en esta lectura.</Empty>}
     </Card>}
     {tab === 'planograma' && (c ? <Card body={false} title={c.planogram_name} subtitle={`${c.items?.length || 0} posiciones · ${c.items_missing_price || 0} sin precio`}>
-      <div className="sb-table"><SortableTable><thead><tr><th>Posición</th><th>Producto</th><th className="sb-num">Esperadas</th><th className="sb-num">Detectadas</th><th>Estado</th><th className="sb-num">Precio</th></tr></thead><tbody>
+      <div className="sb-table"><SortableTable><thead><tr><th>Posición</th><th>Producto</th><th>Encontrado en</th><th className="sb-num">Esperadas</th><th className="sb-num">Detectadas</th><th>Estado</th><th className="sb-num">Precio</th></tr></thead><tbody>
         {(c.items || []).map(item => <tr key={item.planogram_item_id}><td>{item.section_label} · banda {item.band} · {item.position_in_section}</td>
-          <td><b>{item.title}</b>{item.tag && <small>{item.tag}</small>}</td><td className="sb-num">{item.expected_facings}</td><td className="sb-num">{item.detected_facings}</td>
-          <td><StatusPill status={item.status}/></td><td className="sb-num">{clp(item.price_clp)}</td></tr>)}
+          <td><b>{item.title}</b>{item.tag && <small>{item.tag}</small>}</td>
+          <td>{item.found_level != null ? `nivel ${item.found_level} · pos. ${item.found_position ?? '—'}` : '—'}</td>
+          <td className="sb-num">{item.expected_facings}</td><td className="sb-num">{item.detected_facings}</td>
+          <td><StatusPill status={item.status}/>{item.otro_nivel && <> <Pill kind="warn">Otra repisa</Pill></>}{item.orden_incorrecto && <> <Pill kind="warn">Fuera de orden</Pill></>}</td><td className="sb-num">{clp(item.price_clp)}</td></tr>)}
       </tbody></SortableTable></div>
       {c.foreign_products?.length > 0 && <div className="sb-card-body"><h3>Productos fuera de planograma</h3><p>{c.foreign_products.map(f => f.product).join(' · ')}</p></div>}
     </Card> : <Card className="measurement-planogram-state" title={hasPlan ? `Planograma asociado${reference?.name ? ' · '+reference.name : ''}` : 'Sin planograma asociado'}><p>{planMessage}</p>{missingPositions && <p className="sb-hint">{reference.position_count} posiciones · {reference.expected_facings} caras esperadas en la referencia de captura.</p>}</Card>)}

@@ -331,8 +331,8 @@ def confirm_reading_item(reading: dict, image_index: int, item_index: int, title
     if facings is not None and facings >= 0:
         target["facings"] = facings
     for p in products:  # limpiar campos derivados que recalcula _reading_dict
-        p.pop("planogram_status", None)
-        p.pop("planogram_tag", None)
+        for field in db.DERIVED_PRODUCT_FIELDS:
+            p.pop(field, None)
     memory_size = None
     if title:
         try:

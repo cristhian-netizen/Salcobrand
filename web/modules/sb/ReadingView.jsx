@@ -8,21 +8,50 @@ import {can} from '../../lib/profiles.mjs';
 import {Card, Metric, StatusPill, Pill, Empty} from './ui';
 import MeasurementReview from './MeasurementReview';
 import ScoreBreakdown from '../measurement-details/ScoreBreakdown';
+import {LEGEND as PRECISION_LEGEND, hasPrecisionBoxes, imageSizeFor, overlayFor, precisionSummary} from './precision-map.mjs';
 
 const clp = v => typeof v === 'number' ? '$' + Math.round(v).toLocaleString('es-CL') : '—';
 const BOX = {ok: '#12b76a', match: '#12b76a', confirmed: '#12b76a', low: '#f79009', unmatched: '#f79009', unreadable: '#f79009', missing: '#f04438', gap: '#f04438', foreign: '#6172f3'};
+// Solo para las lecturas del motor local, que traen las cajas en engine.images (estado frente al planograma).
+const PLANOGRAM_LEGEND = 'Verde: correcto · Naranjo: bajo lo esperado o sin identificar · Rojo: falta · Azul: fuera de planograma.';
 
-function Photo({url, index, engineImage, products}) {
-  const size = engineImage?.size;
+function Photo({url, index, engineImage, products, precision}) {
+  const planogramSize = engineImage?.items?.length > 0 ? engineImage.size : null;
+  const rects = !planogramSize && precision ? overlayFor(products, index) : [];
+  const engineSize = rects.length ? imageSizeFor(products, index) : null;
+  const [naturalSize, setNaturalSize] = useState(null);
+  const precisionSize = rects.length ? engineSize || naturalSize : null;
+  const size = planogramSize || precisionSize;
   const statusByItem = new Map(products.filter(p => p.image_index === index && p.item_index != null).map(p => [p.item_index, p.planogram_status || p.match_status]));
   return <figure className="sb-photo">
-    <Img src={url} alt={`Foto ${index + 1} de la góndola`} style={size ? {aspectRatio: `${size[0]} / ${size[1]}`} : undefined}/>
-    {size && engineImage.items?.length > 0 && <svg viewBox={`0 0 ${size[0]} ${size[1]}`} preserveAspectRatio="none" aria-hidden="true">
+    <Img src={url} alt={`Foto ${index + 1} de la góndola`} style={size ? {aspectRatio: `${size[0]} / ${size[1]}`} : undefined}
+      onLoad={rects.length && !engineSize ? img => setNaturalSize([img.naturalWidth, img.naturalHeight]) : undefined}/>
+    {planogramSize && <svg viewBox={`0 0 ${size[0]} ${size[1]}`} preserveAspectRatio="none" aria-hidden="true">
       {engineImage.items.map(item => { const [x1, y1, x2, y2] = item.box; const color = BOX[statusByItem.get(item.index) || item.status] || '#98a2b3';
         return <rect key={item.index} x={x1} y={y1} width={x2 - x1} height={y2 - y1} fill="none" stroke={color} strokeWidth={Math.max(3, size[0] / 400)} rx="4"/>; })}
     </svg>}
-    <figcaption>Foto {index + 1}{engineImage ? ` · ${engineImage.boxes ?? engineImage.items?.length ?? 0} detecciones` : ''}</figcaption>
+    {precisionSize && <svg className="sb-pm" viewBox={`0 0 ${precisionSize[0]} ${precisionSize[1]}`} preserveAspectRatio="none" role="img"
+      aria-label={`Mapa de precisión de la foto ${index + 1}`}>
+      {rects.map(({key, box: [x1, y1, x2, y2], cls, title}) => <g key={key} className={`sb-pm-box ${cls}`}><title>{title}</title>
+        <rect className="halo" x={x1} y={y1} width={x2 - x1} height={y2 - y1} rx="4"/>
+        <rect className="mark" x={x1} y={y1} width={x2 - x1} height={y2 - y1} rx="4"/></g>)}
+    </svg>}
+    <figcaption>Foto {index + 1}{engineImage ? ` · ${engineImage.boxes ?? engineImage.items?.length ?? 0} detecciones` : rects.length ? ` · ${rects.length} cajas` : ''}</figcaption>
   </figure>;
+}
+
+// Indicador del resultado al lado de la foto: cuánto del mapa es seguro, por confirmar, sin identificar o hueco.
+function PrecisionPanel({summary}) {
+  const confidence = summary.meanConfidence == null ? null : Math.round(summary.meanConfidence * 100);
+  return <aside className="sb-pm-panel" aria-label="Mapa de precisión">
+    <h3>Mapa de precisión</h3>
+    <p className="sb-pm-total">{summary.total} {summary.total === 1 ? 'posición' : 'posiciones'}: caras de producto y huecos</p>
+    <div className="sb-pm-bar" aria-hidden="true">{summary.classes.filter(c => c.count).map(c =>
+      <span key={c.cls} className={c.cls} style={{flexGrow: c.count}}/>)}</div>
+    <ul>{summary.classes.map(c => <li key={c.cls} className={c.cls}>
+      <span className="sb-pm-chip" aria-hidden="true"/><span>{c.label}</span><b>{c.count}</b><span className="sb-pm-pct">{c.pct} %</span></li>)}</ul>
+    {confidence !== null && <p className="sb-pm-confidence">Confianza media de lo identificado <b>{confidence} %</b></p>}
+  </aside>;
 }
 
 export default function ReadingView({reading, user, onDeleted, onConfirmGo, onMoved, showExport = true, onReviewChanged}) {
@@ -45,6 +74,12 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo, onMo
     : 'Esta medición no tiene un planograma asociado. Las referencias para nuevas capturas se asignan desde el módulo Planogramas.';
   const products = reading.products || [];
   const images = reading.engine?.images || [];
+  // Lecturas del motor local: cajas por estado de planograma. Las demás (Kilby): mapa de precisión con las cajas de cada
+  // producto cuando las traen, y el indicador del resultado al lado de la foto (también sin cajas, en lecturas antiguas).
+  const planogramOverlay = images.some(image => image?.items?.length > 0 && image?.size);
+  const precisionOverlay = !planogramOverlay && hasPrecisionBoxes(products);
+  const precision = planogramOverlay ? null : precisionSummary(products);
+  const photoLegend = planogramOverlay ? PLANOGRAM_LEGEND : precisionOverlay ? `${PRECISION_LEGEND}.` : undefined;
   // Filas que el motor leyó como nivel pero quedan fuera del planograma (cartel sobre la góndola, base vacía).
   const alignment = reading.engine?.level_alignment;
   const droppedRows = alignment?.applied ? (alignment.dropped_levels || []).length : 0;
@@ -78,8 +113,12 @@ export default function ReadingView({reading, user, onDeleted, onConfirmGo, onMo
     </div>
     <ScoreBreakdown reading={reading}/>
     {s.findings?.length > 0 && <Card title="Hallazgos"><ul className="sb-findings">{s.findings.map((f, i) => <li key={i}>{f}</li>)}</ul></Card>}
-    <Card className="measurement-photos" title={`Fotos (${reading.image_urls?.length || 0})`} subtitle="Verde: correcto · Naranjo: bajo lo esperado o sin identificar · Rojo: falta · Azul: fuera de planograma.">
-      <div className="sb-photos">{(reading.image_urls || []).map((url, i) => <Photo key={url} url={url} index={i} engineImage={images[i]} products={products}/>)}</div>
+    <Card className="measurement-photos" title={`Fotos (${reading.image_urls?.length || 0})`} subtitle={photoLegend}>
+      <div className={precision?.total ? 'sb-pm-layout' : undefined}>
+        <div className="sb-photos" style={{'--nv-photos': Math.max(1, reading.image_urls?.length || 0)}}>{(reading.image_urls || []).map((url, i) => <Photo key={url} url={url} index={i} engineImage={images[i]} products={products}
+          precision={precisionOverlay}/>)}</div>
+        {precision?.total > 0 && <PrecisionPanel summary={precision}/>}
+      </div>
     </Card>
     <div className="sb-tabs" role="group" aria-label="Detalle">
       {[['productos', `Productos (${products.length})`], ['planograma', 'Planograma'], ['reposicion', 'Reposición']].map(([id, label]) =>
